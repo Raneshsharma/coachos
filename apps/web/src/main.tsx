@@ -25,7 +25,8 @@ type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"analytics"|"setti
 /* ────────────────────────────────────────
    API HELPERS
 ──────────────────────────────────────── */
-const apiBase = "http://localhost:4000/api";
+const isProd = import.meta.env.PROD;
+const apiBase = isProd ? "/api" : "http://localhost:4000/api";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${apiBase}${path}`, { headers: { "Content-Type": "application/json" }, ...init });
