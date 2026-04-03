@@ -1,13 +1,17 @@
 import { z } from "zod";
-import { getDefaultStateFilePath } from "./store";
 
+// NOTE: We intentionally do NOT import getDefaultStateFilePath() here.
+// That function calls fileURLToPath(import.meta.url) at module-load time,
+// which causes the Vercel serverless function to crash before handling any
+// request. In production/serverless, InMemoryDemoStateRepository is used
+// anyway (see bootstrap.ts), so the stateFilePath default doesn't matter.
 const configSchema = z.object({
   nodeEnv: z.enum(["development", "test", "production"]).default("development"),
   port: z.coerce.number().int().positive().default(4000),
   storageMode: z.enum(["json", "postgres_snapshot", "postgres_relational"]).default("json"),
-  stateFilePath: z.string().default(getDefaultStateFilePath()),
+  stateFilePath: z.string().default("/tmp/coachos-state.json"),
   databaseUrl: z.string().optional(),
-  aiProvider: z.enum(["mock", "simulated-openai"]).default("mock"),
+  aiProvider: z.enum(["mock", "simulated-openai", "deepseek"]).default("mock"),
   billingProvider: z.enum(["mock", "simulated-stripe"]).default("mock"),
   proofProvider: z.enum(["mock", "simulated-proof"]).default("mock"),
   openAiModel: z.string().default("gpt-4.1-mini"),
