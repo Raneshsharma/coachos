@@ -1,0 +1,38 @@
+# ─── Dependencies ───────────────────────────────
+node_modules/
+
+# ─── Build outputs ──────────────────────────────
+apps/web/dist/
+apps/api/dist/
+packages/*/dist/
+
+# ─── Runtime data ───────────────────────────────
+apps/api/.data/
+*.log
+*.log.*
+.runlogs/
+
+# ─── Environment & secrets ──────────────────────
+# NEVER commit .env files with real keys
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+# Only .env.example is committed (it has no real values)
+
+# ─── Test coverage ──────────────────────────────
+coverage/
+
+# ─── OS / Editor artifacts ──────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+
+# ─── Temporary analysis files ───────────────────
+payload*.json
+project_out.json
+screens.json
+stitch_help*.txt
+stitch_tools.txt
