@@ -11,7 +11,7 @@ const configSchema = z.object({
   storageMode: z.enum(["json", "postgres_snapshot", "postgres_relational"]).default("json"),
   stateFilePath: z.string().default("/tmp/coachos-state.json"),
   databaseUrl: z.string().optional(),
-  aiProvider: z.enum(["mock", "simulated-openai", "deepseek"]).default("mock"),
+  aiProvider: z.enum(["mock", "simulated-openai"]).default("mock"),
   billingProvider: z.enum(["mock", "simulated-stripe"]).default("mock"),
   proofProvider: z.enum(["mock", "simulated-proof"]).default("mock"),
   openAiModel: z.string().default("gpt-4.1-mini"),

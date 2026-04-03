@@ -379,7 +379,7 @@ function PlansView({ session, onGenerate, onApprove }: {
     <div className="page-view">
       <p className="eyebrow">AI Coaching Engine</p>
       <h1 className="page-title">Plan Drafts</h1>
-      <p className="page-subtitle">DeepSeek-V3.1 drafts personalised plans. You always approve before anything reaches the client.</p>
+      <p className="page-subtitle">AI drafts personalised plans. You always approve before anything reaches the client.</p>
 
       <div className="stack">
         {sorted.map(client => {
@@ -410,7 +410,7 @@ function PlansView({ session, onGenerate, onApprove }: {
                         <button className="sm" onClick={() => onApprove(plan.id)}>✓ Approve</button>
                       )}
                       <button className="secondary sm" disabled={isGen} onClick={() => handleGenerate(client.id)}>
-                        {isGen ? <><span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Generating…</> : "⚡ Regenerate with DeepSeek"}
+                        {isGen ? <><span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Generating…</> : "⚡ Regenerate Plan"}
                       </button>
                     </div>
                   </div>
@@ -429,7 +429,7 @@ function PlansView({ session, onGenerate, onApprove }: {
               ) : (
                 <div className="inline">
                   <button disabled={isGen} onClick={() => handleGenerate(client.id)}>
-                    {isGen ? <><span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Generating with DeepSeek…</> : "⚡ Generate AI Plan"}
+                    {isGen ? <><span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Generating…</> : "⚡ Generate AI Plan"}
                   </button>
                 </div>
               )}

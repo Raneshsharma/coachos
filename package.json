@@ -28,7 +28,6 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "bytez.js": "^3.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "pg": "^8.16.3",
