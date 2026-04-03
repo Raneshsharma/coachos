@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build --workspace @coachos/web",
   "outputDirectory": "apps/web/dist",
   "env": {
     "NODE_ENV": "production"
