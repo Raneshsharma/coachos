@@ -26,7 +26,12 @@ type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"analytics"|"setti
    API HELPERS
 ──────────────────────────────────────── */
 const isProd = import.meta.env.PROD;
-const apiBase = isProd ? "/api" : "http://localhost:4000/api";
+// VITE_API_BASE_URL: set this to your Vercel API URL when deploying frontend
+// to GitHub Pages (e.g. https://coachos-xyz.vercel.app/api).
+// Falls back to /api for full-stack Vercel deployments.
+const apiBase = isProd
+  ? (import.meta.env.VITE_API_BASE_URL ?? "/api")
+  : "http://localhost:4000/api";
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${apiBase}${path}`, { headers: { "Content-Type": "application/json" }, ...init });
