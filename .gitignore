@@ -8,9 +8,13 @@ packages/*/dist/
 
 # ─── Runtime data ───────────────────────────────
 apps/api/.data/
+functions/lib/
 *.log
 *.log.*
 .runlogs/
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
 
 # ─── Environment & secrets ──────────────────────
 # NEVER commit .env files with real keys
