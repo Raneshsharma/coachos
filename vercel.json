@@ -3,7 +3,7 @@
   "buildCommand": "npm run build --workspace @coachos/web",
   "outputDirectory": "apps/web/dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://YOUR-RENDER-URL.onrender.com/api/$1" }
+    { "source": "/api/(.*)", "destination": "/api/index" }
   ],
   "headers": [
     {
