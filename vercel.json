@@ -1,7 +1,12 @@
 {
   "version": 2,
-  "buildCommand": "npm run build --workspace @coachos/web",
+  "buildCommand": "npm run build --workspace @coachos/web && node api/build.mjs",
   "outputDirectory": "apps/web/dist",
+  "functions": {
+    "api/index.js": {
+      "runtime": "@vercel/node"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" }
   ],

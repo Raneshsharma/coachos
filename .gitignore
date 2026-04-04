@@ -5,6 +5,8 @@ node_modules/
 apps/web/dist/
 apps/api/dist/
 packages/*/dist/
+api/*.js
+!api/index.ts
 
 # ─── Runtime data ───────────────────────────────
 apps/api/.data/
