@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build --workspace @coachos/web",
+  "outputDirectory": "apps/web/dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://YOUR-RENDER-URL.onrender.com/api/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}

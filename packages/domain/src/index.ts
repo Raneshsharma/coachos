@@ -117,6 +117,57 @@ export const importRowSchema = z.object({
   monthlyPriceGbp: z.coerce.number().positive()
 });
 
+export const groupProgramSchema = z.object({
+  id: z.string(),
+  coachId: z.string(),
+  title: z.string(),
+  description: z.string(),
+  goal: z.string(),
+  memberIds: z.array(z.string()),
+  monthlyPriceGbp: z.number().nonnegative(),
+  status: z.enum(["active", "archived", "upcoming"]),
+  createdAt: z.string()
+});
+
+export const habitSchema = z.object({
+  id: z.string(),
+  clientId: z.string(),
+  title: z.string(),
+  target: z.number().int().positive(),
+  frequency: z.enum(["daily", "weekly"]),
+  createdAt: z.string()
+});
+
+export const habitCompletionSchema = z.object({
+  id: z.string(),
+  habitId: z.string(),
+  date: z.string(),
+  completed: z.boolean()
+});
+
+export const nutritionSwapSchema = z.object({
+  id: z.string(),
+  planId: z.string(),
+  originalFood: z.object({
+    name: z.string(),
+    calories: z.number().int().nonnegative(),
+    proteinG: z.number(),
+    carbsG: z.number(),
+    fatG: z.number(),
+    portion: z.string()
+  }),
+  swapSuggestion: z.object({
+    name: z.string(),
+    calories: z.number().int().nonnegative(),
+    proteinG: z.number(),
+    carbsG: z.number(),
+    fatG: z.number(),
+    portion: z.string(),
+    reasoning: z.string()
+  }),
+  appliedAt: z.string().nullable()
+});
+
 export const analyticsEventSchema = z.object({
   name: z.enum([
     "coach_onboarded",
@@ -145,7 +196,11 @@ export const demoStateSchema = z.object({
   checkIns: z.array(checkInSchema),
   subscriptions: z.array(paymentSubscriptionSchema),
   analytics: z.array(analyticsEventSchema),
-  messages: z.array(messageSchema)
+  messages: z.array(messageSchema),
+  groupPrograms: z.array(groupProgramSchema).optional(),
+  nutritionSwaps: z.array(nutritionSwapSchema).optional(),
+  habits: z.array(habitSchema).optional(),
+  habitCompletions: z.array(habitCompletionSchema).optional()
 });
 
 export type CoachWorkspace = z.infer<typeof coachWorkspaceSchema>;
@@ -161,6 +216,10 @@ export type ProofCard = z.infer<typeof proofCardSchema>;
 export type ImportRow = z.infer<typeof importRowSchema>;
 export type AnalyticsEvent = z.infer<typeof analyticsEventSchema>;
 export type Message = z.infer<typeof messageSchema>;
+export type GroupProgram = z.infer<typeof groupProgramSchema>;
+export type NutritionSwap = z.infer<typeof nutritionSwapSchema>;
+export type Habit = z.infer<typeof habitSchema>;
+export type HabitCompletion = z.infer<typeof habitCompletionSchema>;
 
 export type DemoState = z.infer<typeof demoStateSchema>;
 
@@ -328,6 +387,30 @@ export function createSeedState(): DemoState {
     plans,
     checkIns,
     subscriptions,
+    groupPrograms: [],
+    nutritionSwaps: [],
+    habits: [
+      { id: "habit_1", clientId: "client_1", title: "Log meals in the app", target: 1, frequency: "daily", createdAt: "2026-04-01T00:00:00.000Z" },
+      { id: "habit_2", clientId: "client_1", title: "Hit 8,000 steps", target: 8000, frequency: "daily", createdAt: "2026-04-01T00:00:00.000Z" },
+      { id: "habit_3", clientId: "client_1", title: "Complete weekly check-in", target: 1, frequency: "weekly", createdAt: "2026-04-01T00:00:00.000Z" },
+      { id: "habit_4", clientId: "client_2", title: "Log meals in the app", target: 1, frequency: "daily", createdAt: "2026-04-01T00:00:00.000Z" },
+      { id: "habit_5", clientId: "client_2", title: "Hit 5,000 steps", target: 5000, frequency: "daily", createdAt: "2026-04-01T00:00:00.000Z" },
+      { id: "habit_6", clientId: "client_2", title: "Submit check-in on Friday", target: 1, frequency: "weekly", createdAt: "2026-04-01T00:00:00.000Z" },
+      { id: "habit_7", clientId: "client_3", title: "Log meals in the app", target: 1, frequency: "daily", createdAt: "2026-04-01T00:00:00.000Z" },
+      { id: "habit_8", clientId: "client_3", title: "Complete a workout", target: 3, frequency: "weekly", createdAt: "2026-04-01T00:00:00.000Z" },
+    ],
+    habitCompletions: [
+      // client_1 — mostly complete
+      { id: "hc_1", habitId: "habit_1", date: "2026-04-01", completed: true },
+      { id: "hc_2", habitId: "habit_2", date: "2026-04-01", completed: true },
+      { id: "hc_3", habitId: "habit_1", date: "2026-04-02", completed: true },
+      { id: "hc_4", habitId: "habit_2", date: "2026-04-02", completed: true },
+      { id: "hc_5", habitId: "habit_1", date: "2026-04-03", completed: true },
+      { id: "hc_6", habitId: "habit_2", date: "2026-04-03", completed: false },
+      // client_2 — struggling
+      { id: "hc_7", habitId: "habit_4", date: "2026-04-01", completed: false },
+      { id: "hc_8", habitId: "habit_5", date: "2026-04-01", completed: true },
+    ],
     messages: [
       {
         id: "msg_1",

@@ -6,10 +6,16 @@ import {
   clientProfileSchema,
   createSeedState,
   demoStateSchema,
+  groupProgramSchema,
+  nutritionSwapSchema,
   previewImport,
   summarizeMorningDashboard,
   type AnalyticsEvent,
-  type DemoState
+  type DemoState,
+  type GroupProgram,
+  type Habit,
+  type HabitCompletion,
+  type NutritionSwap
 } from "@coachos/domain";
 import fs from "node:fs";
 import path from "node:path";
@@ -789,6 +795,293 @@ export class DemoStore {
     this.state.analytics.push(parsed.data);
     await this.commit();
     return { success: true as const, event: parsed.data };
+  }
+
+  // ── Group Programs ────────────────────────────────────────────────────
+  listGroupPrograms() {
+    if (!this.state.groupPrograms) this.state.groupPrograms = [];
+    return this.state.groupPrograms;
+  }
+
+  async createGroupProgram(payload: unknown) {
+    const parsed = groupProgramSchema.safeParse(payload);
+    if (!parsed.success) {
+      return { success: false as const, issues: parsed.error.issues };
+    }
+    if (!this.state.groupPrograms) this.state.groupPrograms = [];
+    this.state.groupPrograms = [...this.state.groupPrograms, parsed.data];
+    await this.track("group_program_created", parsed.data.coachId, { programId: parsed.data.id, title: parsed.data.title });
+    return { success: true as const, program: parsed.data };
+  }
+
+  async updateGroupProgram(programId: string, patch: unknown) {
+    if (!this.state.groupPrograms) this.state.groupPrograms = [];
+    const existing = this.state.groupPrograms.find(p => p.id === programId);
+    if (!existing) return { success: false as const, notFound: true as const };
+
+    const merged = groupProgramSchema.safeParse({ ...existing, ...(patch as Partial<GroupProgram>) });
+    if (!merged.success) return { success: false as const, issues: merged.error.issues };
+
+    this.state.groupPrograms = this.state.groupPrograms.map(p => p.id === programId ? merged.data : p);
+    await this.commit();
+    return { success: true as const, program: merged.data };
+  }
+
+  async archiveGroupProgram(programId: string) {
+    if (!this.state.groupPrograms) return false;
+    const existing = this.state.groupPrograms.find(p => p.id === programId);
+    if (!existing) return false;
+    this.state.groupPrograms = this.state.groupPrograms.map(p => p.id === programId ? { ...p, status: "archived" as const } : p);
+    await this.commit();
+    return true;
+  }
+
+  // ── Nutrition Swap Agent ─────────────────────────────────────────────
+  private readonly SWAP_LIBRARY: Array<{ name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; tags: string[] }> = [
+    { name: "Grilled chicken breast (150g)", calories: 165, proteinG: 31, carbsG: 0, fatG: 3.6, portion: "150g", tags: ["chicken", "protein", "lean"] },
+    { name: "Salmon fillet (150g)", calories: 280, proteinG: 30, carbsG: 0, fatG: 17, portion: "150g", tags: ["fish", "omega3", "protein"] },
+    { name: "Greek yoghurt (150g)", calories: 100, proteinG: 17, carbsG: 6, fatG: 0, portion: "150g", tags: ["dairy", "protein", "probiotic"] },
+    { name: "Oats with berries (80g)", calories: 290, proteinG: 9, carbsG: 52, fatG: 5, portion: "80g dry", tags: ["carbs", "fibre", "breakfast"] },
+    { name: "Brown rice (200g cooked)", calories: 220, proteinG: 5, carbsG: 46, fatG: 1.8, portion: "200g cooked", tags: ["carbs", "wholegrain", "rice"] },
+    { name: "Sweet potato (200g)", calories: 172, proteinG: 3, carbsG: 40, fatG: 0.4, portion: "200g", tags: ["carbs", "fibre", "vegetable"] },
+    { name: "Egg white omelette (4 eggs)", calories: 68, proteinG: 14, carbsG: 1, fatG: 0.8, portion: "4 egg whites", tags: ["egg", "protein", "lowfat"] },
+    { name: "Turkey mince (150g)", calories: 135, proteinG: 27, carbsG: 0, fatG: 2, portion: "150g", tags: ["meat", "protein", "lean"] },
+    { name: "Cottage cheese (150g)", calories: 98, proteinG: 11, carbsG: 3.4, fatG: 4.3, portion: "150g", tags: ["dairy", "protein", "lowcal"] },
+    { name: "Avocado (half)", calories: 160, proteinG: 2, carbsG: 9, fatG: 15, portion: "half", tags: ["fat", "creamy", "vegetable"] },
+    { name: "Quinoa (200g cooked)", calories: 222, proteinG: 8, carbsG: 39, fatG: 3.6, portion: "200g cooked", tags: ["carbs", "protein", "wholegrain"] },
+    { name: "Protein shake (whey, 30g)", calories: 120, proteinG: 24, carbsG: 3, fatG: 1, portion: "30g scoop", tags: ["protein", "supplement", "shake"] },
+  ];
+
+  suggestNutritionSwap(payload: { planId: string; originalFood: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string } }) {
+    const { originalFood } = payload;
+    const targetCalories = originalFood.calories;
+    const targetProtein = originalFood.proteinG;
+
+    // Find best swap: close calories but ideally better protein density
+    const scored = this.SWAP_LIBRARY.map(item => {
+      const calorieDiff = Math.abs(item.calories - targetCalories);
+      const proteinDiff = Math.abs(item.proteinG - targetProtein);
+      const score = (calorieDiff <= 50 ? 10 - calorieDiff / 10 : 0) + (proteinDiff <= 10 ? 5 - proteinDiff / 3 : 0);
+      return { item, score };
+    }).sort((a, b) => b.score - a.score);
+
+    const best = scored[0]?.item;
+    if (!best) return { original: originalFood, suggestion: null };
+
+    return {
+      original: originalFood,
+      suggestion: {
+        ...best,
+        reasoning: best.proteinG > originalFood.proteinG
+          ? `Swap for ${best.name} — ${best.proteinG}g protein (vs ${originalFood.proteinG}g) with similar calories.`
+          : `Swap for ${best.name} — similar calories with better macro balance.`,
+      }
+    };
+  }
+
+  async applyNutritionSwap(payload: { planId: string; swapId?: string; suggestion: NutritionSwap["swapSuggestion"]; originalFood: NutritionSwap["originalFood"] }) {
+    const swap: NutritionSwap = {
+      id: `swap_${Date.now()}`,
+      planId: payload.planId,
+      originalFood: payload.originalFood,
+      swapSuggestion: payload.suggestion,
+      appliedAt: new Date().toISOString()
+    };
+    if (!this.state.nutritionSwaps) this.state.nutritionSwaps = [];
+    this.state.nutritionSwaps = [...this.state.nutritionSwaps, swap];
+    await this.commit();
+    return { success: true as const, swap };
+  }
+
+  getNutritionSwaps(planId: string) {
+    if (!this.state.nutritionSwaps) return [];
+    return this.state.nutritionSwaps.filter(s => s.planId === planId);
+  }
+
+  // ── Exercise Library ────────────────────────────────────────────────
+  private readonly EXERCISE_LIBRARY: Array<{ id: string; name: string; bodyPart: string; equipment: string; goal: string; difficulty: "beginner"|"intermediate"|"advanced"; instructions: string }> = [
+    { id: "ex_1", name: "Barbell Bench Press", bodyPart: "Chest", equipment: "Barbell", goal: "Strength", difficulty: "intermediate", instructions: "Lie flat on bench, lower bar to mid-chest, press up to full extension." },
+    { id: "ex_2", name: "Deadlift", bodyPart: "Back", equipment: "Barbell", goal: "Strength", difficulty: "intermediate", instructions: "Hip-hinge, bar close to shins, drive through heels to stand." },
+    { id: "ex_3", name: "Barbell Back Squat", bodyPart: "Legs", equipment: "Barbell", goal: "Hypertrophy", difficulty: "intermediate", instructions: "Bar on traps, squat to parallel or below, knees track toes." },
+    { id: "ex_4", name: "Romanian Deadlift", bodyPart: "Legs", equipment: "Barbell", goal: "Strength", difficulty: "intermediate", instructions: "Slight knee bend, hinge at hips, feel hamstring stretch." },
+    { id: "ex_5", name: "Overhead Press", bodyPart: "Shoulders", equipment: "Barbell", goal: "Strength", difficulty: "intermediate", instructions: "Bar at clavicles, press overhead to lockout, engage core." },
+    { id: "ex_6", name: "Pull-Up", bodyPart: "Back", equipment: "Bodyweight", goal: "Strength", difficulty: "intermediate", instructions: "Hang with overhand grip, pull chest to bar, lower with control." },
+    { id: "ex_7", name: "Dumbbell Row", bodyPart: "Back", equipment: "Dumbbell", goal: "Hypertrophy", difficulty: "beginner", instructions: "One hand on bench, row dumbbell to hip, squeeze lat." },
+    { id: "ex_8", name: "Leg Press", bodyPart: "Legs", equipment: "Machine", goal: "Hypertrophy", difficulty: "beginner", instructions: "Feet shoulder-width on platform, lower to 90°, press to near-lockout." },
+    { id: "ex_9", name: "Romanian Push-Up", bodyPart: "Chest", equipment: "Bodyweight", goal: "Hypertrophy", difficulty: "beginner", instructions: "Push-up with hips raised high throughout — emphasize upper chest." },
+    { id: "ex_10", name: "Lateral Raise", bodyPart: "Shoulders", equipment: "Dumbbell", goal: "Hypertrophy", difficulty: "beginner", instructions: "Slight elbow bend, raise arms to shoulder height." },
+    { id: "ex_11", name: "Bicep Curl", bodyPart: "Arms", equipment: "Dumbbell", goal: "Hypertrophy", difficulty: "beginner", instructions: "Curl from full extension to top contraction, squeeze at top." },
+    { id: "ex_12", name: "Tricep Dip", bodyPart: "Arms", equipment: "Bodyweight", goal: "Hypertrophy", difficulty: "intermediate", instructions: "Hands on bench, lower until upper arms parallel to floor." },
+    { id: "ex_13", name: "Plank", bodyPart: "Core", equipment: "Bodyweight", goal: "Endurance", difficulty: "beginner", instructions: "Forearms on floor, body straight line from head to heels, hold." },
+    { id: "ex_14", name: "Russian Twist", bodyPart: "Core", equipment: "Bodyweight", goal: "Hypertrophy", difficulty: "beginner", instructions: "Seated, lean back slightly, rotate torso side to side." },
+    { id: "ex_15", name: "Battle Ropes", bodyPart: "Cardio", equipment: "Ropes", goal: "Endurance", difficulty: "intermediate", instructions: "Alternate or double-arm waves — 30-sec intervals." },
+    { id: "ex_16", name: "Rowing Machine", bodyPart: "Cardio", equipment: "Machine", goal: "Endurance", difficulty: "beginner", instructions: "Push with legs, then lean back, then pull handle to lower chest." },
+    { id: "ex_17", name: "Box Jump", bodyPart: "Legs", equipment: "Bodyweight", goal: "Power", difficulty: "intermediate", instructions: "Slight squat, jump onto box, step down, reset." },
+    { id: "ex_18", name: "Turkish Get-Up", bodyPart: "Core", equipment: "Kettlebell", goal: "Mobility", difficulty: "advanced", instructions: "From lying to standing while pressing kettlebell overhead." },
+    { id: "ex_19", name: "Goblet Squat", bodyPart: "Legs", equipment: "Kettlebell", goal: "Hypertrophy", difficulty: "beginner", instructions: "Hold kettlebell at chest, squat deep, keep chest upright." },
+    { id: "ex_20", name: "Face Pull", bodyPart: "Shoulders", equipment: "Cable", goal: "Strength", difficulty: "beginner", instructions: "High cable attachment, pull rope to face level, squeeze rear delts." },
+  ];
+
+  listExercises(filters?: { search?: string; bodyPart?: string; equipment?: string }) {
+    const search = filters?.search?.trim().toLowerCase();
+    const bodyPart = filters?.bodyPart?.trim();
+    const equipment = filters?.equipment?.trim();
+
+    return this.EXERCISE_LIBRARY.filter(ex => {
+      const searchMatch = !search || ex.name.toLowerCase().includes(search) || ex.instructions.toLowerCase().includes(search);
+      const bodyMatch = !bodyPart || bodyPart === "all" || ex.bodyPart.toLowerCase() === bodyPart.toLowerCase();
+      const equipMatch = !equipment || equipment === "all" || ex.equipment.toLowerCase() === equipment.toLowerCase();
+      return searchMatch && bodyMatch && equipMatch;
+    });
+  }
+
+  // ── Recipe Library ─────────────────────────────────────────────────
+  private readonly RECIPE_LIBRARY: Array<{ id: string; name: string; ingredients: string[]; steps: string[]; calories: number; proteinG: number; carbsG: number; fatG: number; prepTime: number; cookTime: number; tags: string[] }> = [
+    {
+      id: "rec_1", name: "High-Protein Overnight Oats", tags: ["breakfast", "meal-prep"],
+      ingredients: ["80g rolled oats", "150g Greek yoghurt", "1 scoop whey protein (30g)", "150ml almond milk", "50g mixed berries", "1 tsp honey"],
+      steps: ["Mix oats, yoghurt, protein powder, and milk in a jar.", "Refrigerate overnight (or at least 4 hours).", "Top with berries and honey before serving."],
+      calories: 520, proteinG: 42, carbsG: 55, fatG: 12, prepTime: 5, cookTime: 0
+    },
+    {
+      id: "rec_2", name: "Grilled Chicken & Sweet Potato Bowl", tags: ["lunch", "dinner", "high-protein"],
+      ingredients: ["180g chicken breast", "200g sweet potato", "100g broccoli", "1 tbsp olive oil", "Salt, pepper, paprika"],
+      steps: ["Season chicken with paprika, salt, pepper.", "Bake chicken at 200°C for 20–25 min.", "Cube sweet potato and roast alongside chicken.", "Steam broccoli, drizzle with olive oil."],
+      calories: 480, proteinG: 48, carbsG: 42, fatG: 12, prepTime: 10, cookTime: 30
+    },
+    {
+      id: "rec_3", name: "Salmon with Quinoa & Greens", tags: ["dinner", "omega-3", "high-protein"],
+      ingredients: ["160g salmon fillet", "80g quinoa", "100g spinach", "1 tbsp olive oil", "Lemon wedge", "Salt & pepper"],
+      steps: ["Rinse quinoa and cook in 2x volume water for 15 min.", "Pan-sear salmon skin-side down 4 min per side.", "Wilt spinach in same pan with olive oil.", "Serve quinoa with salmon and greens, squeeze lemon."],
+      calories: 580, proteinG: 45, carbsG: 38, fatG: 28, prepTime: 5, cookTime: 20
+    },
+    {
+      id: "rec_4", name: "Turkey Mince & Brown Rice Stir-Fry", tags: ["lunch", "dinner", "high-protein"],
+      ingredients: ["150g turkey mince", "100g cooked brown rice", "100g mixed peppers", "50g edamame", "1 tbsp soy sauce", "1 tsp sesame oil"],
+      steps: ["Brown turkey mince in a hot pan.", "Add sliced peppers and stir-fry 3 min.", "Add rice and edamame, season with soy sauce.", "Finish with sesame oil."],
+      calories: 450, proteinG: 40, carbsG: 40, fatG: 12, prepTime: 10, cookTime: 15
+    },
+    {
+      id: "rec_5", name: "Protein Pancakes", tags: ["breakfast", "high-protein"],
+      ingredients: ["80g oats blended", "1 scoop vanilla protein powder (30g)", "1 whole egg + 2 whites", "100ml almond milk", "1 tsp baking powder"],
+      steps: ["Blend all ingredients into a smooth batter.", "Cook on medium heat with light oil spray.", "Flip when bubbles appear, cook 2 min per side."],
+      calories: 420, proteinG: 38, carbsG: 45, fatG: 8, prepTime: 5, cookTime: 10
+    },
+    {
+      id: "rec_6", name: "Greek Yoghurt & Avocado Power Bowl", tags: ["breakfast", "snack"],
+      ingredients: ["200g Greek yoghurt", "Half avocado", "30g granola", "50g banana slices", "1 tsp chia seeds"],
+      steps: ["Spoon yoghurt into a bowl.", "Slice avocado and layer on top.", "Add granola, banana, and chia seeds."],
+      calories: 460, proteinG: 28, carbsG: 42, fatG: 20, prepTime: 5, cookTime: 0
+    },
+    {
+      id: "rec_7", name: "Cottage Cheese & Fruit Snack Plate", tags: ["snack", "high-protein"],
+      ingredients: ["200g cottage cheese", "1 small apple", "20g almonds", "Cinnamon"],
+      steps: ["Spoon cottage cheese into a bowl.", "Slice apple, dust with cinnamon.", "Serve with almonds."],
+      calories: 320, proteinG: 28, carbsG: 25, fatG: 12, prepTime: 3, cookTime: 0
+    },
+    {
+      id: "rec_8", name: "Egg White Omelette with Veg", tags: ["breakfast", "low-fat"],
+      ingredients: ["6 egg whites", "50g spinach", "50g mushrooms", "30g feta cheese", "Salt, pepper, herbs"],
+      steps: ["Whisk egg whites with salt and pepper.", "Pour into non-stick pan over medium heat.", "Add spinach, mushrooms, and feta.", "Fold and serve when set."],
+      calories: 180, proteinG: 24, carbsG: 5, fatG: 6, prepTime: 5, cookTime: 8
+    },
+    {
+      id: "rec_9", name: "Chicken & Quinoa Meal Prep Boxes", tags: ["meal-prep", "lunch", "high-protein"],
+      ingredients: ["160g chicken breast", "80g quinoa", "80g roasted vegetables", "100g mixed leaf", "1 tbsp tahini dressing"],
+      steps: ["Cook quinoa (2:1 water, 15 min).", "Grill chicken with herbs.", "Roast vegetables at 200°C for 20 min.", "Divide into containers with leafy greens. Drizzle tahini."],
+      calories: 520, proteinG: 50, carbsG: 40, fatG: 15, prepTime: 15, cookTime: 25
+    },
+    {
+      id: "rec_10", name: "Protein Shake Smoothie", tags: ["post-workout", "snack"],
+      ingredients: ["1 scoop whey protein (30g)", "250ml semi-skimmed milk", "1 banana", "30g oats", "1 tbsp peanut butter"],
+      steps: ["Add all ingredients to a blender.", "Blend until smooth.", "Drink within 30 minutes of training."],
+      calories: 450, proteinG: 38, carbsG: 50, fatG: 12, prepTime: 3, cookTime: 0
+    },
+  ];
+
+  suggestRecipe(foodName?: string) {
+    if (!foodName) return this.RECIPE_LIBRARY[0];
+
+    const foodLower = foodName.toLowerCase();
+    // Match by food name or tags
+    const scored = this.RECIPE_LIBRARY.map(recipe => {
+      const nameMatch = recipe.name.toLowerCase().includes(foodLower) ? 3 : 0;
+      const tagMatch = recipe.tags.some(tag => foodLower.includes(tag) || tag.includes(foodLower)) ? 2 : 0;
+      const ingredientMatch = recipe.ingredients.some(ing => foodLower.includes(ing.split(" ")[1] ?? "") || ing.toLowerCase().includes(foodLower)) ? 1 : 0;
+      return { recipe, score: nameMatch + tagMatch + ingredientMatch };
+    }).sort((a, b) => b.score - a.score);
+
+    return scored[0]?.recipe ?? this.RECIPE_LIBRARY[0];
+  }
+
+  // ── Habit Tracking ─────────────────────────────────────────────────
+  listHabits(clientId?: string): Habit[] {
+    if (!this.state.habits) this.state.habits = [];
+    if (!clientId) return this.state.habits;
+    return this.state.habits.filter(h => h.clientId === clientId);
+  }
+
+  async createHabit(payload: { clientId: string; title: string; target: number; frequency: "daily" | "weekly" }): Promise<{ success: true; habit: Habit } | { success: false; issues: unknown[] }> {
+    if (!this.state.habits) this.state.habits = [];
+    const habit: Habit = {
+      id: `habit_${Date.now()}`,
+      clientId: payload.clientId,
+      title: payload.title,
+      target: payload.target,
+      frequency: payload.frequency,
+      createdAt: new Date().toISOString()
+    };
+    this.state.habits = [...this.state.habits, habit];
+    await this.commit();
+    return { success: true, habit };
+  }
+
+  async toggleHabitCompletion(habitId: string, date: string): Promise<{ success: true; completion: HabitCompletion }> {
+    if (!this.state.habitCompletions) this.state.habitCompletions = [];
+    const existing = this.state.habitCompletions.find(hc => hc.habitId === habitId && hc.date === date);
+    if (existing) {
+      this.state.habitCompletions = this.state.habitCompletions.map(hc =>
+        hc.id === existing.id ? { ...hc, completed: !hc.completed } : hc
+      );
+      const updated = this.state.habitCompletions.find(hc => hc.id === existing.id)!;
+      await this.commit();
+      return { success: true, completion: updated };
+    } else {
+      const completion: HabitCompletion = {
+        id: `hc_${Date.now()}`,
+        habitId,
+        date,
+        completed: true
+      };
+      this.state.habitCompletions = [...this.state.habitCompletions, completion];
+      await this.commit();
+      return { success: true, completion };
+    }
+  }
+
+  getHabitSummary(clientId: string) {
+    const today = new Date().toISOString().slice(0, 10);
+    const habits = this.listHabits(clientId);
+    if (!this.state.habitCompletions) this.state.habitCompletions = [];
+
+    return habits.map(habit => {
+      const completions = this.state.habitCompletions!.filter(hc => hc.habitId === habit.id && hc.completed);
+
+      // Streak: consecutive days backwards from today
+      let streak = 0;
+      const date = new Date(today);
+      while (true) {
+        const dateStr = date.toISOString().slice(0, 10);
+        const hasCompletion = this.state.habitCompletions!.some(hc => hc.habitId === habit.id && hc.date === dateStr && hc.completed);
+        if (!hasCompletion) break;
+        streak++;
+        date.setDate(date.getDate() - 1);
+      }
+
+      const todayDone = this.state.habitCompletions!.some(hc => hc.habitId === habit.id && hc.date === today && hc.completed);
+
+      return { habit, streak, todayDone, totalCompletions: completions.length };
+    });
   }
 }
 

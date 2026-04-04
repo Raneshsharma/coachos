@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { analyticsEventSchema } from "@coachos/domain";
+import { analyticsEventSchema, groupProgramSchema, nutritionSwapSchema } from "@coachos/domain";
 import { DemoStore } from "./store";
 
 export function createApp(store: DemoStore) {
@@ -191,6 +191,93 @@ export function createApp(store: DemoStore) {
 
   app.get("/api/analytics/schema", (_req, res) => {
     res.json({ eventNames: analyticsEventSchema.shape.name.options });
+  });
+
+  // ── Group Programs ──────────────────────────
+  app.get("/api/group-programs", (req, res) => {
+    res.json(store.listGroupPrograms());
+  });
+
+  app.post("/api/group-programs", async (req, res) => {
+    const result = await store.createGroupProgram(req.body);
+    if (!result.success) {
+      res.status(400).json({ message: "Invalid program payload." });
+      return;
+    }
+    res.status(201).json(result.program);
+  });
+
+  app.patch("/api/group-programs/:programId", async (req, res) => {
+    const result = await store.updateGroupProgram(req.params.programId, req.body);
+    if (!result.success) {
+      if ("notFound" in result && result.notFound) { res.status(404).json({ message: "Program not found." }); return; }
+      res.status(400).json({ message: "Invalid program patch." }); return;
+    }
+    res.json(result.program);
+  });
+
+  app.delete("/api/group-programs/:programId", async (req, res) => {
+    const ok = await store.archiveGroupProgram(req.params.programId);
+    if (!ok) { res.status(404).json({ message: "Program not found." }); return; }
+    res.json({ ok: true });
+  });
+
+  // ── Nutrition Swap Agent ─────────────────────
+  app.post("/api/nutrition/swap", (req, res) => {
+    res.json(store.suggestNutritionSwap(req.body));
+  });
+
+  app.post("/api/nutrition/swap/apply", async (req, res) => {
+    const result = await store.applyNutritionSwap(req.body);
+    if (!result.success) {
+      res.status(400).json({ message: "Invalid swap application." }); return;
+    }
+    res.json(result.swap);
+  });
+
+  app.get("/api/nutrition/swaps/:planId", (req, res) => {
+    res.json(store.getNutritionSwaps(req.params.planId));
+  });
+
+  // ── Exercise Library ─────────────────────
+  app.get("/api/exercises", (req, res) => {
+    res.json(store.listExercises({
+      search: typeof req.query.search === "string" ? req.query.search : undefined,
+      bodyPart: typeof req.query.bodyPart === "string" ? req.query.bodyPart : undefined,
+      equipment: typeof req.query.equipment === "string" ? req.query.equipment : undefined,
+    }));
+  });
+
+  // ── Recipe Library ───────────────────────
+  app.get("/api/recipes", (req, res) => {
+    const food = typeof req.query.food === "string" ? req.query.food : undefined;
+    res.json(store.suggestRecipe(food));
+  });
+
+  // ── Habit Tracking ────────────────────────
+  app.get("/api/habits", (req, res) => {
+    res.json(store.listHabits(typeof req.query.clientId === "string" ? req.query.clientId : undefined));
+  });
+
+  app.get("/api/habits/summary", (req, res) => {
+    const clientId = typeof req.query.clientId === "string" ? req.query.clientId : undefined;
+    if (!clientId) { res.status(400).json({ message: "clientId is required." }); return; }
+    res.json(store.getHabitSummary(clientId));
+  });
+
+  app.post("/api/habits", async (req, res) => {
+    if (!req.body.clientId || !req.body.title || req.body.target == null || !req.body.frequency) {
+      res.status(400).json({ message: "clientId, title, target, and frequency are required." }); return;
+    }
+    const result = await store.createHabit(req.body);
+    if (!result.success) { res.status(400).json({ message: "Invalid habit payload." }); return; }
+    res.status(201).json(result.habit);
+  });
+
+  app.post("/api/habits/:habitId/complete", async (req, res) => {
+    const date = typeof req.body.date === "string" ? req.body.date : new Date().toISOString().slice(0, 10);
+    const result = await store.toggleHabitCompletion(req.params.habitId, date);
+    res.json(result.completion);
   });
 
   return app;

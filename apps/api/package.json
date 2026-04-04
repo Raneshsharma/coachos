@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc --noEmit",
+    "start": "npx tsx src/server.ts",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {}
