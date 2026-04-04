@@ -1,14 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "npm run build --workspace @coachos/web && node api/build.mjs",
+  "buildCommand": "npm run build --workspace @coachos/web",
   "outputDirectory": "apps/web/dist",
-  "functions": {
-    "api/index.js": {
-      "runtime": "@vercel/node"
-    }
-  },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" }
+    { "source": "/api/(.*)", "destination": "https://coachos-api.comforttime9.workers.dev/api/$1" }
   ],
   "headers": [
     {
