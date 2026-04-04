@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createApp } from "../../../apps/api/src/app";
-import { DemoStore } from "../../../apps/api/src/store";
-import { InMemoryDemoStateRepository } from "../../../apps/api/src/store";
-import { createMockServiceAdapters } from "../../../apps/api/src/services";
+import { createApp } from "../apps/api/src/app";
+import { DemoStore } from "../apps/api/src/store";
+import { InMemoryDemoStateRepository } from "../apps/api/src/store";
+import { createMockServiceAdapters } from "../apps/api/src/services";
 
 // Module-level singleton — persists across warm Lambda invocations within the same execution context
 let _store: DemoStore | null = null;
