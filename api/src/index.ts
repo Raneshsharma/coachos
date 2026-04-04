@@ -5,7 +5,6 @@
  */
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { HonoType } from "hono";
 
 // ── Domain types (re-declared to avoid pulling in the full store.ts) ──────────
 
