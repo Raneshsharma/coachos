@@ -18,7 +18,21 @@ type Dashboard = {
 };
 type CoachSession = { workspace: CoachWorkspace; coach: CoachUser; clients: ClientProfile[]; plans: ProgramPlan[]; subscriptions: PaymentSubscription[]; dashboard: Dashboard };
 type ClientSession = { client: ClientProfile; plan: ProgramPlan | null; latestCheckIn: CheckIn | null; proofCard: ProofCard; messages: Message[] };
-type Toast = { id: number; message: string; type: "success"|"error"|"info" };
+type ToastType = "success" | "error" | "warning" | "info";
+type ToastAction = { label: string; onClick: () => void };
+type ToastOptions = {
+  title?: string;
+  action?: ToastAction;
+  duration?: number;
+};
+type Toast = {
+  id: number;
+  message: string;
+  type: ToastType;
+  title?: string;
+  action?: ToastAction;
+  duration: number;
+};
 type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"settings"|"migration"|"competitors"|"groups"|"habits"|"exercises";
 type CheckInWithDelta = CheckIn & { weightDelta: number | null; energyDelta: number | null; adherenceDelta: number | null };
 type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceGbp: number; status: "active"|"archived"|"upcoming"; createdAt: string };
@@ -44,15 +58,72 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 /* ────────────────────────────────────────
    TOAST HOOK
 ──────────────────────────────────────── */
+const MAX_VISIBLE_TOASTS = 5;
+const DEFAULT_DURATION = 4000;
+
 function useToast() {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [queue, setQueue] = useState<Toast[]>([]);
   const counter = useRef(0);
-  const push = useCallback((message: string, type: Toast["type"] = "success") => {
+
+  const dismiss = useCallback((id: number) => {
+    setToasts(prev => {
+      const next = prev.filter(t => t.id !== id);
+      // Flush one from queue if we have space
+      if (next.length < MAX_VISIBLE_TOASTS && queue.length > 0) {
+        const [first, ...rest] = queue;
+        setQueue(rest);
+        // Schedule auto-dismiss for the queued toast
+        setTimeout(() => setToasts(ts => ts.filter(t => t.id !== first.id)), first.duration);
+        return [...next, first];
+      }
+      return next;
+    });
+  }, [queue]);
+
+  const push = useCallback((
+    message: string,
+    type: ToastType = "success",
+    options: ToastOptions = {}
+  ) => {
     const id = ++counter.current;
-    setToasts(t => [...t, { id, message, type }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
-  }, []);
-  return { toasts, push };
+    const duration = options.duration ?? DEFAULT_DURATION;
+    const toast: Toast = {
+      id,
+      message,
+      type,
+      title: options.title,
+      action: options.action,
+      duration,
+    };
+
+    setToasts(prev => {
+      if (prev.length >= MAX_VISIBLE_TOASTS) {
+        // Queue it — don't overflow the screen
+        setQueue(q => [...q, toast]);
+        return prev;
+      }
+      // Auto-dismiss after duration
+      setTimeout(() => dismiss(id), duration);
+      return [...prev, toast];
+    });
+
+    return id;
+  }, [dismiss]);
+
+  const success = useCallback((message: string, options?: ToastOptions) =>
+    push(message, "success", options), [push]);
+
+  const error = useCallback((message: string, options?: ToastOptions) =>
+    push(message, "error", { duration: 6000, ...options }), [push]);
+
+  const warning = useCallback((message: string, options?: ToastOptions) =>
+    push(message, "warning", { duration: 5000, ...options }), [push]);
+
+  const info = useCallback((message: string, options?: ToastOptions) =>
+    push(message, "info", options), [push]);
+
+  return { toasts, push, dismiss, success, error, warning, info };
 }
 
 /* ────────────────────────────────────────
@@ -92,14 +163,95 @@ function AdherenceBar({ score }: { score: number }) {
   );
 }
 
-function ToastContainer({ toasts }: { toasts: Toast[] }) {
+const TOAST_ICONS: Record<ToastType, string> = {
+  success: "check_circle",
+  error:   "error",
+  warning: "warning",
+  info:    "info",
+};
+
+function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number) => void }) {
+  const [progress, setProgress] = useState(100);
+  const [exiting, setExiting] = useState(false);
+  const rafRef = useRef<number>(0);
+  const startRef = useRef<number>(0);
+
+  const handleDismiss = () => {
+    setExiting(true);
+    setTimeout(() => onDismiss(toast.id), 280);
+  };
+
+  useEffect(() => {
+    startRef.current = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - startRef.current;
+      const pct = Math.max(0, 100 - (elapsed / toast.duration) * 100);
+      setProgress(pct);
+      if (pct > 0) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [toast.duration]);
+
   return (
-    <div className="toast-container">
+    <div
+      className={`toast toast--${toast.type}${exiting ? " toast--exiting" : ""}`}
+      role="alert"
+      aria-live="polite"
+    >
+      <span className="toast-icon material-symbols-outlined">
+        {TOAST_ICONS[toast.type]}
+      </span>
+
+      <div className="toast-body">
+        {toast.title
+          ? <>
+              <div className="toast-title">{toast.title}</div>
+              <div className="toast-message">{toast.message}</div>
+            </>
+          : <div className="toast-message">{toast.message}</div>
+        }
+        {toast.action && (
+          <button
+            className="toast-action-btn"
+            onClick={() => { toast.action!.onClick(); handleDismiss(); }}
+          >
+            {toast.action.label}
+          </button>
+        )}
+      </div>
+
+      <button
+        className="toast-close"
+        onClick={handleDismiss}
+        aria-label="Dismiss notification"
+      >
+        <span className="material-symbols-outlined">close</span>
+      </button>
+
+      <div className="toast-progress">
+        <div
+          className={`toast-progress-bar toast-progress-bar--${toast.type}`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ToastContainer({
+  toasts,
+  onDismiss
+}: {
+  toasts: Toast[];
+  onDismiss: (id: number) => void;
+}) {
+  return (
+    <div className="toast-container" aria-label="Notifications">
       {toasts.map(t => (
-        <div key={t.id} className={`toast toast--${t.type}`}>
-          <span>{t.type === "success" ? "✓" : t.type === "error" ? "✗" : "ℹ"}</span>
-          <span>{t.message}</span>
-        </div>
+        <ToastItem key={t.id} toast={t} onDismiss={onDismiss} />
       ))}
     </div>
   );
@@ -3251,7 +3403,7 @@ function App() {
   const [proofCard, setProofCard] = useState<ProofCard | null>(null);
   const [checkInHistory, setCheckInHistory] = useState<CheckInWithDelta[]>([]);
   const [activeNav, setActiveNav] = useState<NavId>("dashboard");
-  const { toasts, push } = useToast();
+  const { toasts, push, dismiss } = useToast();
 
   // Check if onboarding was already completed
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -3469,7 +3621,7 @@ function App() {
         )}
       </div>
 
-      <ToastContainer toasts={toasts} />
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
 
       {showOnboarding && (
         <OnboardingWizard
