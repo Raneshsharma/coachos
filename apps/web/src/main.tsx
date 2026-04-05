@@ -18,6 +18,8 @@ type Dashboard = {
 };
 type CoachSession = { workspace: CoachWorkspace; coach: CoachUser; clients: ClientProfile[]; plans: ProgramPlan[]; subscriptions: PaymentSubscription[]; dashboard: Dashboard };
 type ClientSession = { client: ClientProfile; plan: ProgramPlan | null; latestCheckIn: CheckIn | null; proofCard: ProofCard; messages: Message[] };
+type ClientNote = { id: string; coachId: string; clientId: string; content: string; createdAt: string; updatedAt: string };
+type BodyMetric = { id: string; clientId: string; measuredAt: string; weightKg: number | null; bodyFatPct: number | null; waistCm: number | null; hipsCm: number | null; armCm: number | null; thighCm: number | null; energyScore: number | null; sleepRating: number | null; notes: string | null };
 type ToastType = "success" | "error" | "warning" | "info";
 type ToastAction = { label: string; onClick: () => void };
 type ToastOptions = {
@@ -768,20 +770,265 @@ function ClientsView({
   }, [session.clients, filterStatus, search]);
 
   const activeClients = session.clients.filter(c => c.status === "active").length;
-  const avgAdherence = session.clients.length
+    const avgAdherence = session.clients.length
     ? Math.round(session.clients.reduce((s, c) => s + c.adherenceScore, 0) / session.clients.length)
     : 0;
   const mrr = session.subscriptions
     .filter(s => s.status === "active")
     .reduce((s, sub) => s + sub.amountGbp, 0);
 
+  // Profile tab state
+  const [profileClientId, setProfileClientId] = useState<string | null>(null);
+  const profileClient = profileClientId ? session.clients.find(c => c.id === profileClientId) ?? null : null;
+  const [activeTab, setActiveTab] = useState<'overview'|'notes'|'workouts'|'nutrition'|'progress'|'payments'>('overview');
+  const [notes, setNotes] = useState<ClientNote[]>([]);
+  const [metrics, setMetrics] = useState<BodyMetric[]>([]);
+
+  // Load notes when profile opens
+  useEffect(() => {
+    if (profileClientId) {
+      fetchJson<ClientNote[]>(`/clients/${profileClientId}/notes`).then(setNotes).catch(() => setNotes([]));
+      fetchJson<BodyMetric[]>(`/clients/${profileClientId}/metrics`).then(setMetrics).catch(() => setMetrics([]));
+    }
+  }, [profileClientId]);
+
+  const sortedCheckIns = profileClient ? [...(profileClient as any).checkIns ?? []].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()) : [];
+  const latestCi = sortedCheckIns[0] ?? null;
+  const clientPlan = profileClient ? (profileClient as any).plan ?? null : null;
+  const clientSubscription = profileClient ? (profileClient as any).subscription ?? null : null;
+  const subStatusLabel = clientSubscription?.status === 'past_due' ? 'Past Due' : clientSubscription?.status === 'trialing' ? 'Trialing' : clientSubscription?.status === 'cancelled' ? 'Cancelled' : 'Active';
+  const statusBg = profileClient?.status === 'at_risk' ? 'var(--danger-light)' : profileClient?.status === 'trial' ? 'var(--warning-light)' : 'var(--primary-light)';
+  const statusColor = profileClient?.status === 'at_risk' ? 'var(--danger-text)' : profileClient?.status === 'trial' ? 'var(--warning-text)' : 'var(--primary-dark)';
+  const initials = profileClient ? profileClient.fullName.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() : '';
   const statusLabel = filterStatus === "all" ? "active high-performers"
     : filterStatus === "active" ? "active clients"
     : filterStatus === "at_risk" ? "at-risk clients"
     : "trial clients";
 
+  if (profileClient) {
+    return (
+      <div className="page-view">
+        <button className="profile-back-btn" onClick={() => setProfileClientId(null)}>
+          <span className="material-symbols-outlined">arrow_back</span>
+          Back to Client Roster
+        </button>
+        <div className="profile-header">
+          <div className="profile-avatar-wrap">
+            <div className="profile-avatar" style={{ background: statusBg, color: statusColor }}>{initials}</div>
+            {profileClient.status === 'at_risk' && (
+              <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: 'var(--danger)', border: '2px solid var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.55rem', color: 'white', fontWeight: 800 }}>!</span>
+              </div>
+            )}
+          </div>
+          <div className="profile-info">
+            <h2 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: 'var(--text-primary)', margin: '0 0 0.25rem 0', letterSpacing: '-0.02em' }}>{profileClient.fullName}</h2>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--on-surface-variant)', margin: '0 0 0.5rem 0' }}>{profileClient.goal}</p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span className={`badge-${profileClient.status === 'at_risk' ? 'danger' : profileClient.status === 'trial' ? 'warning' : 'success'}`}>{profileClient.status === 'at_risk' ? 'At Risk' : profileClient.status === 'trial' ? 'Trial' : 'Active'}</span>
+              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)' }}>{profileClient.email}</span>
+            </div>
+          </div>
+          <div className="profile-stats">
+            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: profileClient.adherenceScore < 50 ? 'var(--danger)' : profileClient.adherenceScore < 75 ? 'var(--warning)' : 'var(--primary)' }}>{profileClient.adherenceScore}%</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Adherence</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{latestCi?.progress.weightKg ?? '—'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Weight</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>£{clientSubscription?.amountGbp ?? '—'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>MRR</div></div>
+          </div>
+        </div>
+
+        <div className="profile-tabs">
+          {(['overview', 'notes', 'workouts', 'nutrition', 'progress', 'payments'] as const).map(tab => (
+            <button key={tab} className={`profile-tab${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
+              <span className="material-symbols-outlined">{
+                tab === 'overview' ? 'info' :
+                tab === 'notes' ? 'edit_note' :
+                tab === 'workouts' ? 'fitness_center' :
+                tab === 'nutrition' ? 'restaurant' :
+                tab === 'progress' ? 'show_chart' :
+                'credit_card'
+              }</span>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <div className="profile-content">
+          {activeTab === 'overview' && (
+            <>
+              <div className="profile-stats-grid">
+                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Adherence</div><div className="profile-stat-value" style={{ color: profileClient.adherenceScore < 50 ? 'var(--danger)' : profileClient.adherenceScore < 75 ? 'var(--warning)' : 'var(--primary)' }}>{profileClient.adherenceScore}%</div></div>
+                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Weight</div><div className="profile-stat-value">{latestCi?.progress.weightKg != null ? `${latestCi.progress.weightKg} kg` : '—'}</div><div className="profile-stat-sub">{latestCi ? new Date(latestCi.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'No data'}</div></div>
+                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Energy</div><div className="profile-stat-value">{latestCi?.progress.energyScore != null ? `${latestCi.progress.energyScore}/10` : '—'}</div></div>
+                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Steps</div><div className="profile-stat-value">{latestCi?.progress.steps != null ? latestCi.progress.steps.toLocaleString() : '—'}</div></div>
+              </div>
+              {profileClient.goal && (
+                <div className="profile-goal-card card-glass" style={{ marginTop: '1rem' }}>
+                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Primary Goal</h3>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: 0 }}>{profileClient.goal}</p>
+                </div>
+              )}
+              {latestCi && (
+                <div style={{ marginTop: '1.25rem' }}>
+                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Latest Check-in</h3>
+                  <div className="card-glass" style={{ padding: '1rem' }}>
+                    <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{new Date(latestCi.submittedAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {latestCi.progress.weightKg != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>monitor_weight</span>{latestCi.progress.weightKg} kg</span>}
+                      {latestCi.progress.energyScore != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>bolt</span>{latestCi.progress.energyScore}/10</span>}
+                      {latestCi.progress.steps != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>directions_walk</span>{latestCi.progress.steps.toLocaleString()}</span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          {activeTab === 'notes' && (
+            notes.length === 0
+              ? <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>note_add</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No coach notes yet.</p></div>
+              : notes.map(note => (
+                <div key={note.id} className="card-glass" style={{ marginBottom: '0.75rem', padding: '1rem' }}>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.88rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: '0 0 0.4rem 0' }}>{note.content}</p>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--outline)', margin: 0 }}>{new Date(note.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                </div>
+              ))
+          )}
+          {activeTab === 'workouts' && (
+            sortedCheckIns.length === 0 && !clientPlan
+              ? <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>fitness_center</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No workout history yet.</p></div>
+              : <>
+                {clientPlan && (clientPlan as any).latestVersion?.workouts?.length > 0 && (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Current Programme</h3>
+                    {(clientPlan as any).latestVersion.workouts.map((w: string, i: number) => (
+                      <div key={i} className="card-glass" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.75rem', marginBottom: '0.5rem', borderLeft: `3px solid ${i === 0 ? 'var(--primary)' : 'var(--surface-container)'}` }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: i === 0 ? 'var(--primary)' : 'var(--outline)', flexShrink: 0 }}>fitness_center</span>
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface)' }}>{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {sortedCheckIns.length > 0 && (
+                  <div>
+                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Session Log ({sortedCheckIns.length})</h3>
+                    {sortedCheckIns.map((ci, i) => (
+                      <div key={ci.id} className="card-glass" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>Session #{sortedCheckIns.length - i}</div>
+                          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)' }}>{new Date(ci.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
+                        </div>
+                        {ci.progress.energyScore != null && <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: ci.progress.energyScore <= 4 ? 'var(--danger)' : ci.progress.energyScore <= 6 ? 'var(--warning)' : 'var(--primary)' }}>{ci.progress.energyScore}/10</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Energy</div></div>}
+                        {ci.progress.adherenceScore != null && <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: ci.progress.adherenceScore >= 75 ? 'var(--primary)' : ci.progress.adherenceScore >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{ci.progress.adherenceScore}%</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Adherence</div></div>}
+                        {ci.progress.steps != null && <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--on-surface)' }}>{ci.progress.steps.toLocaleString()}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Steps</div></div>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+          )}
+          {activeTab === 'nutrition' && (
+            clientPlan && (clientPlan as any).latestVersion?.nutrition?.length > 0
+              ? <>
+                {(clientPlan as any).latestVersion.explanation?.map((e: string, i: number) => (
+                  <div key={i} className="card-glass" style={{ padding: '1rem', marginBottom: '0.75rem', borderLeft: '3px solid var(--primary)' }}>
+                    <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: 0 }}>{e}</p>
+                  </div>
+                ))}
+                <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Nutrition Guidelines</h3>
+                {(clientPlan as any).latestVersion.nutrition.map((n: string, i: number) => (
+                  <div key={i} className="card-glass" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.65rem 0.75rem', marginBottom: '0.5rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--primary)', flexShrink: 0 }}>restaurant</span>
+                    <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface)', lineHeight: 1.5 }}>{n}</span>
+                  </div>
+                ))}
+              </>
+              : <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>restaurant</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No nutrition plan assigned yet.</p></div>
+          )}
+          {activeTab === 'progress' && (
+            metrics.length === 0
+              ? <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>show_chart</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No body metrics recorded yet.</p></div>
+              : (() => {
+                const mSorted = [...metrics].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt));
+                const latest = mSorted[mSorted.length - 1];
+                const first = mSorted[0];
+                const wDelta = latest && first && latest.weightKg && first.weightKg ? +(latest.weightKg - first.weightKg).toFixed(1) : null;
+                return (
+                  <div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                      {[{l:'Weight',v:latest?.weightKg!=null?latest.weightKg+' kg':'—',d:wDelta!=null?(wDelta>0?'+':'')+wDelta+' kg':null,dc:wDelta!=null?(wDelta<0?'var(--primary)':'var(--danger)'):undefined},
+                        {l:'Body Fat',v:latest?.bodyFatPct!=null?latest.bodyFatPct+'%':'—',d:null,dc:undefined},
+                        {l:'Waist',v:latest?.waistCm!=null?latest.waistCm+' cm':'—',d:null,dc:undefined},
+                        {l:'Energy',v:latest?.energyScore!=null?latest.energyScore+'/10':'—',d:null,dc:undefined},
+                        {l:'Sleep',v:latest?.sleepRating!=null?latest.sleepRating+'/10':'—',d:null,dc:undefined},
+                        {l:'Records',v:mSorted.length+'',d:null,dc:undefined}].map(m => (
+                        <div key={m.l} className="card-glass" style={{ padding: '0.75rem', textAlign: 'center' }}>
+                          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.3rem' }}>{m.l}</div>
+                          <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{m.v}</div>
+                          {m.d && <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: m.dc }}>{m.d}</div>}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem' }}>
+                        <thead><tr style={{ borderBottom: '1px solid var(--surface-container)' }}>{['Date','Weight','Body Fat','Waist','Hips','Arm','Thigh','Energy','Sleep'].map(h => <th key={h} style={{ padding: '0.4rem 0.5rem', textAlign: 'right', color: 'var(--outline)', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.68rem', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {[...mSorted].reverse().map(m => (
+                            <tr key={m.id} style={{ borderBottom: '1px solid var(--surface-container)' }}>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>{new Date(m.measuredAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.weightKg != null ? m.weightKg+' kg' : '—'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.bodyFatPct != null ? m.bodyFatPct+'%' : '—'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.waistCm != null ? m.waistCm+' cm' : '—'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.hipsCm != null ? m.hipsCm+' cm' : '—'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.armCm != null ? m.armCm+' cm' : '—'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.thighCm != null ? m.thighCm+' cm' : '—'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.energyScore != null ? m.energyScore+'/10' : '—'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.sleepRating != null ? m.sleepRating+'/10' : '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()
+          )}
+          {activeTab === 'payments' && (
+            clientSubscription ? (
+              <div>
+                <div className="card-glass" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>Active Subscription</h3>
+                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: 9999, fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', fontWeight: 600, background: 'var(--primary-light)', color: 'var(--primary)' }}>{subStatusLabel}</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Monthly Rate</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>£{clientSubscription.amountGbp}</div></div>
+                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Renewal Date</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{clientSubscription.renewalDate || '—'}</div></div>
+                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client Since</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{(profileClient as any).startDate || '—'}</div></div>
+                  </div>
+                </div>
+                <div className="card-glass" style={{ padding: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <span className="material-symbols-outlined" style={{ color: 'var(--primary)', fontSize: '1rem' }}>receipt_long</span>
+                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>Recent Payments</h3>
+                  </div>
+                  <div className="card-glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', marginBottom: '0.5rem', background: 'var(--surface-container-low)' }}>
+                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Monthly subscription</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)' }}>{clientSubscription.renewalDate || '—'}</div></div>
+                    <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary)' }}>£{clientSubscription.amountGbp}.00</div>
+                  </div>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)', textAlign: 'center', marginTop: '0.75rem' }}>Connect Stripe for auto-invoicing and full payment history.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>credit_card</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No active subscription.</p></div>
+            )
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-view">
+
       {/* Editorial header */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "2rem", gap: "1rem", flexWrap: "wrap" }}>
         <div>
@@ -867,7 +1114,7 @@ function ClientsView({
             <div
               key={client.id}
               className="roster-card"
-              onClick={() => onOpenClient(client.id)}
+              onClick={() => setProfileClientId(client.id)}
               style={{ cursor: "pointer" }}
             >
               {/* Card header */}

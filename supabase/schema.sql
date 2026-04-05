@@ -67,7 +67,8 @@ create table if not exists check_ins (
   weight_kg     numeric(5,2),
   energy_score  integer,
   steps         integer,
-  notes         text
+  notes         text,
+  adherence_score integer
 );
 
 -- ── Subscriptions ───────────────────────────────────────────
@@ -143,6 +144,44 @@ create table if not exists group_programs (
   created_at  timestamptz not null default now()
 );
 
+-- ── Body Metrics ─────────────────────────────────────────────
+create table if not exists body_metrics (
+  id           text primary key default 'bm_' || gen_random_uuid()::text,
+  client_id    text not null references clients(id) on delete cascade,
+  measured_at  timestamptz not null default now(),
+  weight_kg    numeric(5,2),
+  body_fat_pct numeric(4,1),
+  chest_cm     numeric(5,1),
+  waist_cm     numeric(5,1),
+  hips_cm      numeric(5,1),
+  arm_cm       numeric(5,1),
+  thigh_cm     numeric(5,1),
+  energy_score integer,
+  sleep_rating integer,
+  notes        text
+);
+
+insert into body_metrics (id, client_id, measured_at, weight_kg, body_fat_pct, chest_cm, waist_cm, hips_cm, arm_cm, thigh_cm, energy_score, sleep_rating, notes)
+values
+  ('bm_1', 'c_1', '2026-02-01T09:00:00Z', 71.2, 22.1, 96.0, 82.0, 98.5, 32.0, 57.5, 7, 6, 'Baseline measurement before programme start.'),
+  ('bm_2', 'c_1', '2026-02-15T09:00:00Z', 70.4, 21.5, 95.0, 80.5, 97.0, 32.5, 56.0, 8, 7, 'Good progress. Waist down 1.5cm.'),
+  ('bm_3', 'c_1', '2026-03-01T09:00:00Z', 69.1, 20.8, 93.5, 79.0, 95.5, 33.0, 55.0, 9, 8, 'Strong adherence this fortnight.'),
+  ('bm_4', 'c_1', '2026-03-15T09:00:00Z', 68.4, 20.3, 92.5, 77.5, 94.0, 33.5, 54.0, 8, 7, 'Weight loss on track. Body fat dropping steadily.'),
+  ('bm_5', 'c_1', '2026-04-01T09:00:00Z', 68.2, 19.9, 91.5, 76.0, 93.0, 34.0, 53.5, 9, 8, 'Month 5 — best results so far.'),
+  ('bm_6', 'c_2', '2026-02-01T09:00:00Z', 76.8, 26.5, 104.0, 94.0, 106.0, 34.0, 59.0, 5, 4, 'Initial assessment — client feeling sluggish.'),
+  ('bm_7', 'c_2', '2026-02-28T09:00:00Z', 76.1, 26.0, 103.0, 93.5, 105.5, 34.5, 58.5, 4, 5, 'Marathon training load increased. Weight stable.')
+on conflict (id) do nothing;
+
+-- ── Client Notes ──────────────────────────────────────────────
+create table if not exists client_notes (
+  id         text primary key default 'cn_' || gen_random_uuid()::text,
+  coach_id   text not null references coaches(id) on delete cascade,
+  client_id  text not null references clients(id) on delete cascade,
+  content    text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 -- ── Seed Data ────────────────────────────────────────────────
 insert into workspaces (id, name, brand_color, accent_color, hero_message, stripe_connected)
 values ('ws_1', 'CoachOS', '#123f2d', '#ff8757', 'Elite coaching that adapts to your life.', false)
@@ -175,11 +214,11 @@ values
    ARRAY[]::text[])
 on conflict (id) do nothing;
 
-insert into check_ins (id, client_id, submitted_at, weight_kg, energy_score, steps, notes)
+insert into check_ins (id, client_id, submitted_at, weight_kg, energy_score, steps, notes, adherence_score)
 values
-  ('ci_1', 'c_1', '2026-04-03T08:30:00Z', 68.2, 8,  9860, 'Feeling strong this week!'),
-  ('ci_2', 'c_2', '2026-04-03T07:15:00Z', 74.1, 4,  3200, 'Hamstring tight, took it easy.'),
-  ('ci_3', 'c_3', '2026-04-02T09:00:00Z', 61.5, 9, 11200, null)
+  ('ci_1', 'c_1', '2026-04-03T08:30:00Z', 68.2, 8,  9860, 'Feeling strong this week!', 92),
+  ('ci_2', 'c_2', '2026-04-03T07:15:00Z', 74.1, 4,  3200, 'Hamstring tight, took it easy.', 45),
+  ('ci_3', 'c_3', '2026-04-02T09:00:00Z', 61.5, 9, 11200, null, 78)
 on conflict (id) do nothing;
 
 insert into subscriptions (id, client_id, status, amount_gbp, renewal_date)
@@ -193,6 +232,13 @@ insert into messages (id, client_id, sender, content, sent_at)
 values
   ('msg_1', 'c_1', 'coach',  'Great work today! Keep it up.',         '2026-04-03T10:00:00Z'),
   ('msg_2', 'c_1', 'client', 'Thanks! The session was tough but I loved it.', '2026-04-03T10:15:00Z')
+on conflict (id) do nothing;
+
+insert into client_notes (id, coach_id, client_id, content)
+values
+  ('cn_1', 'coach_1', 'c_1', 'Sophie is making excellent progress. Her adherence has been consistently above 85%. Consider introducing heavier compound lifts next phase.'),
+  ('cn_2', 'coach_1', 'c_2', 'Liam has been inconsistent with check-ins. Hamstring issue flagged — refer to physio. Needs extra motivation and accountability calls.'),
+  ('cn_3', 'coach_1', 'c_3', 'New client on trial. Great engagement so far. Needs personalised programme to convert to paid.')
 on conflict (id) do nothing;
 
 insert into habits (id, client_id, title, target, frequency)

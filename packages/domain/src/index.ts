@@ -48,6 +48,7 @@ export const progressMetricSchema = z.object({
   energyScore: z.number().min(1).max(10),
   steps: z.number().int().nonnegative(),
   waistCm: z.number().nullable(),
+  adherenceScore: z.number().int().min(0).max(100).nullable(),
   notes: z.string()
 });
 
@@ -353,6 +354,7 @@ export function createSeedState(): DemoState {
         energyScore: 7,
         steps: 10220,
         waistCm: 78,
+        adherenceScore: 86,
         notes: "Felt good all week and hit every session."
       },
       photoCount: 2
@@ -366,6 +368,7 @@ export function createSeedState(): DemoState {
         energyScore: 4,
         steps: 4100,
         waistCm: null,
+        adherenceScore: 38,
         notes: "Travel week. Missed sessions and meals were messy."
       },
       photoCount: 0

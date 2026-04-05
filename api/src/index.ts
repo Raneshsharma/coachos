@@ -73,11 +73,14 @@ interface CoachUser {
 // ── DB → API shape helpers ────────────────────────────────────────────────────
 
 function mapClient(row: Record<string, unknown>): ClientProfile {
+  // Normalize Supabase status values to match frontend domain types
+  const rawStatus = row.status as string;
+  const status = rawStatus === "trialing" ? "trial" : rawStatus as ClientProfile["status"];
   return {
     id: row.id as string,
     fullName: row.full_name as string,
     email: row.email as string,
-    status: row.status as ClientProfile["status"],
+    status,
     adherenceScore: row.adherence_score as number,
     monthlyPriceGbp: row.monthly_price_gbp as number,
     nextRenewalDate: (row.next_renewal_date as string) ?? "",
@@ -111,16 +114,20 @@ function mapCheckIn(row: Record<string, unknown>): CheckIn {
       weightKg: row.weight_kg as number | undefined,
       energyScore: row.energy_score as number | undefined,
       steps: row.steps as number | undefined,
+      waistCm: row.waist_cm as number | undefined,
+      adherenceScore: (row.adherence_score as number | undefined) ?? undefined,
       notes: row.notes as string | undefined,
     },
   };
 }
 
 function mapSubscription(row: Record<string, unknown>): PaymentSubscription {
+  const rawSubStatus = row.status as string;
+  const subStatus = rawSubStatus === "trialing" ? "trialing" : rawSubStatus as PaymentSubscription["status"];
   return {
     id: row.id as string,
     clientId: row.client_id as string,
-    status: row.status as PaymentSubscription["status"],
+    status: subStatus,
     amountGbp: row.amount_gbp as number,
     renewalDate: (row.renewal_date as string) ?? "",
   };
@@ -322,6 +329,8 @@ async function submitCheckIn(body: { clientId: string; progress: CheckIn["progre
       weight_kg: body.progress.weightKg,
       energy_score: body.progress.energyScore,
       steps: body.progress.steps,
+      waist_cm: body.progress.waistCm,
+      adherence_score: body.progress.adherenceScore,
       notes: body.progress.notes,
     })
     .select()
@@ -589,25 +598,51 @@ async function getClientSession(clientId: string) {
   const client = await getClient(clientId);
   if (!client) return null;
 
-  const { data: plans } = await supabase.from("plans").select("*").eq("client_id", clientId);
-  const { data: checkIns } = await supabase.from("check_ins").select("*").eq("client_id", clientId);
-  const { data: messages } = await supabase.from("messages").select("*").eq("client_id", clientId).order("sent_at");
+  const [plans, checkIns, messages, habits, subscription, { data: notesData }] = await Promise.all([
+    supabase.from("plans").select("*").eq("client_id", clientId),
+    supabase.from("check_ins").select("*").eq("client_id", clientId),
+    supabase.from("messages").select("*").eq("client_id", clientId).order("sent_at"),
+    supabase.from("habits").select("*").eq("client_id", clientId),
+    supabase.from("subscriptions").select("*").eq("client_id", clientId).maybeSingle(),
+    supabase.from("client_notes").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
+  ]);
 
-  const latest = (checkIns ?? []).sort((a, b) =>
+  const habitIds = (habits.data ?? []).map(h => h.id);
+  const { data: completions } = habitIds.length > 0
+    ? await supabase.from("habit_completions").select("*").in("habit_id", habitIds)
+    : { data: [] };
+
+  const latest = (checkIns.data ?? []).sort((a, b) =>
     (b.submitted_at ?? "").localeCompare(a.submitted_at ?? "")
   )[0] ?? null;
 
   return {
     client,
-    plan: plans?.[0] ? mapPlan(plans[0]) : null,
+    plan: plans.data?.[0] ? mapPlan(plans.data[0]) : null,
     latestCheckIn: latest ? mapCheckIn(latest) : null,
     proofCard: null,
-    messages: (messages ?? []).map((m) => ({
+    messages: (messages.data ?? []).map((m) => ({
       id: m.id,
       sender: m.sender,
       content: m.content,
       sentAt: m.sent_at,
     })),
+    habits: (habits.data ?? []).map((h) => ({
+      id: h.id,
+      clientId: h.client_id,
+      title: h.title,
+      target: h.target,
+      frequency: h.frequency,
+      createdAt: h.created_at,
+    })),
+    habitCompletions: (completions ?? []).map((c) => ({
+      id: c.id,
+      habitId: c.habit_id,
+      date: c.date,
+      completed: c.completed,
+    })),
+    subscription: subscription.data ? mapSubscription(subscription.data) : null,
+    notes: (notesData ?? []).map((n) => ({ id: n.id, clientId: n.client_id, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at })),
   };
 }
 
@@ -712,6 +747,96 @@ app.get("/api/messages/:clientId", async (c) => {
   return c.json(messages);
 });
 
+app.get("/api/clients/:clientId/notes", async (c) => {
+  const { data, error } = await supabase
+    .from("client_notes")
+    .select("*")
+    .eq("client_id", c.req.param("clientId"))
+    .order("created_at", { ascending: false });
+  if (error) return c.json({ message: "Failed to load notes." }, 500);
+  return c.json(data.map((n) => ({ id: n.id, clientId: n.client_id, content: n.content, createdAt: n.created_at, updatedAt: n.updated_at })));
+});
+
+app.post("/api/clients/:clientId/notes", async (c) => {
+  const { content } = await c.req.json();
+  if (!content?.trim()) return c.json({ message: "Content is required." }, 400);
+  const coach = await getCoach();
+  if (!coach) return c.json({ message: "Coach not found." }, 404);
+  const { data, error } = await supabase
+    .from("client_notes")
+    .insert({ coach_id: coach.id, client_id: c.req.param("clientId"), content: content.trim() })
+    .select()
+    .single();
+  if (error) return c.json({ message: "Failed to create note." }, 500);
+  return c.json({ id: data.id, clientId: data.client_id, content: data.content, createdAt: data.created_at, updatedAt: data.updated_at }, 201);
+});
+
+app.patch("/api/notes/:noteId", async (c) => {
+  const { content } = await c.req.json();
+  if (!content?.trim()) return c.json({ message: "Content is required." }, 400);
+  const { data, error } = await supabase
+    .from("client_notes")
+    .update({ content: content.trim(), updated_at: new Date().toISOString() })
+    .eq("id", c.req.param("noteId"))
+    .select()
+    .single();
+  if (error) return c.json({ message: "Failed to update note." }, 500);
+  if (!data) return c.json({ message: "Note not found." }, 404);
+  return c.json({ id: data.id, clientId: data.client_id, content: data.content, createdAt: data.created_at, updatedAt: data.updated_at });
+});
+
+app.delete("/api/notes/:noteId", async (c) => {
+  const { error } = await supabase.from("client_notes").delete().eq("id", c.req.param("noteId"));
+  if (error) return c.json({ message: "Failed to delete note." }, 500);
+  return c.json({ ok: true });
+});
+
+app.get("/api/clients/:clientId/metrics", async (c) => {
+  const { data, error } = await supabase
+    .from("body_metrics")
+    .select("*")
+    .eq("client_id", c.req.param("clientId"))
+    .order("measured_at", { ascending: true });
+  if (error) return c.json({ message: "Failed to load metrics." }, 500);
+  return c.json(data.map((m) => ({
+    id: m.id, clientId: m.client_id, measuredAt: m.measured_at,
+    weightKg: m.weight_kg ?? null, bodyFatPct: m.body_fat_pct ?? null,
+    chestCm: m.chest_cm ?? null, waistCm: m.waist_cm ?? null, hipsCm: m.hips_cm ?? null,
+    armCm: m.arm_cm ?? null, thighCm: m.thigh_cm ?? null,
+    energyScore: m.energy_score ?? null, sleepRating: m.sleep_rating ?? null,
+    notes: m.notes ?? null,
+  })));
+});
+
+app.post("/api/clients/:clientId/metrics", async (c) => {
+  const body = await c.req.json();
+  const { data, error } = await supabase
+    .from("body_metrics")
+    .insert({
+      client_id: c.req.param("clientId"),
+      weight_kg: body.weightKg ?? null,
+      body_fat_pct: body.bodyFatPct ?? null,
+      chest_cm: body.chestCm ?? null,
+      waist_cm: body.waistCm ?? null,
+      hips_cm: body.hipsCm ?? null,
+      arm_cm: body.armCm ?? null,
+      thigh_cm: body.thighCm ?? null,
+      energy_score: body.energyScore ?? null,
+      sleep_rating: body.sleepRating ?? null,
+      notes: body.notes ?? null,
+    })
+    .select()
+    .single();
+  if (error) return c.json({ message: "Failed to save metrics." }, 500);
+  return c.json({ id: data.id, clientId: data.client_id, measuredAt: data.measured_at,
+    weightKg: data.weight_kg ?? null, bodyFatPct: data.body_fat_pct ?? null,
+    chestCm: data.chest_cm ?? null, waistCm: data.waist_cm ?? null, hipsCm: data.hips_cm ?? null,
+    armCm: data.arm_cm ?? null, thighCm: data.thigh_cm ?? null,
+    energyScore: data.energy_score ?? null, sleepRating: data.sleep_rating ?? null,
+    notes: data.notes ?? null,
+  }, 201);
+});
+
 app.get("/api/dashboard/morning", async (c) => c.json(await getMorningDashboard()));
 app.get("/api/billing", async (c) => c.json(await getBillingSummary()));
 app.get("/api/analytics", async (c) => c.json(await getAnalytics()));
@@ -726,6 +851,27 @@ app.post("/api/onboarding", async (c) => {
   const body = await c.req.json();
   const result = await updateWorkspace(body);
   return result ? c.json(result) : c.json({ message: "Workspace not found." }, 404);
+});
+
+app.patch("/api/coach/profile", async (c) => {
+  const body = await c.req.json();
+  const coach = await getCoach();
+  if (!coach) return c.json({ message: "Coach not found." }, 404);
+  const { data, error } = await supabase
+    .from("coaches")
+    .update({
+      full_name: body.fullName ?? coach.fullName,
+      avatar_initials: body.avatarInitials ?? coach.avatarInitials,
+    })
+    .eq("id", coach.id)
+    .select()
+    .single();
+  if (error) return c.json({ message: "Failed to update profile." }, 500);
+  return c.json({
+    id: data.id, workspaceId: data.workspace_id,
+    fullName: data.full_name, email: data.email,
+    avatarInitials: data.avatar_initials,
+  });
 });
 
 app.post("/api/admin/state/reset", async (c) =>
