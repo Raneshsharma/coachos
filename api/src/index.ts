@@ -196,6 +196,53 @@ async function updateClient(id: string, patch: Partial<ClientProfile>) {
   return data ? mapClient(data) : null;
 }
 
+async function createClient(body: {
+  fullName: string;
+  email: string;
+  goal: string;
+  monthlyPriceGbp: number;
+  nextRenewalDate: string;
+  status: ClientProfile["status"];
+}) {
+  // Derive avatar initials
+  const initials = body.fullName
+    .split(" ")
+    .map(p => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const { data } = await supabase
+    .from("clients")
+    .insert({
+      workspace_id: "ws_1",
+      full_name: body.fullName,
+      email: body.email,
+      goal: body.goal,
+      monthly_price_gbp: body.monthlyPriceGbp,
+      next_renewal_date: body.nextRenewalDate,
+      status: body.status,
+      adherence_score: 0,
+      avatar_initials: initials,
+      tags: [],
+      start_date: new Date().toISOString().slice(0, 10),
+    })
+    .select()
+    .single();
+
+  if (!data) return null;
+
+  // Auto-create a subscription record
+  await supabase.from("subscriptions").insert({
+    client_id: data.id,
+    status: "active",
+    amount_gbp: body.monthlyPriceGbp,
+    renewal_date: body.nextRenewalDate,
+  });
+
+  return mapClient(data);
+}
+
 async function listPlans(opts: { status?: string; clientId?: string } = {}) {
   let q = supabase.from("plans").select("*");
   if (opts.status) q = q.eq("status", opts.status);
@@ -600,6 +647,29 @@ app.get("/api/session/client/:clientId", async (c) => {
 app.get("/api/clients", async (c) =>
   c.json(await listClients({ status: c.req.query("status"), search: c.req.query("search") }))
 );
+
+app.post("/api/clients", async (c) => {
+  const body = await c.req.json();
+  if (!body.fullName?.trim()) return c.json({ message: "Full name is required." }, 400);
+  if (!body.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email))
+    return c.json({ message: "A valid email is required." }, 400);
+  if (!body.goal?.trim()) return c.json({ message: "Goal is required." }, 400);
+  if (body.monthlyPriceGbp == null || body.monthlyPriceGbp < 0)
+    return c.json({ message: "Monthly price must be a non-negative number." }, 400);
+
+  const result = await createClient({
+    fullName: body.fullName.trim(),
+    email: body.email.trim().toLowerCase(),
+    goal: body.goal.trim(),
+    monthlyPriceGbp: Number(body.monthlyPriceGbp),
+    nextRenewalDate: body.nextRenewalDate ?? new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10),
+    status: body.status ?? "trialing",
+  });
+
+  return result
+    ? c.json(result, 201)
+    : c.json({ message: "Failed to create client." }, 500);
+});
 
 app.get("/api/clients/:clientId", async (c) => {
   const client = await getClient(c.req.param("clientId"));

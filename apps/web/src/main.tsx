@@ -495,8 +495,261 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push 
   );
 }
 
+/* ────────────────────────────────────────
+   ADD CLIENT MODAL
+──────────────────────────────────────── */
+function AddClientModal({
+  onClose,
+  onSuccess,
+  push,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  push: (message: string, type?: "success" | "error" | "info" | "warning", opts?: { title?: string; action?: { label: string; onClick: () => void } }) => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [form, setForm] = useState({
+    fullName: "",
+    email: "",
+    goal: "",
+    monthlyPriceGbp: "",
+    nextRenewalDate: "",
+    status: "trialing" as "active" | "at_risk" | "trialing",
+  });
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const set = (field: keyof typeof form) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    setForm(f => ({ ...f, [field]: e.target.value }));
+    if (errors[field]) setErrors(e => { const n = { ...e }; delete n[field]; return n; });
+  };
+
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!form.fullName.trim()) errs.fullName = "Full name is required.";
+    else if (form.fullName.trim().length < 2) errs.fullName = "Name must be at least 2 characters.";
+    if (!form.email.trim()) errs.email = "Email is required.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = "Enter a valid email address.";
+    if (!form.goal.trim()) errs.goal = "Goal is required.";
+    else if (form.goal.trim().length < 3) errs.goal = "Goal must be at least 3 characters.";
+    if (!form.monthlyPriceGbp) errs.monthlyPriceGbp = "Monthly price is required.";
+    else if (isNaN(Number(form.monthlyPriceGbp)) || Number(form.monthlyPriceGbp) < 0)
+      errs.monthlyPriceGbp = "Enter a valid price (0 or more).";
+    return errs;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = validate();
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${apiBase}/clients`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: form.fullName.trim(),
+          email: form.email.trim().toLowerCase(),
+          goal: form.goal.trim(),
+          monthlyPriceGbp: Number(form.monthlyPriceGbp),
+          nextRenewalDate: form.nextRenewalDate || undefined,
+          status: form.status,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Server error" }));
+        push(err.message ?? "Failed to add client.", "error");
+        return;
+      }
+
+      const newClient = await res.json();
+      push(`${newClient.fullName} added successfully!`, "success");
+      onSuccess();
+    } catch {
+      push("Network error — please check your connection.", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const fieldError = (name: string) =>
+    errors[name] ? <span className="field-error">{errors[name]}</span> : null;
+
+  const label = (text: string, htmlFor?: string) =>
+    htmlFor
+      ? <label className="form-label" htmlFor={htmlFor}>{text}</label>
+      : <label className="form-label">{text}</label>;
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-panel add-client-modal" role="dialog" aria-modal="true" aria-labelledby="add-client-title">
+        {/* Header */}
+        <div className="add-client-header">
+          <div className="add-client-icon-wrap">
+            <span className="material-symbols-outlined add-client-icon">person_add</span>
+          </div>
+          <div>
+            <h2 className="modal-title" id="add-client-title">Add New Client</h2>
+            <p className="modal-subtitle">Fill in the details below to onboard a new client.</p>
+          </div>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        {/* Avatar preview */}
+        {form.fullName.trim().length >= 2 && (
+          <div className="add-client-avatar-preview">
+            <div className="add-client-avatar">
+              {form.fullName.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase()}
+            </div>
+            <div>
+              <div className="add-client-avatar-name">{form.fullName.trim()}</div>
+              <div className="add-client-avatar-email">{form.email || "email@example.com"}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="add-client-form-grid">
+            {/* Full Name */}
+            <div className="form-field">
+              {label("Full Name *")}
+              <input
+                id="ac-fullName"
+                className={`form-input${errors.fullName ? " form-input--error" : ""}`}
+                type="text"
+                placeholder="e.g. Jamie Chen"
+                value={form.fullName}
+                onChange={set("fullName")}
+                autoFocus
+                autoComplete="name"
+              />
+              {fieldError("fullName")}
+            </div>
+
+            {/* Email */}
+            <div className="form-field">
+              {label("Email Address *")}
+              <input
+                id="ac-email"
+                className={`form-input${errors.email ? " form-input--error" : ""}`}
+                type="email"
+                placeholder="e.g. jamie@example.com"
+                value={form.email}
+                onChange={set("email")}
+                autoComplete="email"
+              />
+              {fieldError("email")}
+            </div>
+
+            {/* Goal */}
+            <div className="form-field form-field--full">
+              {label("Primary Goal *")}
+              <textarea
+                id="ac-goal"
+                className={`form-input form-textarea${errors.goal ? " form-input--error" : ""}`}
+                placeholder="e.g. Lose 5kg body fat, build strength, run a marathon…"
+                value={form.goal}
+                onChange={set("goal")}
+                rows={2}
+              />
+              {fieldError("goal")}
+            </div>
+
+            {/* Monthly Price */}
+            <div className="form-field">
+              {label("Monthly Price (GBP) *")}
+              <div className="input-prefix-wrap">
+                <span className="input-prefix">£</span>
+                <input
+                  id="ac-price"
+                  className={`form-input input-prefix-field${errors.monthlyPriceGbp ? " form-input--error" : ""}`}
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="149"
+                  value={form.monthlyPriceGbp}
+                  onChange={set("monthlyPriceGbp")}
+                />
+              </div>
+              {fieldError("monthlyPriceGbp")}
+            </div>
+
+            {/* Next Renewal Date */}
+            <div className="form-field">
+              {label("Next Renewal Date")}
+              <input
+                id="ac-renewal"
+                className="form-input"
+                type="date"
+                value={form.nextRenewalDate}
+                onChange={set("nextRenewalDate")}
+              />
+            </div>
+
+            {/* Status */}
+            <div className="form-field">
+              {label("Client Status")}
+              <select
+                id="ac-status"
+                className="form-input form-select"
+                value={form.status}
+                onChange={set("status")}
+              >
+                <option value="trialing">Trialing</option>
+                <option value="active">Active</option>
+                <option value="at_risk">At Risk</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="add-client-actions">
+            <button type="button" className="btn-ghost" onClick={onClose} disabled={submitting}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <span className="btn-spinner" />
+                  Adding Client…
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>person_add</span>
+                  Add Client
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── CLIENTS VIEW ──────────────────────
-function ClientsView({ session, onOpenClient }: { session: CoachSession; onOpenClient: (id: string) => void }) {
+function ClientsView({
+  session,
+  onOpenClient,
+  onAddClient,
+}: {
+  session: CoachSession;
+  onOpenClient: (id: string) => void;
+  onAddClient?: () => void;
+}) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -672,7 +925,7 @@ function ClientsView({ session, onOpenClient }: { session: CoachSession; onOpenC
 
         {/* Onboard CTA */}
         <div
-          onClick={() => onOpenClient("")}
+          onClick={onAddClient ?? (() => onOpenClient(""))}
           style={{ borderRadius: "var(--r-xl)", padding: "1.5rem", border: "2px dashed var(--outline-variant)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem", cursor: "pointer", transition: "all 0.2s ease", minHeight: "220px", textAlign: "center" }}
         >
           <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--surface-container)", display: "grid", placeItems: "center" }}>
@@ -3403,6 +3656,7 @@ function App() {
   const [proofCard, setProofCard] = useState<ProofCard | null>(null);
   const [checkInHistory, setCheckInHistory] = useState<CheckInWithDelta[]>([]);
   const [activeNav, setActiveNav] = useState<NavId>("dashboard");
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
   const { toasts, push, dismiss } = useToast();
 
   // Check if onboarding was already completed
@@ -3517,6 +3771,11 @@ function App() {
     push("Settings saved");
   };
 
+  const handleAddClientSuccess = async () => {
+    setShowAddClientModal(false);
+    await loadCoach(selectedClientId ?? undefined);
+  };
+
   const handleCreateGroupProgram = async (payload: Partial<GroupProgram>) => {
     await fetchJson<GroupProgram>("/group-programs", { method: "POST", body: JSON.stringify(payload) });
   };
@@ -3572,7 +3831,7 @@ function App() {
           />
         )}
         {activeNav === "clients" && (
-          <ClientsView session={session} onOpenClient={id => { setActiveNav("portal"); switchClient(id); }} />
+          <ClientsView session={session} onOpenClient={id => { setActiveNav("portal"); switchClient(id); }} onAddClient={() => setShowAddClientModal(true)} />
         )}
         {activeNav === "plans" && (
           <PlansView session={session} onNav={handleNavWithPortal} />
@@ -3622,6 +3881,14 @@ function App() {
       </div>
 
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
+
+      {showAddClientModal && (
+        <AddClientModal
+          onClose={() => setShowAddClientModal(false)}
+          onSuccess={handleAddClientSuccess}
+          push={push}
+        />
+      )}
 
       {showOnboarding && (
         <OnboardingWizard
