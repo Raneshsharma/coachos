@@ -172,7 +172,7 @@ values
   ('plan_3', 'c_3', 'Trial Starter Pack', 'approved',
    array['Full Body Assessment','Light Movement','No plan — awaiting upgrade'],
    array['Balanced: 2,000 kcal, 150g protein'],
-   array[])
+   ARRAY[]::text[])
 on conflict (id) do nothing;
 
 insert into check_ins (id, client_id, submitted_at, weight_kg, energy_score, steps, notes)
