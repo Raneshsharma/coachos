@@ -243,6 +243,7 @@ class InMemoryStore {
       clients: this.state.clients,
       plans: this.state.plans,
       subscriptions: this.state.subscriptions,
+      dashboard: this.getMorningDashboard(),
     };
   }
 

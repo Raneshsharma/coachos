@@ -231,7 +231,7 @@ export function createSeedState(): DemoState {
     name: "Thrive by Jake",
     brandColor: "#123f2d",
     accentColor: "#ff8757",
-    heroMessage: "A premium coaching system for fat-loss clients who need structure.",
+    heroMessage: "Built for coaches who take their clients' results seriously.",
     stripeConnected: true,
     parallelRunDaysLeft: 5
   };

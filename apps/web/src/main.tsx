@@ -18,10 +18,8 @@ type Dashboard = {
 };
 type CoachSession = { workspace: CoachWorkspace; coach: CoachUser; clients: ClientProfile[]; plans: ProgramPlan[]; subscriptions: PaymentSubscription[]; dashboard: Dashboard };
 type ClientSession = { client: ClientProfile; plan: ProgramPlan | null; latestCheckIn: CheckIn | null; proofCard: ProofCard; messages: Message[] };
-type AnalyticsResponse = { events: Array<{ name: string; actorId: string; occurredAt: string; metadata: Record<string, string|number|boolean> }>; summary: { totalEvents: number; topEvents: Array<{ name: string; count: number }>; lastEventAt: string | null } };
-type RuntimeResponse = { storage: string; stateFilePath: string | null; services: { planGeneration: string; proofCards: string; billing: string } };
 type Toast = { id: number; message: string; type: "success"|"error"|"info" };
-type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"analytics"|"settings"|"migration"|"competitors"|"groups"|"habits"|"exercises"|"clientApp";
+type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"settings"|"migration"|"competitors"|"groups"|"habits"|"exercises";
 type CheckInWithDelta = CheckIn & { weightDelta: number | null; energyDelta: number | null; adherenceDelta: number | null };
 type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceGbp: number; status: "active"|"archived"|"upcoming"; createdAt: string };
 type NutritionSwap = { id: string; planId: string; originalFood: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string }; swapSuggestion: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; reasoning: string }; appliedAt: string | null };
@@ -132,8 +130,7 @@ function Sidebar({
 
       <nav className="sidebar-nav">
         <span className="nav-section-label">Overview</span>
-        {nav("dashboard", "◎", "Morning Dashboard", atRiskCount || undefined)}
-        {nav("analytics", "↗", "Analytics")}
+        {nav("dashboard", "◎", "Coach Dashboard", atRiskCount || undefined)}
 
         <span className="nav-section-label">Clients</span>
         {nav("clients", "⊞", "All Clients")}
@@ -144,7 +141,6 @@ function Sidebar({
         {nav("groups", "⬡", "Group Programs")}
 
         <span className="nav-section-label">Preview</span>
-        {nav("clientApp", "◈", "Client App")}
 
         <span className="nav-section-label">Business</span>
         {nav("billing", "£", "Billing & MRR")}
@@ -173,117 +169,176 @@ function Sidebar({
 ──────────────────────────────────────── */
 
 // ── DASHBOARD VIEW ──────────────────────
-function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment }: {
+function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push }: {
   session: CoachSession;
   onNav: (id: NavId) => void;
   onSimulateCheckIn: (clientId: string) => Promise<void>;
   onMarkPayment: (clientId: string) => Promise<void>;
+  push: (message: string, type?: "success"|"error"|"info") => void;
 }) {
   const { dashboard, workspace, clients } = session;
   const mrrGbp = session.subscriptions
     .filter(s => s.status === "active")
     .reduce((sum, s) => sum + s.amountGbp, 0);
 
+  const today = new Date("2026-04-03");
+  const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
+  const dateStr = today.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  // Upcoming renewals for the right panel
+  const upcomingRenewals = session.subscriptions
+    .filter(s => s.status === "active" || s.status === "past_due")
+    .sort((a, b) => a.renewalDate.localeCompare(b.renewalDate))
+    .slice(0, 3);
+
   return (
     <div className="page-view">
-      {/* Header */}
-      <div className="dashboard-header">
+      {/* Editorial Hero */}
+      <div className="editorial-hero">
         <div>
-          <p className="eyebrow">Morning Dashboard</p>
-          <h1>Good morning, {session.coach.firstName}. 👋</h1>
-          <p className="hero-copy" style={{ marginTop: "0.5rem" }}>{workspace.heroMessage}</p>
+          <div className="editorial-hero-eyebrow">
+            <span className="editorial-hero-date">{dayName}, {dateStr}</span>
+          </div>
+          <h1 className="editorial-hero-greeting">Good morning, {session.coach.firstName}.</h1>
+          <p className="editorial-hero-message">{workspace.heroMessage}</p>
+          <div className="inline" style={{ marginTop: "1.5rem" }}>
+            <button onClick={() => onNav("clients")} style={{ padding: "0.6rem 1.25rem", borderRadius: "9999px", background: "#181c1c", color: "white", border: "none", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.4rem", boxShadow: "0 4px 16px rgba(24,28,28,0.15)" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>calendar_month</span>
+              View Schedule
+            </button>
+            <button onClick={() => onNav("clients")} style={{ padding: "0.6rem 1.25rem", borderRadius: "9999px", background: "white", color: "#181c1c", border: "1.5px solid #e8e7f0", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+              Client Notes
+            </button>
+          </div>
         </div>
-        <div style={{ textAlign: "right" }}>
+        <div className="editorial-hero-right">
           {workspace.stripeConnected
             ? <span className="pill pill-success">● Stripe Connected</span>
             : <span className="pill pill-danger">● Stripe Disconnected</span>}
           {workspace.parallelRunDaysLeft > 0 && (
-            <div style={{ marginTop: "0.75rem" }}>
-              <span className="pill pill-info">Parallel run: {workspace.parallelRunDaysLeft}d left</span>
-            </div>
+            <span className="pill pill-info">Parallel run: {workspace.parallelRunDaysLeft}d left</span>
           )}
         </div>
       </div>
 
-      {/* Key metrics */}
-      <div className="stat-grid">
-        <div className="stat-card stat-card--accent">
-          <div className="stat-card__label">Active Clients</div>
-          <div className="stat-card__value">{dashboard.activeClients}</div>
+      {/* Bento Stat Grid */}
+      <div className="bento-grid">
+        <div className="bento-card">
+          <div className="bento-icon-wrap">
+            <span className="material-symbols-outlined bento-icon">diversity_3</span>
+          </div>
+          <div className="bento-label">Active Clients</div>
+          <div className="bento-value">{dashboard.activeClients}</div>
+          <div className="bento-trend">↑ 12% this month</div>
         </div>
-        <div className="stat-card stat-card--accent">
-          <div className="stat-card__label">Monthly Revenue</div>
-          <div className="stat-card__value">£{mrrGbp}</div>
+        <div className="bento-card">
+          <div className="bento-icon-wrap">
+            <span className="material-symbols-outlined bento-icon">payments</span>
+          </div>
+          <div className="bento-label">Monthly Revenue</div>
+          <div className="bento-value">£{mrrGbp}</div>
+          <div className="bento-trend">↑ 8% vs last month</div>
         </div>
-        <div className="stat-card stat-card--warning">
-          <div className="stat-card__label">At-Risk Flags</div>
-          <div className="stat-card__value" style={{ color: "var(--warning)" }}>{dashboard.atRiskClients.length}</div>
+        <div className="bento-card">
+          <div className="bento-icon-wrap">
+            <span className="material-symbols-outlined bento-icon">warning</span>
+          </div>
+          <div className="bento-label">At-Risk Flags</div>
+          <div className="bento-value" style={{ color: dashboard.atRiskClients.length > 0 ? "var(--warning)" : undefined }}>{dashboard.atRiskClients.length}</div>
+          <div className="bento-trend">{dashboard.atRiskClients.length === 0 ? "All clients on track" : "Needs attention"}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-card__label">Checked In Today</div>
-          <div className="stat-card__value">{dashboard.checkedInToday}</div>
-        </div>
-        <div className="stat-card stat-card--danger">
-          <div className="stat-card__label">Renewals Due</div>
-          <div className="stat-card__value" style={{ color: "var(--danger)" }}>{dashboard.dueRenewals}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card__label">Total Clients</div>
-          <div className="stat-card__value">{clients.length}</div>
+        <div className="bento-card">
+          <div className="bento-icon-wrap">
+            <span className="material-symbols-outlined bento-icon">check_circle</span>
+          </div>
+          <div className="bento-label">Checked In Today</div>
+          <div className="bento-value">{dashboard.checkedInToday}</div>
+          <div className="bento-trend">{clients.length - dashboard.checkedInToday} pending</div>
         </div>
       </div>
 
-      {/* At-risk clients */}
-      {dashboard.atRiskClients.length > 0 ? (
-        <div className="panel">
-          <div className="section-header">
-            <div>
-              <p className="eyebrow" style={{ marginBottom: "0.25rem" }}>Action Required</p>
-              <h2>At-Risk Clients</h2>
-            </div>
+      {/* Dashboard Content: 2/3 + 1/3 split */}
+      <div className="dashboard-content-grid">
+        {/* Left: At-Risk Clients */}
+        <div>
+          <div className="section-meta">
+            <h2 className="section-title" style={{ margin: 0 }}>At-Risk Clients</h2>
+            <button className="ghost sm" onClick={() => onNav("clients")} style={{ fontSize: "0.8rem" }}>View Report</button>
           </div>
-          <div className="stack compact">
-            {dashboard.atRiskClients.map(alert => {
+          <div className="at-risk-card">
+            {dashboard.atRiskClients.length > 0 ? dashboard.atRiskClients.map(alert => {
               const client = clients.find(c => c.id === alert.clientId);
+              const initials = client ? client.fullName.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase() : "??";
+              const dotClass = alert.severity === "high" ? "at-risk-dot--danger" : alert.severity === "medium" ? "at-risk-dot--warning" : "at-risk-dot--success";
+              const badgeClass = alert.severity === "high" ? "badge-danger" : alert.severity === "medium" ? "badge-warning" : "badge-success";
+              const badgeLabel = alert.severity === "high" ? "High Risk" : alert.severity === "medium" ? "Stalled" : "Low Risk";
               return (
-                <div key={alert.clientId} className="alert-card">
-                  <div className="inline inline-spread" style={{ marginBottom: "0.5rem" }}>
-                    <div className="inline">
-                      {client && <Avatar name={client.fullName} />}
-                      <div>
-                        <strong style={{ color: "var(--on-surface)" }}>{client?.fullName}</strong>
-                        <p className="muted text-sm" style={{ margin: 0 }}>{client?.goal}</p>
-                      </div>
+                <div key={alert.clientId} className="at-risk-row">
+                  <div className="at-risk-client-info">
+                    <div className="at-risk-avatar-wrap">
+                      <div className="at-risk-avatar">{initials}</div>
+                      <div className={`at-risk-avatar-dot ${dotClass}`}></div>
                     </div>
-                    <span className={`pill pill-${alert.severity === "high" ? "danger" : "warning"}`}>
-                      {alert.severity} risk
-                    </span>
+                    <div>
+                      <div className="at-risk-client-name">{client?.fullName}</div>
+                      <div className="at-risk-client-meta">Last activity: {alert.reasons[0]}</div>
+                    </div>
                   </div>
-                  <p className="text-sm" style={{ color: "var(--on-surface-variant)", marginBottom: "0.75rem" }}>
-                    {alert.reasons.join(" · ")}
-                  </p>
-                  <p className="text-sm muted" style={{ marginBottom: "0.75rem" }}>{alert.recommendedAction}</p>
-                  {client && (
-                    <div className="inline">
-                      <button className="secondary sm" onClick={() => onSimulateCheckIn(client.id)}>↩ Log recovery check-in</button>
-                      <button className="secondary sm" onClick={() => onMarkPayment(client.id)}>£ Mark payment recovered</button>
-                      <button className="ghost sm" onClick={() => onNav("portal")}>Open portal →</button>
+                  <div className="at-risk-actions">
+                    <div className="at-risk-status">
+                      <span className="at-risk-status-label">Status</span>
+                      <span className={`at-risk-status-badge ${badgeClass}`}>{badgeLabel}</span>
                     </div>
-                  )}
+                    {client && (
+                      <button className="at-risk-send-btn" onClick={() => onSimulateCheckIn(client.id)} title="Send nudge">
+                        <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>send</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
-            })}
+            }) : (
+              <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-muted)" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "2.5rem", display: "block", marginBottom: "0.75rem", color: "var(--primary)" }}>celebration</span>
+                <p style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.25rem" }}>No at-risk clients today!</p>
+                <p style={{ fontSize: "0.875rem" }}>All clients are on track. Check back tomorrow.</p>
+              </div>
+            )}
           </div>
         </div>
-      ) : (
-        <div className="panel">
-          <div className="empty-state">
-            <div className="empty-state-icon">🎉</div>
-            <p style={{ color: "var(--on-surface)", fontWeight: 600 }}>No at-risk clients today!</p>
-            <p className="muted text-sm">All clients are on track. Check back tomorrow.</p>
+
+        {/* Right: Side panels */}
+        <div className="side-panel">
+          {/* Upcoming */}
+          <div className="upcoming-card">
+            <h2 className="section-title" style={{ margin: "0 0 1.25rem" }}>Upcoming</h2>
+            {upcomingRenewals.length > 0 ? upcomingRenewals.map(sub => {
+              const client = clients.find(c => c.id === sub.clientId);
+              if (!client) return null;
+              return (
+                <div key={sub.id} className="upcoming-item upcoming-item--primary">
+                  <div className="upcoming-time">Renewal · {sub.renewalDate}</div>
+                  <div className="upcoming-title">{client.fullName}</div>
+                  <div className="upcoming-subtitle">{client.goal}</div>
+                </div>
+              );
+            }) : (
+              <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>No upcoming renewals.</p>
+            )}
+          </div>
+
+          {/* AI Insight */}
+          <div className="ai-insight-card">
+            <h4 className="ai-insight-title">Coach AI Insight</h4>
+            <p className="ai-insight-body">
+              {dashboard.atRiskClients.length > 0
+                ? `Based on recent activity, ${clients.find(c => c.id === dashboard.atRiskClients[0].clientId)?.fullName} may need a curriculum pivot to maintain momentum.`
+                : "Your clients are progressing well. No urgent action items detected."}
+            </p>
+            <button className="ai-insight-btn" onClick={() => push("Draft email ready — review in your outbox", "success")}>Generate Draft Email</button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -292,188 +347,454 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment }: {
 function ClientsView({ session, onOpenClient }: { session: CoachSession; onOpenClient: (id: string) => void }) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<ClientProfile[]>(session.clients);
 
-  const runSearch = async (e?: FormEvent) => {
-    e?.preventDefault();
-    setLoading(true);
-    try {
-      const q = new URLSearchParams();
-      if (search.trim()) q.set("search", search.trim());
-      if (filterStatus !== "all") q.set("status", filterStatus);
-      const suffix = q.toString() ? `?${q}` : "";
-      setResults(await fetchJson<ClientProfile[]>(`/clients${suffix}`));
-    } finally { setLoading(false); }
-  };
+  const filtered = useMemo(() => {
+    let list = session.clients;
+    if (filterStatus !== "all") list = list.filter(c => c.status === filterStatus);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(c =>
+        c.fullName.toLowerCase().includes(q) ||
+        c.goal.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [session.clients, filterStatus, search]);
 
-  useEffect(() => { setResults(session.clients); }, [session.clients]);
+  const activeClients = session.clients.filter(c => c.status === "active").length;
+  const avgAdherence = session.clients.length
+    ? Math.round(session.clients.reduce((s, c) => s + c.adherenceScore, 0) / session.clients.length)
+    : 0;
+  const mrr = session.subscriptions
+    .filter(s => s.status === "active")
+    .reduce((s, sub) => s + sub.amountGbp, 0);
+
+  const statusLabel = filterStatus === "all" ? "active high-performers"
+    : filterStatus === "active" ? "active clients"
+    : filterStatus === "at_risk" ? "at-risk clients"
+    : "trial clients";
 
   return (
     <div className="page-view">
-      <p className="eyebrow">All Clients</p>
-      <h1 className="page-title">Client Roster</h1>
-      <p className="page-subtitle">Search, filter and manage all your coaching clients.</p>
-
-      <div className="panel">
-        <form className="stack" onSubmit={runSearch}>
-          <div className="two-col">
-            <label>
-              Search
-              <div className="search-wrapper">
-                <span className="search-icon">⌕</span>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, email or goal…" />
-              </div>
-            </label>
-            <label>
-              Status
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                <option value="all">All statuses</option>
-                <option value="active">Active</option>
-                <option value="at_risk">At risk</option>
-                <option value="trial">Trial</option>
-              </select>
-            </label>
+      {/* Editorial header */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "2rem", gap: "1rem", flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontFamily: "Manrope, sans-serif", fontSize: "2.25rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: "0.35rem" }}>
+            Client Roster
+          </h1>
+          <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.875rem", color: "var(--on-surface-variant)", fontWeight: 500 }}>
+            Curating growth for {activeClients} {statusLabel}.
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          {/* Filter pills */}
+          <div style={{ display: "flex", background: "var(--surface-container)", borderRadius: "9999px", padding: "3px" }}>
+            {[
+              { key: "all", label: "All" },
+              { key: "active", label: "Active" },
+              { key: "at_risk", label: "At Risk" },
+            ].map(f => (
+              <button
+                key={f.key}
+                onClick={() => setFilterStatus(f.key)}
+                style={{
+                  padding: "0.4rem 1rem",
+                  borderRadius: "9999px",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
+                  transition: "all 0.15s ease",
+                  background: filterStatus === f.key ? "var(--surface-container-lowest)" : "transparent",
+                  color: filterStatus === f.key ? "var(--primary)" : "var(--on-surface-variant)",
+                  boxShadow: filterStatus === f.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
-          <div className="inline">
-            <button type="submit" disabled={loading}>{loading ? "Searching…" : "Search"}</button>
-            <button type="button" className="secondary" onClick={() => { setSearch(""); setFilterStatus("all"); setResults(session.clients); }}>Clear</button>
+          {/* Search */}
+          <div style={{ position: "relative" }}>
+            <span className="material-symbols-outlined" style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--outline)", fontSize: "1.1rem" }}>search</span>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search clients, goals…"
+              style={{
+                padding: "0.5rem 1rem 0.5rem 2.5rem",
+                borderRadius: "9999px",
+                border: "1.5px solid var(--border)",
+                background: "var(--bg-card)",
+                fontFamily: "Inter, sans-serif",
+                fontSize: "0.8rem",
+                color: "var(--text-primary)",
+                width: "220px",
+                outline: "none",
+                transition: "border-color 0.15s",
+              }}
+              onFocus={e => e.target.style.borderColor = "var(--primary)"}
+              onBlur={e => e.target.style.borderColor = "var(--border)"}
+            />
           </div>
-        </form>
+        </div>
       </div>
 
-      <div className="stack compact">
-        {results.length === 0 && <div className="empty-state"><div className="empty-state-icon">🔍</div><p>No clients found.</p></div>}
-        {results.map(client => (
-          <div key={client.id} className="client-card">
-            <div className="inline inline-spread">
-              <div className="inline">
-                <Avatar name={client.fullName} />
-                <div>
-                  <strong style={{ color: "var(--on-surface)" }}>{client.fullName}</strong>
-                  <p className="muted text-sm" style={{ margin: "0.15rem 0 0" }}>{client.goal}</p>
+      {/* Client cards grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.5rem", marginBottom: "3rem" }}>
+        {filtered.map(client => {
+          const initials = client.fullName.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
+          const adherenceColor = client.adherenceScore < 50 ? "var(--danger)"
+            : client.adherenceScore < 75 ? "var(--tertiary)"
+            : "var(--primary)";
+          const statusBadgeClass = client.status === "at_risk" ? "badge-danger"
+            : client.status === "trial" ? "badge-warning"
+            : "badge-success";
+          const statusLabel = client.status === "at_risk" ? "At Risk"
+            : client.status === "trial" ? "Trial" : "Active";
+          const avatarBg = client.status === "at_risk" ? "var(--danger-light)"
+            : client.status === "trial" ? "var(--tertiary-fixed)"
+            : "var(--primary-fixed-dim)";
+
+          return (
+            <div
+              key={client.id}
+              className="roster-card"
+              onClick={() => onOpenClient(client.id)}
+              style={{ cursor: "pointer" }}
+            >
+              {/* Card header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                  <div style={{ width: 56, height: 56, borderRadius: "var(--r-lg)", background: avatarBg, display: "grid", placeItems: "center", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: client.status === "at_risk" ? "var(--danger-text)" : client.status === "trial" ? "var(--on-tertiary-fixed-variant)" : "var(--primary)", flexShrink: 0 }}>
+                    {initials}
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", lineHeight: 1.2 }}>{client.fullName}</div>
+                    <span className={`at-risk-status-badge ${statusBadgeClass}`} style={{ marginTop: "0.25rem", display: "inline-block" }}>{statusLabel}</span>
+                  </div>
+                </div>
+                <div style={{ fontFamily: "Inter, sans-serif", fontWeight: 700, fontSize: "0.875rem", color: "var(--text-primary)", textAlign: "right" }}>
+                  £{client.monthlyPriceGbp}<span style={{ color: "var(--on-surface-variant)", fontWeight: 400 }}>/mo</span>
                 </div>
               </div>
-              <div className="inline">
-                <StatusPill status={client.status} />
-                <span className="muted text-sm">£{client.monthlyPriceGbp}/mo</span>
-                <button className="secondary sm" onClick={() => onOpenClient(client.id)}>Open →</button>
+
+              {/* Goal */}
+              <div style={{ marginBottom: "1rem" }}>
+                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.35rem" }}>Current Goal</div>
+                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--on-surface-variant)", fontWeight: 500, lineHeight: 1.4 }}>{client.goal}</div>
+              </div>
+
+              {/* Adherence bar */}
+              <div style={{ marginBottom: "1.5rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "0.4rem" }}>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Adherence</div>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: adherenceColor }}>{client.adherenceScore}%</div>
+                </div>
+                <div style={{ height: 6, background: "rgba(235,238,237,0.5)", borderRadius: "9999px", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${client.adherenceScore}%`, background: client.adherenceScore < 50 ? "var(--danger)" : client.adherenceScore < 75 ? `linear-gradient(90deg, var(--tertiary) 0%, var(--tertiary-container) 100%)` : "linear-gradient(90deg, var(--primary) 0%, var(--primary-container) 100%)", borderRadius: "9999px", transition: "width 0.6s cubic-bezier(0.34,1.56,0.64,1)" }} />
+                </div>
+              </div>
+
+              {/* Card footer */}
+              <div style={{ paddingTop: "1rem", borderTop: "1px solid var(--surface-container)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                {client.status === "at_risk" ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--danger)", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>warning</span>
+                    Needs attention
+                  </div>
+                ) : client.status === "trial" ? (
+                  <div style={{ color: "var(--on-surface-variant)", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 500 }}>Trial active</div>
+                ) : (
+                  <div style={{ color: "var(--on-surface-variant)", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 500 }}>On track</div>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 700 }}>
+                  Open Dashboard <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>arrow_forward</span>
+                </div>
               </div>
             </div>
-            <div style={{ marginTop: "1rem" }}>
-              <AdherenceBar score={client.adherenceScore} />
+          );
+        })}
+
+        {/* Onboard CTA */}
+        <div
+          onClick={() => onOpenClient("")}
+          style={{ borderRadius: "var(--r-xl)", padding: "1.5rem", border: "2px dashed var(--outline-variant)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem", cursor: "pointer", transition: "all 0.2s ease", minHeight: "220px", textAlign: "center" }}
+        >
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--surface-container)", display: "grid", placeItems: "center" }}>
+            <span className="material-symbols-outlined" style={{ fontSize: "1.5rem", color: "var(--primary)" }}>person_add</span>
+          </div>
+          <div>
+            <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)", marginBottom: "0.25rem" }}>Onboard New Client</div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--on-surface-variant)", maxWidth: "160px", margin: "0 auto" }}>Start a new coaching journey today.</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer stats */}
+      {filtered.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "3rem", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid var(--surface-container)", paddingTop: "2rem" }}>
+          <div style={{ display: "flex", gap: "3rem" }}>
+            <div>
+              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>Total Monthly Revenue</div>
+              <div style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em" }}>£{mrr}</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>Avg. Adherence</div>
+              <div style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.75rem", fontWeight: 800, color: avgAdherence < 60 ? "var(--warning)" : "var(--primary)", letterSpacing: "-0.04em" }}>{avgAdherence}%</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>Total Clients</div>
+              <div style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em" }}>{session.clients.length}</div>
             </div>
           </div>
-        ))}
-      </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--on-surface-variant)", fontWeight: 500 }}>
+              Showing {filtered.length} of {session.clients.length}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── PLANS VIEW ──────────────────────
-function PlansView({ session, onGenerate, onApprove }: {
-  session: CoachSession;
-  onGenerate: (clientId: string) => Promise<void>;
-  onApprove: (planId: string) => Promise<void>;
-}) {
-  const [generating, setGenerating] = useState<string | null>(null);
+// ── PLANS VIEW (AI Chat) ──────────────────────
+type ChatMessage = { id: number; role: "user" | "ai"; text: string };
 
-  const sorted = useMemo(() =>
-    [...session.clients].sort((a, b) => a.fullName.localeCompare(b.fullName)), [session.clients]);
+function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavId) => void }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const counter = useRef(0);
 
-  const handleGenerate = async (clientId: string) => {
-    setGenerating(clientId);
-    try { await onGenerate(clientId); } finally { setGenerating(null); }
+  const curations = [
+    {
+      title: "Create a meal plan",
+      desc: "Build a structured weekly nutrition program for your client",
+      icon: "restaurant",
+      tag: "Nutrition",
+      color: "#d1fae5",
+      iconColor: "#059669",
+    },
+    {
+      title: "Design 4-week fat loss plan",
+      desc: "Progressive overload program with cardio and nutrition targets",
+      icon: "fitness_center",
+      tag: "Training",
+      color: "#fef3c7",
+      iconColor: "#d97706",
+    },
+    {
+      title: "Analyze biometric trends",
+      desc: "Review client's progress photos, weight, and adherence scores",
+      icon: "show_chart",
+      tag: "Analytics",
+      color: "#e0e7ff",
+      iconColor: "#4f46e5",
+    },
+    {
+      title: "Draft a monthly check-in report",
+      desc: "Summarize progress, wins, and next steps for your client",
+      icon: "description",
+      tag: "Reporting",
+      color: "#fce7f3",
+      iconColor: "#db2777",
+    },
+  ];
+
+  const quickGoals = [
+    { label: "Current Focus", value: "Client Retention", accent: "#f97316" },
+    { label: "Weekly Goal", value: "12 New Plans", accent: "#008767" },
+    { label: "Open Tickets", value: "3", accent: "#4f46e5" },
+  ];
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim()) return;
+    const userMsg: ChatMessage = { id: ++counter.current, role: "user", text: text.trim() };
+    setMessages(m => [...m, userMsg]);
+    setInput("");
+    setIsTyping(true);
+
+    await new Promise(r => setTimeout(r, 1400));
+
+    const aiResponses = [
+      "I've analyzed your client roster and identified Marcus as a prime candidate for a progressive overload program. Based on his recent adherence scores, I'd recommend a 4-week mesocycle with incremental load increases of 2.5–5% weekly. Want me to draft the full plan?",
+      "Great question. For Ava's fat loss goal, I'm seeing consistent results over the past 6 weeks. Her current weekly calorie target of 1,800 kcal is well-calibrated. I can generate a refined meal plan with higher protein density if that aligns with your strategy.",
+      "I've cross-referenced the latest check-in data. 4 of your 7 active clients are showing suboptimal adherence this week — likely due to the holiday period. I'd suggest a targeted re-engagement sequence. Shall I draft personalized check-in templates for each?",
+      "Here's a structured monthly report for Marcus covering Week 1–4 of his transformation program. His body composition has shifted positively: -2.3kg body fat, +1.1kg lean mass. Adherence averaged 84%. Next phase recommendation: introduce deload week.",
+    ];
+
+    const aiMsg: ChatMessage = { id: ++counter.current, role: "ai", text: aiResponses[messages.length % aiResponses.length] };
+    setIsTyping(false);
+    setMessages(m => [...m, aiMsg]);
+  };
+
+  const handleCuration = (title: string) => {
+    sendMessage(`I want to ${title.toLowerCase()}. Can you help me build this?`);
   };
 
   return (
-    <div className="page-view">
-      <p className="eyebrow">AI Coaching Engine</p>
-      <h1 className="page-title">Adaptive Plans & Schedule</h1>
-      <p className="page-subtitle">AI drafts dynamic weekly calendars. You retain final approval before publishing to client apps.</p>
-
-      <div className="stack">
-        {sorted.map(client => {
-          const plan = session.plans.find(p => p.clientId === client.id);
-          const isGen = generating === client.id;
-          
-          return (
-            <div key={client.id} className="client-card">
-              <div className="inline inline-spread" style={{ marginBottom: "1rem" }}>
-                <div className="inline">
-                  <Avatar name={client.fullName} />
-                  <div>
-                    <strong style={{ color: "var(--on-surface)" }}>{client.fullName}</strong>
-                    <p className="muted text-sm" style={{ margin: "0.1rem 0 0" }}>{client.goal}</p>
-                  </div>
-                </div>
-                <StatusPill status={client.status} />
-              </div>
-
-              {plan ? (
-                <div>
-                  <div className="inline inline-spread" style={{ marginBottom: "1rem" }}>
-                    <strong style={{ color: "var(--on-surface)", fontSize: "1.05rem" }}>{plan.title}</strong>
-                    <div className="inline">
-                      <span className={`pill ${plan.latestVersion.status === "approved" ? "pill-success" : "pill-warning"}`}>
-                        {plan.latestVersion.status}
-                      </span>
-                      {plan.latestVersion.status === "draft" && (
-                        <button className="sm" onClick={() => onApprove(plan.id)}>✓ Approve Schedule</button>
-                      )}
-                      <button className="secondary sm" disabled={isGen} onClick={() => handleGenerate(client.id)}>
-                        {isGen ? <><span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Adapting…</> : "⚡ One-Tap Auto-Adjust"}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Adaptive AI Reasoning */}
-                  <div className="panel card-glass" style={{ marginBottom: "1.5rem", padding: "1.25rem 1.5rem" }}>
-                    <div className="inline" style={{ marginBottom: "0.5rem" }}>
-                      <span className="eyebrow" style={{ color: "var(--primary)" }}>AI Strategic Reasoning</span>
-                    </div>
-                    <p className="text-sm" style={{ color: "var(--on-surface)" }}>
-                      {plan.latestVersion.explanation.join(" ")}
-                      {!plan.latestVersion.explanation.length && "DeepSeek analysis: Client adherence dropped below optimal levels. Calories slightly adjusted to improve sustainability while maintaining progression."}
-                    </p>
-                  </div>
-
-                  {/* Calendar View */}
-                  <p className="eyebrow" style={{ marginBottom: "0.5rem" }}>Weekly Schedule</p>
-                  <div className="calendar-grid">
-                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, i) => {
-                      const workout = plan.latestVersion.workouts[i] || plan.latestVersion.workouts[i % plan.latestVersion.workouts.length];
-                      const meal = plan.latestVersion.nutrition[i] || plan.latestVersion.nutrition[i % plan.latestVersion.nutrition.length];
-                      
-                      return (
-                        <div key={day} className="calendar-day">
-                          <div className="calendar-day-header">{day}</div>
-                          <div className="calendar-day-content">
-                            {workout && <div className="calendar-item workout-item">💪 {workout}</div>}
-                            {meal && <div className="calendar-item nutrition-item">🥗 {meal}</div>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="inline">
-                  <button disabled={isGen} onClick={() => handleGenerate(client.id)}>
-                    {isGen ? <><span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Generating…</> : "⚡ Generate AI Schedule"}
-                  </button>
-                </div>
-              )}
+    <div className="page-view plans-chat-view">
+      {/* Main chat container */}
+      <div className="plans-chat-layout">
+        {/* Left: Chat Area */}
+        <div className="plans-chat-main">
+          {/* Header */}
+          <div className="plans-chat-header">
+            <div>
+              <h1 className="plans-chat-title">
+                Welcome to AuraCoach, Coach <span className="plans-name-highlight">{session.coach.firstName}</span>.
+              </h1>
+              <p className="plans-chat-subtitle">Your digital curator is ready. What shall we design today?</p>
             </div>
-          );
-        })}
+          </div>
+
+          {/* Messages Area */}
+          <div className="plans-messages">
+            {messages.length === 0 && (
+              <div className="plans-empty-hint">
+                <span className="material-symbols-outlined plans-empty-icon">psychology</span>
+                <p>Ask me anything about meal plans, workouts, biometrics, or client strategy.</p>
+              </div>
+            )}
+            {messages.map(msg => (
+              <div key={msg.id} className={`plans-msg plans-msg--${msg.role}`}>
+                {msg.role === "ai" && (
+                  <div className="plans-msg-avatar">
+                    <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+                      <circle cx="14" cy="14" r="14" fill="#008767"/>
+                      <path d="M8 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                      <path d="M14 8v2M14 18v2M8 14H6M22 14h-2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                )}
+                <div className="plans-msg-bubble">
+                  {msg.text}
+                </div>
+                {msg.role === "user" && (
+                  <div className="plans-msg-avatar plans-msg-avatar--user">
+                    {session.coach.firstName[0]}{session.coach.lastName[0]}
+                  </div>
+                )}
+              </div>
+            ))}
+            {isTyping && (
+              <div className="plans-msg plans-msg--ai">
+                <div className="plans-msg-avatar">
+                  <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
+                    <circle cx="14" cy="14" r="14" fill="#008767"/>
+                    <path d="M8 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M14 8v2M14 18v2M8 14H6M22 14h-2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div className="plans-msg-bubble plans-msg-bubble--typing">
+                  <span className="plans-typing-dot"></span>
+                  <span className="plans-typing-dot"></span>
+                  <span className="plans-typing-dot"></span>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Bar */}
+          <div className="plans-input-area">
+            <div className="plans-input-card">
+              <div className="plans-input-icon">
+                <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
+                  <circle cx="14" cy="14" r="14" fill="#008767"/>
+                  <path d="M8 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M14 8v2M14 18v2M8 14H6M22 14h-2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <input
+                type="text"
+                className="plans-input"
+                placeholder="How can Aura AI help you today?"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && sendMessage(input)}
+              />
+              <button
+                className="plans-ask-btn"
+                onClick={() => sendMessage(input)}
+                disabled={!input.trim() || isTyping}
+              >
+                Ask
+                <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>arrow_forward</span>
+              </button>
+            </div>
+
+            {/* Suggested Curations */}
+            <div className="plans-curations">
+              <p className="plans-curations-label">Suggested Curations</p>
+              <div className="plans-curations-grid">
+                {curations.map(c => (
+                  <button key={c.title} className="plans-curation-card" onClick={() => handleCuration(c.title)}>
+                    <div className="plans-curation-icon-wrap" style={{ background: c.color }}>
+                      <span className="material-symbols-outlined" style={{ color: c.iconColor, fontSize: "1.25rem" }}>{c.icon}</span>
+                    </div>
+                    <div className="plans-curation-text">
+                      <span className="plans-curation-tag" style={{ color: c.iconColor }}>{c.tag}</span>
+                      <p className="plans-curation-title">{c.title}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Goals Sidebar */}
+        <div className="plans-sidebar">
+          <div className="plans-sidebar-card">
+            <h3 className="plans-sidebar-title">Current Session</h3>
+            {quickGoals.map(item => (
+              <div key={item.label} className="plans-goal-item">
+                <div className="plans-goal-accent" style={{ background: item.accent }}></div>
+                <div className="plans-goal-body">
+                  <span className="plans-goal-label">{item.label}</span>
+                  <span className="plans-goal-value">{item.value}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="plans-sidebar-card">
+            <h3 className="plans-sidebar-title">Active Clients</h3>
+            {session.clients.slice(0, 5).map(client => (
+              <div key={client.id} className="plans-client-item">
+                <div className="plans-client-avatar">{client.fullName.split(" ").map(p => p[0]).slice(0, 2).join("")}</div>
+                <div>
+                  <p className="plans-client-name">{client.fullName}</p>
+                  <p className="plans-client-goal">{client.goal}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Tagline */}
+      <div className="plans-footer">
+        <div className="plans-footer-line"></div>
+        <p className="plans-footer-text">Empowering Human Coaching with Intelligence</p>
+        <div className="plans-footer-line"></div>
       </div>
     </div>
   );
 }
 
 // ── CLIENT PORTAL VIEW ──────────────────────
-function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, onCheckIn, onSaveEdits, onSendMessage, onRefreshProof, checkInHistory, onNav }: {
+function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, onCheckIn, onSaveEdits, onSendMessage, onRefreshProof, onApprove, checkInHistory, onNav, push }: {
   session: CoachSession;
   clientPortal: ClientSession | null;
   selectedClientId: string | null;
@@ -482,16 +803,31 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
   onSaveEdits: (draft: ClientProfilePatch) => Promise<void>;
   onSendMessage: (content: string) => Promise<void>;
   onRefreshProof: (clientId: string) => Promise<void>;
+  onApprove: (planId: string) => Promise<void>;
   checkInHistory: CheckInWithDelta[];
   onNav: (id: NavId) => void;
+  push: (message: string, type?: "success"|"error"|"info") => void;
 }) {
   const sorted = useMemo(() =>
     [...session.clients].sort((a, b) => a.fullName.localeCompare(b.fullName)), [session.clients]);
 
   const [editDraft, setEditDraft] = useState<ClientProfilePatch>({});
   const [msgDraft, setMsgDraft] = useState("");
-  const [activeTab, setActiveTab] = useState<"plan"|"edit"|"messages"|"proof"|"history">("plan");
+  const [activeTab, setActiveTab] = useState<"plan"|"meal"|"workout"|"messages"|"history">("plan");
   const feedRef = useRef<HTMLDivElement>(null);
+
+  // Meal Planner state
+  const [mealWeekOffset, setMealWeekOffset] = useState(0);
+  const [editingMeal, setEditingMeal] = useState<{ day: string; slot: string } | null>(null);
+  const [showArchitect, setShowArchitect] = useState(true);
+
+  // Workout Plan state
+  const [workoutExercises, setWorkoutExercises] = useState([
+    { id: 1, name: "Jumping Jacks", tag: "Metabolic / Plyometric", sets: "3 Sets of 50", duration: "60 Seconds", advanced: "" },
+    { id: 2, name: "High Knees", tag: "Agility / Power", sets: "Per Set: 30", duration: "45 Seconds", advanced: "Ankle Weights 1kg" },
+    { id: 3, name: "Butt Kicks", tag: "Metabolic / Warmup", sets: "Fixed: 40", duration: "30 Seconds", advanced: "" },
+  ]);
+  const [workoutDiscarded, setWorkoutDiscarded] = useState(false);
 
   useEffect(() => {
     if (clientPortal) {
@@ -515,129 +851,658 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
     setMsgDraft("");
   };
 
+  const adherenceColor = (clientPortal?.client.adherenceScore ?? 0) < 50 ? "var(--danger)"
+    : (clientPortal?.client.adherenceScore ?? 0) < 75 ? "var(--warning)" : "var(--primary)";
+
+  const initials = clientPortal?.client.fullName.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase() ?? "";
+
+  const tabItems = [
+    { key: "plan" as const, label: "Overview" },
+    { key: "meal" as const, label: "AI Meal Planning" },
+    { key: "workout" as const, label: "AI Workout Plan" },
+    { key: "messages" as const, label: "Messages", badge: clientPortal?.messages?.length ?? 0 },
+    { key: "history" as const, label: "History" },
+  ];
+
+  // Parse macro values from nutrition strings (e.g. "Protein floor: 135g")
+  const macros = useMemo(() => {
+    if (!clientPortal?.plan) return null;
+    const items = clientPortal.plan.latestVersion.nutrition;
+    const calMatch = items.find(i => /calor/i.test(i))?.match(/(\d+)/);
+    const protMatch = items.find(i => /protein/i.test(i))?.match(/(\d+)/);
+    const fatMatch = items.find(i => /\bfat\b/i.test(i) && !/calor/i.test(i))?.match(/(\d+)/);
+    const carbMatch = items.find(i => /carb/i.test(i))?.match(/(\d+)/);
+    return {
+      calories: calMatch ? Number(calMatch[1]) : 2150,
+      proteinG: protMatch ? Number(protMatch[1]) : 150,
+      fatG: fatMatch ? Number(fatMatch[1]) : 50,
+      carbsG: carbMatch ? Number(carbMatch[1]) : 60,
+    };
+  }, [clientPortal?.plan]);
+
   return (
     <div className="page-view">
-      <p className="eyebrow">Client Portal</p>
-      <h1 className="page-title">Client View</h1>
-      <p className="page-subtitle">Manage plans, check-ins, messages and proof cards for each client.</p>
-
-      {/* Client selector */}
-      <div className="client-selector-header">
-        <label style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: "0.75rem" }}>
-          <span style={{ whiteSpace: "nowrap", fontSize: "0.85rem", fontWeight: 600 }}>Select client</span>
-          <select value={selectedClientId ?? ""} onChange={e => onSwitchClient(e.target.value)} style={{ flex: 1 }}>
-            {sorted.map(c => <option key={c.id} value={c.id}>{c.fullName} — {c.status}</option>)}
-          </select>
-        </label>
-        {clientPortal && (
-          <button onClick={() => onCheckIn(clientPortal.client.id)}>↩ Submit check-in</button>
-        )}
-        {clientPortal && (
-          <button className="ghost" onClick={() => onNav("clientApp")}>📱 Preview Client App</button>
-        )}
-      </div>
-
       {!clientPortal ? (
-        <div className="empty-state"><div className="empty-state-icon">💁</div><p>Select a client above to open their portal.</p></div>
+        <div className="empty-state">
+          <span className="material-symbols-outlined" style={{ fontSize: "3rem", display: "block", marginBottom: "1rem", color: "var(--primary)" }}>group</span>
+          <p style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)" }}>No client selected</p>
+          <p style={{ fontSize: "0.875rem" }}>Choose a client from the dropdown above to open their portal.</p>
+        </div>
       ) : (
-        <div>
-          {/* Client header */}
-          <div className="panel" style={{ marginBottom: "1rem" }}>
-            <div className="inline inline-spread">
-              <div className="inline">
-                <Avatar name={clientPortal.client.fullName} />
-                <div>
-                  <h2 style={{ fontSize: "1.1rem" }}>{clientPortal.client.fullName}</h2>
-                  <p className="muted text-sm">{clientPortal.client.goal}</p>
+        <>
+          {/* CLIENT HEADER */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1.75rem", gap: "1.5rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "1.75rem" }}>
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <div style={{ width: 80, height: 80, borderRadius: "var(--r-xl)", background: "var(--surface-container)", border: "2px solid var(--surface-container-high)", display: "grid", placeItems: "center", fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.5rem", color: "var(--primary)", transform: "rotate(3deg)", boxShadow: "var(--shadow-editorial)" }}>
+                  {initials}
+                </div>
+                <div style={{ position: "absolute", bottom: -8, right: -8, width: 28, height: 28, background: "var(--primary)", borderRadius: "50%", display: "grid", placeItems: "center", border: "3px solid var(--bg-page)" }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: "white", fontWeight: 700 }}>verified</span>
                 </div>
               </div>
-              <div className="inline">
-                <StatusPill status={clientPortal.client.status} />
-                <span className="muted text-sm">£{clientPortal.client.monthlyPriceGbp}/mo</span>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.35rem", flexWrap: "wrap" }}>
+                  <h1 style={{ fontFamily: "Manrope, sans-serif", fontSize: "2.25rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em", lineHeight: 1.1 }}>
+                    {clientPortal.client.fullName}
+                  </h1>
+                  <span style={{ padding: "0.2rem 0.65rem", background: "var(--surface-container)", color: "var(--on-surface-variant)", borderRadius: "9999px", fontFamily: "Inter, sans-serif", fontSize: "0.55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    Premium Member
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", color: "var(--on-surface-variant)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary)" }}>calendar_today</span>
+                    Joined {new Date(clientPortal.client.nextRenewalDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", color: "var(--on-surface-variant)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary)" }}>location_on</span>
+                    {clientPortal.client.email.split("@")[1]?.replace(".com", "").replace("example", "SF") ?? "San Francisco"}
+                  </div>
+                </div>
               </div>
             </div>
-            <div style={{ marginTop: "1rem" }}>
-              <AdherenceBar score={clientPortal.client.adherenceScore} />
+            <div style={{ background: "var(--surface-container)", borderRadius: "2rem", padding: "1.25rem 1.75rem", minWidth: 280 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Client Adherence</span>
+                <span style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.5rem", fontWeight: 800, color: adherenceColor }}>{clientPortal.client.adherenceScore}%</span>
+              </div>
+              <div style={{ height: 8, background: "rgba(255,255,255,0.5)", borderRadius: "9999px", overflow: "hidden", marginBottom: "0.5rem" }}>
+                <div style={{ height: "100%", width: `${clientPortal.client.adherenceScore}%`, background: "var(--primary)", borderRadius: "9999px", transition: "width 0.6s cubic-bezier(0.34,1.56,0.64,1)" }} />
+              </div>
+              <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", color: "var(--outline)", textAlign: "center", lineHeight: 1.5 }}>
+                {clientPortal.client.adherenceScore >= 85
+                  ? `${clientPortal.client.fullName.split(" ")[0]} is progressing excellently in all targets.`
+                  : clientPortal.client.adherenceScore >= 60
+                  ? `${clientPortal.client.fullName.split(" ")[0]} is on track but needs a push on mobility sessions.`
+                  : `${clientPortal.client.fullName.split(" ")[0]} may need a curriculum pivot to maintain momentum.`}
+              </p>
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="tabs">
-            {(["plan","edit","messages","proof","history"] as const).map(t => (
-              <button key={t} className={`tab${activeTab === t ? " active" : ""}`} onClick={() => setActiveTab(t)}>
-                {t === "plan" ? "📋 Plan" : t === "edit" ? "✏ Edit" : t === "messages" ? `💬 Messages ${clientPortal.messages?.length ? `(${clientPortal.messages.length})` : ""}` : t === "proof" ? "🏆 Proof Card" : "📊 History"}
+          {/* ACTION BAR */}
+          <div className="portal-action-bar">
+            <div className="portal-action-bar-left">
+              <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", fontWeight: 700, color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Active View:</span>
+              <select
+                className="portal-client-select"
+                value={selectedClientId ?? ""}
+                onChange={e => onSwitchClient(e.target.value)}
+              >
+                {sorted.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: "0.6rem" }}>
+              <button onClick={() => onCheckIn(clientPortal.client.id)} style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.55rem 1.25rem", borderRadius: "9999px", border: "none", background: "linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 700, color: "white", cursor: "pointer", boxShadow: "0 4px 16px rgba(0,135,103,0.25)", transition: "all 0.15s ease" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>check_circle</span>
+                Submit Check-in
+              </button>
+            </div>
+          </div>
+
+          {/* TAB NAVIGATION */}
+          <div className="portal-tab-row">
+            {tabItems.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`portal-tab-btn${activeTab === t.key ? " portal-tab-btn--active" : ""}`}
+              >
+                {t.label}
+                {t.badge ? (
+                  <span className="portal-tab-badge">{t.badge}</span>
+                ) : null}
               </button>
             ))}
           </div>
 
-          {/* Tab panels */}
+          {/* OVERVIEW TAB */}
           {activeTab === "plan" && (
             <div>
               {clientPortal.plan ? (
-                <div>
-                  <div className="inline inline-spread" style={{ marginBottom: "1rem" }}>
-                    <strong style={{ color: "var(--on-surface)" }}>{clientPortal.plan.title}</strong>
-                    <span className={`pill ${clientPortal.plan.latestVersion.status === "approved" ? "pill-success" : "pill-warning"}`}>
-                      {clientPortal.plan.latestVersion.status}
-                    </span>
-                  </div>
-                  <div className="plan-grid">
-                    <div className="plan-box">
-                      <h4>💪 Workouts</h4>
-                      <ul>{clientPortal.plan.latestVersion.workouts.map(w => <li key={w}>{w}</li>)}</ul>
+                <>
+                  <div className="portal-dashboard-row">
+                    <div className="portal-goal-card">
+                      <div className="portal-goal-header">
+                        <div>
+                          <div className="portal-goal-title">Primary Goal</div>
+                          <div className="portal-goal-text">{clientPortal.client.goal}</div>
+                        </div>
+                        <span className="material-symbols-outlined" style={{ color: "var(--primary)", fontSize: "1.5rem" }}>track_changes</span>
+                      </div>
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+                          <span>Current Progress</span>
+                          <span style={{ color: "var(--primary)" }}>
+                            {checkInHistory.length > 0
+                              ? `${(checkInHistory.reduce((s, c) => s + (c.weightDelta ?? 0), 0)).toFixed(1)}kg lost`
+                              : "Tracking started"}
+                          </span>
+                        </div>
+                        <div style={{ height: 10, background: "var(--surface-container)", borderRadius: "9999px", overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${Math.min(clientPortal.client.adherenceScore, 100)}%`, background: "linear-gradient(90deg, var(--primary) 0%, var(--primary-container) 100%)", borderRadius: "9999px" }} />
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: "0.4rem" }}>
+                          <span>Month 1</span><span>Month 3</span><span>Month 5</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="plan-box">
-                      <h4>🥗 Nutrition</h4>
-                      <ul>{clientPortal.plan.latestVersion.nutrition.map(n => <li key={n}>{n}</li>)}</ul>
+
+                    <div className="portal-health-card">
+                      <div className="portal-health-header">
+                        <span className="material-symbols-outlined" style={{ color: "var(--tertiary)", fontSize: "1.1rem" }}>medical_services</span>
+                        <h4>Health &amp; Considerations</h4>
+                      </div>
+                      <div>
+                        <div className="portal-health-item">
+                          <div className="portal-health-item-label">Managing Type 2 Diabetes</div>
+                          <div className="portal-health-item-desc">Monitoring glucose levels pre/post activity.</div>
+                        </div>
+                        <div className="portal-health-item" style={{ borderLeftColor: "var(--outline)" }}>
+                          <div className="portal-health-item-label">Low-impact focus</div>
+                          <div className="portal-health-item-desc">Limit high-intensity bursts to protect joint integrity.</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  {/* Nutrition Swap Agent */}
-                  <NutritionSwapAgent
-                    planId={clientPortal.plan.id}
-                    planNutrition={clientPortal.plan.latestVersion.nutrition}
-                  />
-                </div>
+
+                  <div className="portal-dashboard-row">
+                    <div className="portal-nutrition-card">
+                      <div className="portal-nutrition-header">
+                        <h4>Nutrition Strategy</h4>
+                        <span className="portal-plan-badge">Active Plan</span>
+                      </div>
+                      <div className="portal-macro-grid">
+                        <div className="portal-macro-chip">
+                          <div className="portal-macro-label">Calories</div>
+                          <div className="portal-macro-value">{macros?.calories}</div>
+                          <div className="portal-macro-unit">KCAL</div>
+                        </div>
+                        <div className="portal-macro-chip">
+                          <div className="portal-macro-label">Protein</div>
+                          <div className="portal-macro-value" style={{ color: "var(--text-primary)" }}>{macros?.proteinG}g</div>
+                          <div className="portal-macro-unit">40% Target</div>
+                        </div>
+                        <div className="portal-macro-chip">
+                          <div className="portal-macro-label">Fats</div>
+                          <div className="portal-macro-value" style={{ color: "var(--text-primary)" }}>{macros?.fatG}g</div>
+                          <div className="portal-macro-unit">30% Target</div>
+                        </div>
+                        <div className="portal-macro-chip">
+                          <div className="portal-macro-label">Carbs</div>
+                          <div className="portal-macro-value" style={{ color: "var(--text-primary)" }}>{macros?.carbsG}g</div>
+                          <div className="portal-macro-unit">30% Target</div>
+                        </div>
+                      </div>
+                      <div className="portal-coach-note">
+                        <span className="material-symbols-outlined portal-coach-note-icon">tips_and_updates</span>
+                        <div className="portal-coach-note-text">
+                          <strong>Coach's Note:</strong> Focus on complex carbohydrates from fibrous vegetables to maintain stable blood sugar levels.
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="portal-workouts-card" style={{ marginBottom: "1rem" }}>
+                        <div className="portal-workouts-header">
+                          <h4>Workouts</h4>
+                          <div style={{ background: "rgba(0,135,103,0.1)", borderRadius: "var(--r-lg)", padding: "0.4rem", display: "grid", placeItems: "center" }}>
+                            <span className="material-symbols-outlined" style={{ color: "var(--primary)", fontSize: "1rem" }}>fitness_center</span>
+                          </div>
+                        </div>
+                        <div>
+                          {clientPortal.plan.latestVersion.workouts.map((w, i) => (
+                            <div key={i} className="portal-workout-item">
+                              <div className={`portal-workout-dot${i > 0 ? " portal-workout-dot--dim" : ""}`} />
+                              <div>
+                                <div className="portal-workout-name">{w.split("(")[0].trim()}</div>
+                                {w.includes("(") && (
+                                  <div className="portal-workout-meta">{w.match(/\([^)]+\)/)?.[0].replace(/[()]/g, "")}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ marginTop: "1rem", paddingTop: "0.875rem", borderTop: "1px solid var(--surface-container)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", color: "var(--on-surface-variant)" }}>{clientPortal.plan.title}</span>
+                          <span style={{ background: clientPortal.plan.latestVersion.status === "approved" ? "var(--success-light)" : "var(--warning-light)", color: clientPortal.plan.latestVersion.status === "approved" ? "var(--success-text)" : "var(--warning-text)", padding: "0.15rem 0.6rem", borderRadius: "9999px", fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, textTransform: "capitalize" }}>
+                            {clientPortal.plan.latestVersion.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="portal-lifestyle-grid">
+                        <div className="portal-lifestyle-card">
+                          <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--primary-container)" }}>water_drop</span>
+                          <div>
+                            <div className="portal-lifestyle-label">Water Intake</div>
+                            <div className="portal-lifestyle-value">3.5L</div>
+                          </div>
+                          <div className="portal-lifestyle-progress">
+                            <div className="portal-lifestyle-progress-fill" style={{ width: "85%" }} />
+                          </div>
+                        </div>
+                        <div className="portal-lifestyle-card">
+                          <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--tertiary-fixed)" }}>footprint</span>
+                          <div>
+                            <div className="portal-lifestyle-label">Daily Steps</div>
+                            <div className="portal-lifestyle-value">8,000</div>
+                          </div>
+                          <div className="portal-lifestyle-target">Target: 10,000</div>
+                        </div>
+                        <div className="portal-lifestyle-card portal-lifestyle-card--wide">
+                          <div className="portal-supplements-header">
+                            <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--tertiary)" }}>pill</span>
+                            <h4>Supplements</h4>
+                          </div>
+                          <div className="portal-supplement-pills">
+                            {["Vitamin D3", "Omega-3", "Magnesium"].map(s => (
+                              <span key={s} className="portal-supplement-pill">{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : (
-                <div className="empty-state"><div className="empty-state-icon">📋</div><p>No approved plan yet. Generate one in AI Plans.</p></div>
+                <div className="empty-state">
+                  <span className="material-symbols-outlined" style={{ fontSize: "3rem", display: "block", marginBottom: "1rem", color: "var(--primary)" }}>library_books</span>
+                  <p style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)" }}>No approved plan yet</p>
+                  <p style={{ fontSize: "0.875rem" }}>Generate one in AI Plans to get started.</p>
+                </div>
               )}
             </div>
           )}
 
-          {activeTab === "edit" && (
-            <div className="panel">
-              <form className="stack" onSubmit={async e => { e.preventDefault(); await onSaveEdits(editDraft); }}>
-                <div className="two-col">
-                  <label>Goal
-                    <textarea value={editDraft.goal ?? ""} onChange={e => setEditDraft(d => ({ ...d, goal: e.target.value }))} />
-                  </label>
-                  <div className="stack">
-                    <label>Status
-                      <select value={editDraft.status ?? "active"} onChange={e => setEditDraft(d => ({ ...d, status: e.target.value as ClientProfile["status"] }))}>
-                        <option value="active">Active</option>
-                        <option value="at_risk">At risk</option>
-                        <option value="trial">Trial</option>
-                      </select>
-                    </label>
-                    <label>Monthly price (£)
-                      <input type="number" value={editDraft.monthlyPriceGbp ?? 0} onChange={e => setEditDraft(d => ({ ...d, monthlyPriceGbp: Number(e.target.value) }))} />
-                    </label>
-                    <label>Next renewal date
-                      <input type="date" value={editDraft.nextRenewalDate ?? ""} onChange={e => setEditDraft(d => ({ ...d, nextRenewalDate: e.target.value }))} />
-                    </label>
+          {/* AI MEAL PLANNING TAB */}
+          {activeTab === "meal" && (
+            <div className="meal-planner">
+              <div className="meal-planner-grid">
+                <div className="meal-planner-header">
+                  <div>
+                    <div className="meal-planner-title">Weekly Meal Planner</div>
+                    <div className="meal-week-nav">
+                      <div className="meal-week-label">
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary)" }}>calendar_today</span>
+                        Oct 23 – Oct 29, 2023
+                      </div>
+                      <button className="meal-week-nav-btn" onClick={() => setMealWeekOffset(o => o - 1)}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>chevron_left</span>
+                      </button>
+                      <button className="meal-week-nav-btn" onClick={() => setMealWeekOffset(o => o + 1)}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>chevron_right</span>
+                      </button>
+                    </div>
                   </div>
+                  <button className="meal-save-btn" onClick={() => { push("Meal plan saved and assigned to " + (clientPortal?.client.fullName ?? "client")); setEditingMeal(null); }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle", marginRight: "0.35rem" }}>check_circle</span>
+                    Save &amp; Assign
+                  </button>
                 </div>
-                <div className="inline">
-                  <button type="submit">Save changes</button>
+
+                <div className="meal-calendar">
+                  {/* Helper to render a day column */}
+                  {[
+                    { name: "Mon", date: 23, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 1350,
+                      meals: [
+                        { slot: "Breakfast", name: "Greek Yogurt with Berries", cal: 320, protein: 24, cheat: false },
+                        { slot: "Lunch", name: "Grilled Salmon Salad", cal: 480, protein: 38, cheat: false },
+                        { slot: "Snacks", name: "Almonds & Apple", cal: 210, protein: 6, cheat: false },
+                        { slot: "Dinner", name: "Sesame Tofu Stir-fry", cal: 540, protein: 22, cheat: false },
+                      ],
+                      cheatMeal: { name: "Classic Burger", cal: 850, protein: 28 }
+                    },
+                    { name: "Tue", date: 24, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 1680,
+                      meals: [
+                        { slot: "Breakfast", name: "Oatmeal with Banana", cal: 380, protein: 12, cheat: false },
+                        { slot: "Lunch", name: "Chicken Quinoa Bowl", cal: 520, protein: 42, cheat: false },
+                        { slot: "Snacks", name: "Greek Yogurt", cal: 150, protein: 15, cheat: false },
+                        { slot: "Dinner", name: "Baked Cod & Asparagus", cal: 430, protein: 40, cheat: false },
+                      ],
+                      cheatMeal: null
+                    },
+                    { name: "Wed", date: 25, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 1920,
+                      meals: [
+                        { slot: "Breakfast", name: "Avocado Toast & Eggs", cal: 450, protein: 20, cheat: false },
+                        { slot: "Lunch", name: "Turkey & Hummus Wrap", cal: 490, protein: 35, cheat: false },
+                        { slot: "Snacks", name: "Mixed Nuts & Dates", cal: 280, protein: 8, cheat: false },
+                        { slot: "Dinner", name: "Lean Beef Stir-fry", cal: 580, protein: 45, cheat: false },
+                      ],
+                      cheatMeal: { name: "Margherita Pizza", cal: 900, protein: 32 }
+                    },
+                    { name: "Thu", date: 26, isToday: true, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 1120,
+                      meals: [
+                        { slot: "Breakfast", name: "Protein Smoothie Bowl", cal: 340, protein: 30, cheat: false },
+                        { slot: "Lunch", name: "Tuna Nicoise Salad", cal: 420, protein: 40, cheat: false },
+                        { slot: "Snacks", name: "Rice Cakes & Almond Butter", cal: 180, protein: 5, cheat: false },
+                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
+                      ],
+                      cheatMeal: null
+                    },
+                    { name: "Fri", date: 27, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
+                      meals: [
+                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
+                      ],
+                      cheatMeal: null
+                    },
+                    { name: "Sat", date: 28, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
+                      meals: [
+                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
+                      ],
+                      cheatMeal: null
+                    },
+                    { name: "Sun", date: 29, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
+                      meals: [
+                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
+                      ],
+                      cheatMeal: null
+                    },
+                  ].map((day) => {
+                    const proteinPct = Math.round((day.proteinTarget / day.proteinTarget) * 100);
+                    const carbsPct = Math.round((day.carbsTarget / day.carbsTarget) * 100);
+                    const fatPct = Math.round((day.fatTarget / day.fatTarget) * 100);
+                    const calPct = Math.round((day.calCurrent / day.calTarget) * 100);
+
+                    return (
+                      <div key={day.name} className="meal-day-col">
+                        {/* Day header */}
+                        <div className="meal-day-header">
+                          <div className={`meal-day-name${day.isToday ? " meal-day-name--today" : ""}`}>{day.name}</div>
+                          <div className="meal-day-date">{day.date}</div>
+                        </div>
+
+                        {/* Daily totals card */}
+                        <div className="meal-daily-total">
+                          <div className="meal-daily-total-header">
+                            <span className="meal-daily-total-label">Daily Total</span>
+                            <span className="meal-daily-total-cal">{day.calCurrent > 0 ? `${(day.calCurrent / 1000).toFixed(1)}k` : "0"} cal</span>
+                          </div>
+                          <div className="meal-daily-bar">
+                            <div className="meal-daily-bar-fill" style={{ width: `${Math.min(calPct, 100)}%` }} />
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
+                            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.04em" }}>P / C / F</span>
+                            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--text-primary)" }}>
+                              {day.proteinTarget}g · {day.carbsTarget}g · {day.fatTarget}g
+                            </span>
+                          </div>
+                          <div className="meal-macro-mini-bars">
+                            <div className="meal-macro-mini-bar">
+                              <div className="meal-macro-mini-bar-fill meal-macro-mini-bar-fill--protein" style={{ width: `${Math.min(proteinPct, 100)}%` }} />
+                            </div>
+                            <div className="meal-macro-mini-bar">
+                              <div className="meal-macro-mini-bar-fill meal-macro-mini-bar-fill--carbs" style={{ width: `${Math.min(carbsPct, 100)}%` }} />
+                            </div>
+                            <div className="meal-macro-mini-bar">
+                              <div className="meal-macro-mini-bar-fill meal-macro-mini-bar-fill--fat" style={{ width: `${Math.min(fatPct, 100)}%` }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Meal slots */}
+                        {day.meals.map((meal) => (
+                          <div key={meal.slot}>
+                            <div className="meal-slot-label">{meal.slot}</div>
+                            {meal.name === "—" ? (
+                              <button className="meal-add-btn" title={`Add ${meal.slot}`} onClick={() => setEditingMeal({ day: day.name, slot: meal.slot })}>
+                                <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>add</span>
+                              </button>
+                            ) : (
+                              <div className="meal-item-card">
+                                <button className="meal-item-edit" title="Edit meal" onClick={() => setEditingMeal({ day: day.name, slot: meal.slot })}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>edit</span>
+                                </button>
+                                <div className="meal-item-name">{meal.name}</div>
+                                <div className="meal-item-cal">{meal.cal} kcal · {meal.protein}g P</div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Cheat meal */}
+                        {day.cheatMeal ? (
+                          <>
+                            <div className="meal-slot-label meal-slot-label--cheat">Cheat Meal</div>
+                            <div className="meal-item-card meal-item-card--cheat">
+                              <button className="meal-item-edit" title="Edit" onClick={() => setEditingMeal({ day: day.name, slot: "Cheat Meal" })}>
+                                <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>edit</span>
+                              </button>
+                              <div className="meal-item-name">{day.cheatMeal.name}</div>
+                              <div className="meal-item-cal meal-item-cal--cheat">{day.cheatMeal.cal} kcal · {day.cheatMeal.protein}g P</div>
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
-              </form>
+              </div>
+
+              {/* Meal Architect floating sidebar */}
+              {showArchitect ? (
+              <div className="meal-architect">
+                <div className="meal-architect-label">Meal Architect</div>
+                <div className="meal-architect-actions">
+                  <button className="meal-architect-btn" onClick={() => { push("AI generating personalized meal plan for this week...", "info"); onNav("plans"); }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem", fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                    <span>AI Generate</span>
+                  </button>
+                  <button className="meal-architect-btn" onClick={() => { push("Opening Smart Swap — managing nutrition swaps in Habits", "info"); onNav("habits"); }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>swap_horiz</span>
+                    <span>Smart Swap</span>
+                  </button>
+                  <button className="meal-architect-btn" onClick={() => { push("Select a day and meal slot in the calendar to add a meal"); }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>restaurant_menu</span>
+                    <span>Add Meal</span>
+                  </button>
+                  <button className="meal-architect-btn" onClick={() => { push("Macro targets saved — 150g protein, 210g carbs, 58g fat per day", "success"); }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>tune</span>
+                    <span>Macro Setup</span>
+                  </button>
+                </div>
+                <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%", padding: "0 0.5rem" }}>
+                  <button className="meal-architect-btn" style={{ justifyContent: "center" }} onClick={() => setShowArchitect(false)}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>chevron_left</span>
+                  </button>
+                </div>
+              </div>
+              ) : (
+              <button className="meal-architect-btn" style={{ alignSelf: "flex-start", width: "48px", height: "48px", borderRadius: "14px" }} onClick={() => setShowArchitect(true)} title="Show Meal Architect">
+                <span className="material-symbols-outlined" style={{ fontSize: "1.1rem" }}>chevron_right</span>
+              </button>
+              )}
             </div>
           )}
 
+          {/* AI WORKOUT PLAN TAB */}
+          {activeTab === "workout" && (
+            <div>
+              <div className="workout-designer">
+                {/* Exercise Library Sidebar */}
+                <div className="workout-library-sidebar">
+                  <div>
+                    <div className="workout-library-title">Exercise Library</div>
+                    <div className="workout-library-subtitle">Drag to sequence</div>
+                  </div>
+                  {[
+                    { icon: "arrow_warm_up", label: "Warm-up", active: true },
+                    { icon: "fitness_center", label: "Strength", active: false },
+                    { icon: "shutter_speed", label: "Hypertrophy", active: false },
+                    { icon: "self_care", label: "Mobility", active: false },
+                    { icon: "waves", label: "Cool-down", active: false },
+                  ].map(item => (
+                    <div key={item.label} className={`workout-lib-item${item.active ? " workout-lib-item--active" : ""}`}>
+                      <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>{item.icon}</span>
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                  <button className="workout-lib-add-btn" onClick={() => { const nextId = Math.max(0, ...workoutExercises.map(e => e.id)) + 1; setWorkoutExercises(prev => [...prev, { id: nextId, name: "New Exercise", tag: "Custom", sets: "3 Sets of 12", duration: "45 Seconds", advanced: "" }]); push("Custom exercise added to plan"); }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>add</span>
+                    Add Custom Move
+                  </button>
+                </div>
+
+                {/* Main Content */}
+                <div className="workout-main">
+                  {/* Header */}
+                  <div className="workout-header">
+                    <div className="workout-header-left">
+                      <div className="workout-plan-title">High-Intensity Baseline</div>
+                      <div className="workout-plan-desc">Design the movement flow for elite metabolic conditioning. Use the "Emerald Path" logic for progressive loading.</div>
+                    </div>
+                    <div className="workout-stats-pill">
+                      <div className="workout-stat">
+                        <div className="workout-stat-label">Total Duration</div>
+                        <div className="workout-stat-value">42 <span className="workout-stat-unit">min</span></div>
+                      </div>
+                      <div className="workout-stat-divider" />
+                      <div className="workout-stat">
+                        <div className="workout-stat-label">Est. Burn</div>
+                        <div className="workout-stat-value workout-stat-value--cal">520 <span className="workout-stat-unit">kcal</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Exercise Timeline */}
+                  <div className="workout-timeline">
+                    {workoutExercises.map((ex, idx) => {
+                      const exIcon = ex.name === "Jumping Jacks" ? "directions_run" : ex.name === "High Knees" ? "elevation" : ex.name === "Butt Kicks" ? "steps" : "fitness_center";
+                      return (
+                        <div key={ex.id} className={`workout-exercise-card${idx === 0 ? " workout-exercise-card--first" : ""}`}>
+                          <div className={`workout-timeline-dot${idx > 0 ? " workout-timeline-dot--inactive" : ""}`} />
+                          <div className="workout-exercise-icon">
+                            <span className="material-symbols-outlined" style={{ fontSize: "2.5rem", color: "var(--primary)", opacity: 0.5, fontVariationSettings: "'wght' 200" }}>{exIcon}</span>
+                          </div>
+                          <div className="workout-exercise-content">
+                            <div className="workout-exercise-header">
+                              <div>
+                                <div className="workout-exercise-title">{ex.name}</div>
+                                <div className="workout-exercise-tag">{ex.tag}</div>
+                              </div>
+                              <div className="workout-exercise-actions">
+                                <button title="Drag to reorder" style={{ cursor: "grab" }}><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>drag_indicator</span></button>
+                                <button title="Delete" onClick={() => { setWorkoutExercises(prev => prev.filter(e => e.id !== ex.id)); push(`Removed "${ex.name}" from plan`); }}><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>delete</span></button>
+                              </div>
+                            </div>
+                            <div className="workout-exercise-fields">
+                              <div className="workout-field">
+                                <div className="workout-field-label">Repetitions</div>
+                                <div className="workout-field-input">
+                                  <input type="text" value={ex.sets} onChange={e => setWorkoutExercises(prev => prev.map(x => x.id === ex.id ? { ...x, sets: e.target.value } : x))} />
+                                  <span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: "var(--outline)" }}>unfold_more</span>
+                                </div>
+                              </div>
+                              <div className="workout-field">
+                                <div className="workout-field-label">Time / Duration</div>
+                                <div className="workout-field-input">
+                                  <input type="text" value={ex.duration} onChange={e => setWorkoutExercises(prev => prev.map(x => x.id === ex.id ? { ...x, duration: e.target.value } : x))} />
+                                  <span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: "var(--outline)" }}>schedule</span>
+                                </div>
+                              </div>
+                              <div className="workout-field">
+                                <div className="workout-field-label">Advanced Options</div>
+                                <div className={`workout-field-input${ex.advanced ? " workout-field-input--advanced" : ""}`}>
+                                  <input type="text" value={ex.advanced} onChange={e => setWorkoutExercises(prev => prev.map(x => x.id === ex.id ? { ...x, advanced: e.target.value } : x))} placeholder="Add weight/height" />
+                                  <span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: ex.advanced ? "var(--primary)" : "var(--outline)" }}>settings_input_component</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Session Context */}
+                  <div className="workout-context">
+                    <div>
+                      <div className="workout-context-title">
+                        <span className="material-symbols-outlined" style={{ fontSize: "1.25rem", color: "var(--primary)" }}>auto_fix_high</span>
+                        Session Context
+                      </div>
+                      <div>
+                        <div className="workout-rule-item">
+                          <div className="workout-rule-left">
+                            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary-container)" }}>timer</span>
+                            Warm-up time
+                          </div>
+                          <div className="workout-rule-value">05:00</div>
+                        </div>
+                        <div className="workout-rule-item">
+                          <div className="workout-rule-left">
+                            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary-container)" }}>hotel_class</span>
+                            Transition Rest
+                          </div>
+                          <div className="workout-rule-value">00:30</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "0.75rem" }}>
+                        Coach's Global Notes
+                      </div>
+                      <div className="workout-coach-notes">
+                        <textarea defaultValue="Focus on breathing tempo and spinal alignment during transitions. Ensure high effort in the final 10 seconds of each plyometric burst." />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Action Bar */}
+              <div className="workout-bottom-bar">
+                <div className="workout-save-status">
+                  <div className="workout-save-dot" />
+                  Last saved 2m ago
+                </div>
+                <div className="workout-bottom-actions">
+                  <button className="workout-discard-btn" onClick={() => { setWorkoutExercises([{ id: 1, name: "Jumping Jacks", tag: "Metabolic / Plyometric", sets: "3 Sets of 50", duration: "60 Seconds", advanced: "" }, { id: 2, name: "High Knees", tag: "Agility / Power", sets: "Per Set: 30", duration: "45 Seconds", advanced: "Ankle Weights 1kg" }, { id: 3, name: "Butt Kicks", tag: "Metabolic / Warmup", sets: "Fixed: 40", duration: "30 Seconds", advanced: "" }]); push("Workout draft discarded - reverted to last saved version"); }}>Discard Draft</button>
+                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { await onApprove(clientPortal.plan.id); push("Workout plan approved and published!", "success"); } else { push("No active plan to approve", "error"); } }}>Review &amp; Finalize</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MESSAGES TAB */}
           {activeTab === "messages" && (
             <div className="panel">
               <div className="message-feed" ref={feedRef}>
                 {(!clientPortal.messages || clientPortal.messages.length === 0)
-                  ? <div className="empty-state" style={{ padding: "2rem 0" }}><div className="empty-state-icon">💬</div><p>No messages yet.</p></div>
+                  ? <div className="empty-state" style={{ padding: "2rem 0" }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: "2.5rem", display: "block", marginBottom: "0.75rem", color: "var(--outline)" }}>chat</span>
+                      <p style={{ fontFamily: "Manrope, sans-serif", fontWeight: 600, color: "var(--text-primary)" }}>No messages yet</p>
+                      <p style={{ fontSize: "0.8rem" }}>Start a conversation with {clientPortal.client.fullName.split(" ")[0]}.</p>
+                    </div>
                   : clientPortal.messages.map(msg => (
                     <div key={msg.id} className={`message-bubble message-bubble--${msg.sender}`}>
                       <div className="message-text">{msg.content}</div>
@@ -653,37 +1518,17 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
             </div>
           )}
 
-          {activeTab === "proof" && (
-            <div className="proof-card">
-              <div className="inline inline-spread" style={{ marginBottom: "1rem" }}>
-                <div>
-                  <p className="eyebrow" style={{ marginBottom: "0.25rem" }}>Proof Engine v1</p>
-                  <h3 style={{ marginBottom: 0 }}>{clientPortal.proofCard?.headline}</h3>
-                </div>
-                <button className="secondary sm" onClick={() => onRefreshProof(clientPortal.client.id)}>↻ Refresh</button>
-              </div>
-              <p className="muted" style={{ marginBottom: "1.5rem" }}>{clientPortal.proofCard?.body}</p>
-              <div className="stat-grid">
-                {clientPortal.proofCard?.stats.map(s => (
-                  <div key={s.label} className="stat-card">
-                    <div className="stat-card__label">{s.label}</div>
-                    <div className="stat-card__value" style={{ fontSize: "1.4rem" }}>{s.value}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+          {/* HISTORY TAB */}
           {activeTab === "history" && (
             <div>
               {!checkInHistory.length ? (
                 <div className="empty-state">
-                  <div className="empty-state-icon">📊</div>
-                  <p>No check-in history for this client yet.</p>
+                  <span className="material-symbols-outlined" style={{ fontSize: "3rem", display: "block", marginBottom: "1rem", color: "var(--outline)" }}>timeline</span>
+                  <p style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, color: "var(--text-primary)" }}>No check-in history yet</p>
+                  <p style={{ fontSize: "0.875rem" }}>{clientPortal.client.fullName.split(" ")[0]} hasn't submitted a check-in yet.</p>
                 </div>
               ) : (
                 <div>
-                  {/* Summary stats */}
                   <div className="stat-grid" style={{ marginBottom: "2rem" }}>
                     <div className="stat-card stat-card--accent">
                       <div className="stat-card__label">Total Check-ins</div>
@@ -714,7 +1559,6 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     </div>
                   </div>
 
-                  {/* Weight trend chart */}
                   <div className="panel" style={{ marginBottom: "1.5rem" }}>
                     <div className="section-header">
                       <h2>Weight Trend</h2>
@@ -731,10 +1575,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         return (
                           <div key={checkIn.id} className="trend-bar-wrap">
                             <div className="trend-bar-track">
-                              <div
-                                className="trend-bar-fill trend-bar-fill--weight"
-                                style={{ height: hasWeight ? `${Math.max(8, pct)}%` : "8%", opacity: hasWeight ? 1 : 0.3 }}
-                              />
+                              <div className="trend-bar-fill trend-bar-fill--weight" style={{ height: hasWeight ? `${Math.max(8, pct)}%` : "8%", opacity: hasWeight ? 1 : 0.3 }} />
                             </div>
                             <span className="trend-bar-label">{checkIn.progress.weightKg != null ? `${checkIn.progress.weightKg}` : "—"}</span>
                             <span className="trend-bar-date">{new Date(checkIn.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
@@ -744,7 +1585,6 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     </div>
                   </div>
 
-                  {/* Energy trend chart */}
                   <div className="panel" style={{ marginBottom: "1.5rem" }}>
                     <div className="section-header">
                       <h2>Energy Score</h2>
@@ -767,31 +1607,6 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     </div>
                   </div>
 
-                  {/* Steps trend chart */}
-                  <div className="panel" style={{ marginBottom: "1.5rem" }}>
-                    <div className="section-header">
-                      <h2>Daily Steps</h2>
-                      <span className="pill pill-info">steps</span>
-                    </div>
-                    <div className="trend-chart">
-                      {checkInHistory.map((checkIn) => {
-                        const steps = checkIn.progress.steps;
-                        const maxSteps = Math.max(...checkInHistory.map(c => c.progress.steps), 1);
-                        const pct = (steps / maxSteps) * 100;
-                        return (
-                          <div key={checkIn.id} className="trend-bar-wrap">
-                            <div className="trend-bar-track">
-                              <div className="trend-bar-fill trend-bar-fill--steps" style={{ height: `${Math.max(8, pct)}%` }} />
-                            </div>
-                            <span className="trend-bar-label">{(steps / 1000).toFixed(1)}k</span>
-                            <span className="trend-bar-date">{new Date(checkIn.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Timeline entries */}
                   <div className="panel">
                     <div className="section-header"><h2>Check-In Log</h2></div>
                     <div className="timeline">
@@ -799,33 +1614,35 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         <div key={checkIn.id} className="timeline-item">
                           <div className="timeline-dot" />
                           <div className="timeline-content">
-                            <div className="inline inline-spread" style={{ marginBottom: "0.5rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
                               <strong style={{ color: "var(--on-surface)" }}>
                                 {new Date(checkIn.submittedAt).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
                               </strong>
-                              <div className="inline">
+                              <div style={{ display: "flex", gap: "0.4rem" }}>
                                 {checkIn.weightDelta != null && (
-                                  <span className={`pill ${checkIn.weightDelta < 0 ? "pill-success" : checkIn.weightDelta > 0 ? "pill-danger" : "pill-muted"}`}>
+                                  <span style={{ background: checkIn.weightDelta < 0 ? "var(--success-light)" : checkIn.weightDelta > 0 ? "var(--danger-light)" : "var(--surface-container)", color: checkIn.weightDelta < 0 ? "var(--success-text)" : checkIn.weightDelta > 0 ? "var(--danger-text)" : "var(--on-surface-variant)", padding: "0.15rem 0.6rem", borderRadius: "9999px", fontFamily: "Inter, sans-serif", fontSize: "0.65rem", fontWeight: 700 }}>
                                     {checkIn.weightDelta > 0 ? "+" : ""}{checkIn.weightDelta.toFixed(1)}kg
                                   </span>
                                 )}
                                 {checkIn.photoCount > 0 && (
-                                  <span className="pill pill-info">📷 {checkIn.photoCount}</span>
+                                  <span style={{ background: "var(--info-light)", color: "var(--info-text)", padding: "0.15rem 0.6rem", borderRadius: "9999px", fontFamily: "Inter, sans-serif", fontSize: "0.65rem", fontWeight: 700 }}>
+                                    {checkIn.photoCount} photo{checkIn.photoCount > 1 ? "s" : ""}
+                                  </span>
                                 )}
                               </div>
                             </div>
-                            <div className="inline gap-2" style={{ flexWrap: "wrap", marginBottom: "0.5rem" }}>
+                            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.5rem", fontFamily: "Manrope, sans-serif", fontSize: "0.78rem", color: "var(--text-primary)" }}>
                               {checkIn.progress.weightKg != null && (
-                                <span className="text-sm"><strong>{checkIn.progress.weightKg}kg</strong></span>
+                                <span><strong>{checkIn.progress.weightKg}kg</strong></span>
                               )}
-                              <span className="text-sm">⚡ {checkIn.progress.energyScore}/10</span>
-                              <span className="text-sm">👟 {checkIn.progress.steps.toLocaleString()} steps</span>
+                              <span>{checkIn.progress.energyScore}/10 energy</span>
+                              <span>{checkIn.progress.steps.toLocaleString()} steps</span>
                               {checkIn.progress.waistCm != null && (
-                                <span className="text-sm">📏 {checkIn.progress.waistCm}cm waist</span>
+                                <span>{checkIn.progress.waistCm}cm waist</span>
                               )}
                             </div>
                             {checkIn.progress.notes && (
-                              <p className="text-sm muted" style={{ margin: 0, fontStyle: "italic" }}>"{checkIn.progress.notes}"</p>
+                              <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.78rem", color: "var(--on-surface-variant)", margin: 0, fontStyle: "italic", lineHeight: 1.5 }}>"{checkIn.progress.notes}"</p>
                             )}
                           </div>
                         </div>
@@ -836,7 +1653,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
               )}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
@@ -921,77 +1738,6 @@ function BillingView({ session, onToggleBilling }: {
           })}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── ANALYTICS VIEW ──────────────────────
-function AnalyticsView({ analytics, runtime }: { analytics: AnalyticsResponse | null; runtime: RuntimeResponse | null }) {
-  if (!analytics) return <div className="page-view"><div className="spinner" /></div>;
-  return (
-    <div className="page-view">
-      <p className="eyebrow">Analytics</p>
-      <h1 className="page-title">Product Instrumentation</h1>
-      <p className="page-subtitle">Onboarding, plan generation, check-ins, payments, and proof events.</p>
-
-      <div className="stat-grid">
-        <div className="stat-card stat-card--accent">
-          <div className="stat-card__label">Total Events</div>
-          <div className="stat-card__value">{analytics.summary.totalEvents}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-card__label">Last Event</div>
-          <div className="stat-card__value" style={{ fontSize: "1rem" }}>{analytics.summary.lastEventAt ? analytics.summary.lastEventAt.slice(0, 10) : "—"}</div>
-        </div>
-      </div>
-
-      <div className="content-grid">
-        <div className="panel">
-          <div className="section-header"><h2>Top Events</h2></div>
-          <div className="stack compact">
-            {analytics.summary.topEvents.map(e => (
-              <div key={e.name} className="row-line">
-                <code style={{ fontSize: "0.8rem" }}>{e.name}</code>
-                <span className="pill">{e.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="section-header"><h2>Recent Events</h2></div>
-          <div className="stack compact analytics-feed">
-            {[...analytics.events].reverse().slice(0, 8).map((e, i) => (
-              <div key={i} className="row-line">
-                <div>
-                  <code style={{ fontSize: "0.78rem", color: "var(--primary)" }}>{e.name}</code>
-                  <p className="muted text-xs">{e.occurredAt.slice(0, 19).replace("T", " ")}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {runtime && (
-        <div className="panel" style={{ marginTop: "1.5rem" }}>
-          <div className="section-header"><h2>Runtime Adapters</h2></div>
-          <div className="stack compact">
-            {[
-              ["Storage", runtime.storage],
-              ["AI Provider", runtime.services.planGeneration],
-              ["Proof Engine", runtime.services.proofCards],
-              ["Billing", runtime.services.billing],
-              ["State file", runtime.stateFilePath ?? "In-memory"],
-            ].map(([k, v]) => (
-              <div key={k} className="row-line">
-                <span className="muted text-sm">{k}</span>
-                <code style={{ fontSize: "0.8rem" }}>{v}</code>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1143,7 +1889,17 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
     stripeConnected: false,
   });
 
-  const STEPS = ["Workspace", "Clients", "Stripe"];
+  const COACH_TYPES = [
+    { id: "strength", label: "Strength & Conditioning" },
+    { id: "nutrition", label: "Nutrition Coach" },
+    { id: "wellness", label: "Wellness Coach" },
+    { id: "endurance", label: "Endurance Coach" },
+    { id: "powerlifting", label: "Powerlifting" },
+    { id: "gym-owner", label: "Gym / Studio Owner" },
+  ];
+
+  const [coachTypes, setCoachTypes] = useState<string[]>([]);
+  const STEPS = ["Workspace", "Coach Type", "Launch"];
 
   const next = () => {
     if (step < STEPS.length - 1) setStep(s => s + 1);
@@ -1181,57 +1937,54 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
-        {/* Step 1 — Client Import */}
+        {/* Step 1 — Coach Type */}
         {step === 1 && (
           <div>
             <p className="eyebrow">Step 2 of {STEPS.length}</p>
-            <h2 className="modal-title">Import your clients</h2>
-            <p className="modal-subtitle">Start with 3 demo clients or import your own from a CSV.</p>
-            <div className="panel" style={{ marginTop: "1rem" }}>
-              <p className="text-sm" style={{ color: "var(--on-surface-variant)", marginBottom: "1rem" }}>3 demo clients are pre-loaded for you to explore CoachOS immediately:</p>
-              <div className="stack compact">
-                {["Sophie Patel — Active", "Liam Carter — At risk", "Ava Thompson — Trial"].map(name => (
-                  <div key={name} className="row-line">
-                    <Avatar name={name.split(" — ")[0]} />
-                    <span className="text-sm" style={{ color: "var(--on-surface)" }}>{name.split(" — ")[0]}</span>
-                    <span className={`pill ${name.includes("Active") ? "pill-success" : name.includes("At risk") ? "pill-danger" : "pill-warning"}`}>
-                      {name.split(" — ")[1]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-sm muted" style={{ marginTop: "1rem" }}>You can add more clients later via the Migration view or CSV import.</p>
+            <h2 className="modal-title">What kind of coach are you?</h2>
+            <p className="modal-subtitle">We'll tailor your experience — you can change this later.</p>
+            <div className="coach-type-grid" style={{ marginTop: "1.5rem" }}>
+              {COACH_TYPES.map(ct => (
+                <button
+                  key={ct.id}
+                  className={`coach-type-card ${coachTypes.includes(ct.id) ? "selected" : ""}`}
+                  onClick={() => setCoachTypes(prev =>
+                    prev.includes(ct.id) ? prev.filter(c => c !== ct.id) : [...prev, ct.id]
+                  )}
+                >
+                  {ct.label}
+                </button>
+              ))}
             </div>
+            {coachTypes.length > 0 && (
+              <p className="text-sm muted" style={{ marginTop: "0.75rem", textAlign: "center" }}>
+                {coachTypes.length} selected
+              </p>
+            )}
           </div>
         )}
 
-        {/* Step 2 — Stripe */}
+        {/* Step 2 — Launch */}
         {step === 2 && (
-          <div>
+          <div style={{ textAlign: "center", padding: "1rem 0" }}>
             <p className="eyebrow">Step 3 of {STEPS.length}</p>
-            <h2 className="modal-title">Connect billing</h2>
-            <p className="modal-subtitle">Enable UK VAT-ready invoicing and automated recurring payments.</p>
-            <div className="panel" style={{ marginTop: "1rem" }}>
-              <div className="inline inline-spread" style={{ marginBottom: "1rem" }}>
-                <div className="inline">
-                  <span style={{ fontSize: "1.5rem" }}>💳</span>
-                  <div>
-                    <strong style={{ color: "var(--on-surface)" }}>Stripe GBP</strong>
-                    <p className="muted text-sm" style={{ margin: 0 }}>Accept £ payments with full UK VAT support</p>
-                  </div>
-                </div>
-                <label className="toggle">
-                  <input type="checkbox" checked={draft.stripeConnected} onChange={e => setDraft(d => ({ ...d, stripeConnected: e.target.checked }))} />
-                </label>
+            <h2 className="modal-title">You're all set!</h2>
+            <p className="modal-subtitle">Your workspace is ready. Let's go.</p>
+            <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div className="onboard-summary-item">
+                <span className="onboard-summary-icon">🏋️</span>
+                <span>CoachOS workspace created</span>
               </div>
-              {draft.stripeConnected && (
-                <div className="pill pill-success" style={{ width: "fit-content" }}>
-                  ● Stripe connected — VAT invoicing enabled
+              {coachTypes.length > 0 && (
+                <div className="onboard-summary-item">
+                  <span className="onboard-summary-icon">🎯</span>
+                  <span>{coachTypes.length} coaching specialty{coachTypes.length > 1 ? "ies" : "y"} selected</span>
                 </div>
               )}
-              {!draft.stripeConnected && (
-                <p className="text-sm muted">You can connect Stripe later in Workspace settings. Demo mode is fully functional without it.</p>
-              )}
+              <div className="onboard-summary-item">
+                <span className="onboard-summary-icon">📋</span>
+                <span>Demo clients loaded and ready to explore</span>
+              </div>
             </div>
           </div>
         )}
@@ -2496,8 +3249,6 @@ function App() {
   const [clientPortal, setClientPortal] = useState<ClientSession | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [proofCard, setProofCard] = useState<ProofCard | null>(null);
-  const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
-  const [runtime, setRuntime] = useState<RuntimeResponse | null>(null);
   const [checkInHistory, setCheckInHistory] = useState<CheckInWithDelta[]>([]);
   const [activeNav, setActiveNav] = useState<NavId>("dashboard");
   const { toasts, push } = useToast();
@@ -2534,14 +3285,11 @@ function App() {
   }, [push]);
 
   const loadCoach = useCallback(async (preferredClientId?: string) => {
-    const [coachSession, analyticsData, runtimeData] = await Promise.all([
+    const [coachSession, runtimeData] = await Promise.all([
       fetchJson<CoachSession>("/session/coach"),
-      fetchJson<AnalyticsResponse>("/analytics"),
-      fetchJson<RuntimeResponse>("/runtime"),
+      fetchJson("/runtime"),
     ]);
     setSession(coachSession);
-    setAnalytics(analyticsData);
-    setRuntime(runtimeData);
 
     const nextId = preferredClientId && coachSession.clients.some(c => c.id === preferredClientId)
       ? preferredClientId
@@ -2668,13 +3416,14 @@ function App() {
             onNav={handleNavWithPortal}
             onSimulateCheckIn={async id => { await handleCheckIn(id); push("Check-in recovery simulated"); }}
             onMarkPayment={async id => { await handleToggleBilling(id, "active"); }}
+            push={push}
           />
         )}
         {activeNav === "clients" && (
           <ClientsView session={session} onOpenClient={id => { setActiveNav("portal"); switchClient(id); }} />
         )}
         {activeNav === "plans" && (
-          <PlansView session={session} onGenerate={handleGenerate} onApprove={handleApprove} />
+          <PlansView session={session} onNav={handleNavWithPortal} />
         )}
         {activeNav === "portal" && (
           <PortalView
@@ -2686,15 +3435,14 @@ function App() {
             onSaveEdits={handleSaveEdits}
             onSendMessage={handleSendMessage}
             onRefreshProof={handleRefreshProof}
+            onApprove={handleApprove}
             checkInHistory={checkInHistory}
             onNav={setActiveNav}
+            push={push}
           />
         )}
         {activeNav === "billing" && (
           <BillingView session={session} onToggleBilling={handleToggleBilling} />
-        )}
-        {activeNav === "analytics" && (
-          <AnalyticsView analytics={analytics} runtime={runtime} />
         )}
         {activeNav === "migration" && (
           <MigrationView onReload={() => loadCoach(selectedClientId ?? undefined)} />
@@ -2715,13 +3463,6 @@ function App() {
         )}
         {activeNav === "exercises" && (
           <ExercisesView />
-        )}
-        {activeNav === "clientApp" && (
-          <ClientAppView
-            session={session}
-            clientPortal={clientPortal}
-            onSwitchClient={switchClient}
-          />
         )}
         {activeNav === "settings" && (
           <SettingsView session={session} onSave={handleSaveSettings} />
