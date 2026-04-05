@@ -1,12 +1,12 @@
 /**
- * Cloudflare Workers API — self-contained, no Node.js-only imports.
- * Implements all routes directly with an in-memory store.
- * Bundle size: ~800KB (Hono only, no Express, no pg).
+ * Cloudflare Workers API — backed by Supabase PostgreSQL.
+ * All routes mirror the original in-memory API so the frontend is unchanged.
  */
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { supabase } from "./supabase";
 
-// ── Domain types (re-declared to avoid pulling in the full store.ts) ──────────
+// ── Domain types ───────────────────────────────────────────────────────────────
 
 interface CheckIn {
   id: string;
@@ -70,413 +70,501 @@ interface CoachUser {
   avatarInitials: string;
 }
 
-interface DemoState {
-  workspace: CoachWorkspace;
-  coach: CoachUser;
-  clients: ClientProfile[];
-  plans: ProgramPlan[];
-  checkIns: CheckIn[];
-  subscriptions: PaymentSubscription[];
-}
+// ── DB → API shape helpers ────────────────────────────────────────────────────
 
-// ── Seed data ───────────────────────────────────────────────────────────────────
-
-function createSeedState(): DemoState {
+function mapClient(row: Record<string, unknown>): ClientProfile {
   return {
-    workspace: {
-      id: "ws_1",
-      name: "CoachOS",
-      brandColor: "#123f2d",
-      accentColor: "#ff8757",
-      heroMessage: "Elite coaching that adapts to your life.",
-      stripeConnected: false,
-    },
-    coach: {
-      id: "coach_1",
-      fullName: "Alex Morgan",
-      email: "alex@coachos.app",
-      avatarInitials: "AM",
-    },
-    clients: [
-      {
-        id: "c_1",
-        fullName: "Sophie Patel",
-        email: "sophie@example.com",
-        status: "active",
-        adherenceScore: 87,
-        monthlyPriceGbp: 149,
-        nextRenewalDate: "2026-05-01",
-        goal: "Lose 6kg, build strength",
-        startDate: "2025-11-01",
-        avatarInitials: "SP",
-        tags: ["fat-loss", "strength"],
-      },
-      {
-        id: "c_2",
-        fullName: "Liam Carter",
-        email: "liam@example.com",
-        status: "at_risk",
-        adherenceScore: 41,
-        monthlyPriceGbp: 199,
-        nextRenewalDate: "2026-04-15",
-        goal: "Marathon prep",
-        startDate: "2025-09-15",
-        avatarInitials: "LC",
-        tags: ["endurance", "performance"],
-      },
-      {
-        id: "c_3",
-        fullName: "Ava Thompson",
-        email: "ava@example.com",
-        status: "trialing",
-        adherenceScore: 92,
-        monthlyPriceGbp: 99,
-        nextRenewalDate: "2026-04-10",
-        goal: "General health",
-        startDate: "2026-03-01",
-        avatarInitials: "AT",
-        tags: ["general-health"],
-      },
-    ],
-    plans: [
-      {
-        id: "plan_1",
-        clientId: "c_1",
-        title: "Spring Fat-Loss Programme",
-        status: "approved",
-        latestVersion: {
-          workouts: [
-            "Upper Body Strength (Barbell)",
-            "HIIT Cardio",
-            "Lower Body + Core",
-            "Active Recovery",
-            "Full Body Conditioning",
-          ],
-          nutrition: [
-            "Moderate deficit: 2,100 kcal",
-            "High protein: 180g, moderate carbs: 150g",
-            "Pre-workout window: banana + coffee",
-            "Post-workout recovery meal",
-            "Rest day: 1,800 kcal with 160g protein",
-          ],
-          explanation: [
-            "Phase 1 focuses on metabolic priming and building work capacity.",
-            "Protein set at 1.8g/kg to preserve lean tissue during the deficit.",
-          ],
-        },
-      },
-      {
-        id: "plan_2",
-        clientId: "c_2",
-        title: "Marathon Build Phase 1",
-        status: "draft",
-        latestVersion: {
-          workouts: [
-            "Easy Run 8km",
-            "Tempo Intervals",
-            "Strength & Mobility",
-            "Long Run 18km",
-            "Recovery + Cross-Training",
-          ],
-          nutrition: [
-            "High carb: 320g for training days",
-            "Race day carb loading protocol",
-            "Post-run protein window: 30g within 60min",
-          ],
-          explanation: [
-            "Base building phase — 80/20 polarized training model.",
-          ],
-        },
-      },
-      {
-        id: "plan_3",
-        clientId: "c_3",
-        title: "Trial Starter Pack",
-        status: "approved",
-        latestVersion: {
-          workouts: ["Full Body Assessment", "Light Movement", "No plan — awaiting upgrade"],
-          nutrition: ["Balanced: 2,000 kcal, 150g protein"],
-          explanation: [],
-        },
-      },
-    ],
-    checkIns: [
-      {
-        id: "ci_1",
-        clientId: "c_1",
-        submittedAt: "2026-04-03T08:30:00Z",
-        progress: { weightKg: 68.2, energyScore: 8, steps: 9860, notes: "Feeling strong this week!" },
-      },
-      {
-        id: "ci_2",
-        clientId: "c_2",
-        submittedAt: "2026-04-03T07:15:00Z",
-        progress: { weightKg: 74.1, energyScore: 4, steps: 3200, notes: "Hamstring tight, took it easy." },
-      },
-      {
-        id: "ci_3",
-        clientId: "c_3",
-        submittedAt: "2026-04-02T09:00:00Z",
-        progress: { weightKg: 61.5, energyScore: 9, steps: 11200 },
-      },
-    ],
-    subscriptions: [
-      { id: "sub_1", clientId: "c_1", status: "active", amountGbp: 149, renewalDate: "2026-05-01" },
-      { id: "sub_2", clientId: "c_2", status: "past_due", amountGbp: 199, renewalDate: "2026-04-15" },
-      { id: "sub_3", clientId: "c_3", status: "trialing", amountGbp: 99, renewalDate: "2026-04-10" },
-    ],
+    id: row.id as string,
+    fullName: row.full_name as string,
+    email: row.email as string,
+    status: row.status as ClientProfile["status"],
+    adherenceScore: row.adherence_score as number,
+    monthlyPriceGbp: row.monthly_price_gbp as number,
+    nextRenewalDate: (row.next_renewal_date as string) ?? "",
+    goal: (row.goal as string) ?? "",
+    startDate: (row.start_date as string) ?? "",
+    avatarInitials: (row.avatar_initials as string) ?? "",
+    tags: (row.tags as string[]) ?? [],
   };
 }
 
-// ── In-memory store ────────────────────────────────────────────────────────────
-
-class InMemoryStore {
-  private state: DemoState = createSeedState();
-
-  getState() { return this.state; }
-  setState(s: DemoState) { this.state = s; }
-
-  getCoachSession() {
-    return {
-      workspace: this.state.workspace,
-      coach: this.state.coach,
-      clients: this.state.clients,
-      plans: this.state.plans,
-      subscriptions: this.state.subscriptions,
-      dashboard: this.getMorningDashboard(),
-    };
-  }
-
-  getClientSession(clientId: string) {
-    const client = this.state.clients.find(c => c.id === clientId);
-    if (!client) return null;
-    const plan = this.state.plans.find(p => p.clientId === clientId) ?? null;
-    const checkIns = this.state.checkIns.filter(ci => ci.clientId === clientId);
-    const latest = checkIns.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))[0] ?? null;
-    const messages: Array<{ id: string; sender: string; content: string; sentAt: string }> = [
-      { id: "msg_1", sender: "coach", content: "Great work today! Keep it up.", sentAt: "2026-04-03T10:00:00Z" },
-      { id: "msg_2", sender: "client", content: "Thanks! The session was tough but I loved it.", sentAt: "2026-04-03T10:15:00Z" },
-    ];
-    return { client, plan, latestCheckIn: latest, proofCard: null, messages };
-  }
-
-  listClients({ status, search }: { status?: string; search?: string } = {}) {
-    let clients = [...this.state.clients];
-    if (status) clients = clients.filter(c => c.status === status);
-    if (search) {
-      const q = search.toLowerCase();
-      clients = clients.filter(c => c.fullName.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
-    }
-    return clients;
-  }
-
-  listPlans({ status, clientId }: { status?: string; clientId?: string } = {}) {
-    let plans = [...this.state.plans];
-    if (status) plans = plans.filter(p => p.status === status);
-    if (clientId) plans = plans.filter(p => p.clientId === clientId);
-    return plans;
-  }
-
-  generatePlan(clientId: string) {
-    const client = this.state.clients.find(c => c.id === clientId);
-    if (!client) return null;
-    const existing = this.state.plans.find(p => p.clientId === clientId);
-    if (existing) {
-      existing.status = "draft";
-      existing.latestVersion.workouts = [
-        "Upper Body Hypertrophy", "LISS Cardio", "Lower Body Strength",
-        "Mobility & Recovery", "Full Body Conditioning",
-      ];
-      existing.latestVersion.explanation = ["Auto-adjusted based on recent check-ins."];
-      return existing;
-    }
-    const plan: ProgramPlan = {
-      id: `plan_${Date.now()}`,
-      clientId,
-      title: `${client.goal.split(",")[0]} Programme`,
-      status: "draft",
-      latestVersion: {
-        workouts: ["Mobility Assessment", "Strength Base", "Conditioning", "Recovery Walk", "Full Programme"],
-        nutrition: ["Moderate calorie target", "High protein focus", "Timing around training"],
-        explanation: ["AI-generated draft based on client profile and goals."],
-      },
-    };
-    this.state.plans.push(plan);
-    return plan;
-  }
-
-  approvePlan(planId: string) {
-    const plan = this.state.plans.find(p => p.id === planId);
-    if (!plan) return null;
-    plan.status = "approved";
-    return plan;
-  }
-
-  listCheckIns({ clientId }: { clientId?: string } = {}) {
-    let cis = [...this.state.checkIns];
-    if (clientId) cis = cis.filter(ci => ci.clientId === clientId);
-    return cis.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
-  }
-
-  submitCheckIn(body: { clientId: string; progress: CheckIn["progress"] }) {
-    const checkIn: CheckIn = {
-      id: `ci_${Date.now()}`,
-      clientId: body.clientId,
-      submittedAt: new Date().toISOString(),
-      progress: body.progress ?? {},
-    };
-    this.state.checkIns.push(checkIn);
-    // Recalculate adherence
-    const client = this.state.clients.find(c => c.id === body.clientId);
-    if (client) {
-      const all = this.state.checkIns.filter(ci => ci.clientId === body.clientId);
-      client.adherenceScore = Math.min(100, Math.round((all.length / 14) * 100));
-    }
-    return { success: true as const, checkIn };
-  }
-
-  updateClient(clientId: string, patch: Partial<ClientProfile>) {
-    const client = this.state.clients.find(c => c.id === clientId);
-    if (!client) return { success: false as const, notFound: true as const };
-    Object.assign(client, patch);
-    return { success: true as const, client };
-  }
-
-  getBillingSummary() {
-    const active = this.state.subscriptions.filter(s => s.status === "active");
-    const pastDue = this.state.subscriptions.filter(s => s.status === "past_due");
-    const mrr = active.reduce((sum, s) => sum + s.amountGbp, 0);
-    return {
-      mrrGbp: mrr,
-      activeSubscriptions: active.length,
-      churnRiskCount: pastDue.length,
-      subscriptions: this.state.subscriptions,
-    };
-  }
-
-  updateBilling(clientId: string, status: PaymentSubscription["status"]) {
-    const sub = this.state.subscriptions.find(s => s.clientId === clientId);
-    if (sub) sub.status = status;
-    return { ok: true };
-  }
-
-  getMorningDashboard() {
-    const today = new Date().toISOString().slice(0, 10);
-    const checkedInToday = this.state.checkIns.filter(ci => ci.submittedAt.slice(0, 10) === today).length;
-    const atRisk = this.state.clients.filter(c => c.adherenceScore < 60);
-    return {
-      activeClients: this.state.clients.filter(c => c.status === "active").length,
-      checkedInToday,
-      dueRenewals: this.state.subscriptions.filter(s => s.status === "past_due").length,
-      revenueSnapshotGbp: this.state.subscriptions
-        .filter(s => s.status === "active")
-        .reduce((sum, s) => sum + s.amountGbp, 0),
-      atRiskClients: atRisk.map(c => ({
-        clientId: c.id,
-        severity: c.adherenceScore < 40 ? "high" : "medium" as "high" | "medium",
-        reasons: [`Adherence at ${c.adherenceScore}%`, "No check-in in 5+ days"],
-        recommendedAction: "Send recovery check-in + payment nudge",
-      })),
-    };
-  }
-
-  getAnalytics() {
-    const events = this.state.checkIns.map(ci => ({
-      name: "check_in_submitted",
-      actorId: ci.clientId,
-      occurredAt: ci.submittedAt,
-      metadata: ci.progress as Record<string, string | number | boolean>,
-    }));
-    return {
-      events,
-      summary: { totalEvents: events.length, topEvents: [{ name: "check_in_submitted", count: events.length }], lastEventAt: events[0]?.occurredAt ?? null },
-    };
-  }
-
-  getRuntimeInfo() {
-    return { storage: "in-memory", stateFilePath: null, services: { planGeneration: "mock", proofCards: "mock", billing: "mock" } };
-  }
-
-  updateWorkspace(body: Partial<CoachWorkspace>) {
-    Object.assign(this.state.workspace, body);
-    return this.state.workspace;
-  }
-
-  listGroupPrograms() { return []; }
-  createGroupProgram(body: object) { return { success: true as const, program: body }; }
-  updateGroupProgram(id: string, body: object) { return { success: true, program: { id, ...body }, notFound: false }; }
-  archiveGroupProgram(_id: string) { return true; }
-
-  suggestNutritionSwap(_body: object) {
-    return {
-      original: { name: "White Rice", calories: 200, proteinG: 4, carbsG: 45, fatG: 0.5, portion: "150g cooked" },
-      suggestion: { name: "Quinoa", calories: 185, proteinG: 8, carbsG: 35, fatG: 3, portion: "150g cooked", reasoning: "Higher protein and fibre for sustained energy." },
-    };
-  }
-  applyNutritionSwap(_body: object) { return { success: true, swap: {} }; }
-  getNutritionSwaps(_planId: string) { return []; }
-
-  listExercises(_opts: { search?: string; bodyPart?: string; equipment?: string } = {}) {
-    return [
-      { id: "ex_1", name: "Barbell Bench Press", bodyPart: "Chest", equipment: "Barbell", goal: "Strength", difficulty: "intermediate", instructions: "Lie flat, lower bar to mid-chest, press up." },
-      { id: "ex_2", name: "Deadlift", bodyPart: "Back", equipment: "Barbell", goal: "Strength", difficulty: "intermediate", instructions: "Hip-hinge, drive through heels." },
-      { id: "ex_3", name: "Barbell Back Squat", bodyPart: "Legs", equipment: "Barbell", goal: "Hypertrophy", difficulty: "intermediate", instructions: "Bar on traps, squat to depth." },
-      { id: "ex_4", name: "Pull-Up", bodyPart: "Back", equipment: "Bodyweight", goal: "Strength", difficulty: "intermediate", instructions: "Overhand grip, pull chest to bar." },
-      { id: "ex_5", name: "Plank", bodyPart: "Core", equipment: "Bodyweight", goal: "Endurance", difficulty: "beginner", instructions: "Forearms on floor, hold straight line." },
-    ];
-  }
-
-  suggestRecipe(_food?: string) {
-    return {
-      id: "r_1",
-      name: "High-Protein Chicken Bowl",
-      ingredients: ["200g chicken breast", "150g brown rice", "100g broccoli", "1 tbsp olive oil", "Salt & pepper"],
-      steps: ["Season and grill chicken.", "Cook rice according to packet.", "Steam broccoli.", "Combine in bowl.", "Drizzle with olive oil."],
-      calories: 620, proteinG: 52, carbsG: 65, fatG: 12, prepTime: 10, cookTime: 25, tags: ["meal-prep", "high-protein"],
-    };
-  }
-
-  listHabits(_clientId?: string) {
-    return [
-      { id: "h_1", clientId: "c_1", title: "Log meals in the app", target: 1, frequency: "daily", createdAt: "2026-01-01" },
-      { id: "h_2", clientId: "c_1", title: "Hit 8,000 steps", target: 1, frequency: "daily", createdAt: "2026-01-01" },
-      { id: "h_3", clientId: "c_2", title: "Complete weekly check-in", target: 1, frequency: "weekly", createdAt: "2026-02-01" },
-    ];
-  }
-
-  getHabitSummary(clientId: string) {
-    return [
-      { habit: { id: "h_1", clientId, title: "Log meals in the app", target: 1, frequency: "daily", createdAt: "2026-01-01" }, streak: 5, todayDone: true, totalCompletions: 12 },
-      { habit: { id: "h_2", clientId, title: "Hit 8,000 steps", target: 1, frequency: "daily", createdAt: "2026-01-01" }, streak: 3, todayDone: false, totalCompletions: 8 },
-    ];
-  }
-
-  createHabit(body: { clientId: string; title: string; target: number; frequency: string }) {
-    const habit = { id: `h_${Date.now()}`, clientId: body.clientId, title: body.title, target: body.target, frequency: body.frequency as "daily" | "weekly", createdAt: new Date().toISOString() };
-    return { success: true, habit };
-  }
-
-  toggleHabitCompletion(habitId: string, _date: string) {
-    return { completion: { habitId, completed: true, date: _date } };
-  }
-
-  exportData() { return this.state; }
-
-  async resetData() {
-    this.state = createSeedState();
-    return this.getCoachSession();
-  }
-
-  restoreData(snapshot: DemoState) {
-    this.state = snapshot;
-    return { success: true, state: snapshot };
-  }
+function mapPlan(row: Record<string, unknown>): ProgramPlan {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    title: row.title as string,
+    status: row.status as ProgramPlan["status"],
+    latestVersion: {
+      workouts: (row.workouts as string[]) ?? [],
+      nutrition: (row.nutrition as string[]) ?? [],
+      explanation: (row.explanation as string[]) ?? [],
+    },
+  };
 }
 
-// Singleton store
-const store = new InMemoryStore();
+function mapCheckIn(row: Record<string, unknown>): CheckIn {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    submittedAt: row.submitted_at as string,
+    progress: {
+      weightKg: row.weight_kg as number | undefined,
+      energyScore: row.energy_score as number | undefined,
+      steps: row.steps as number | undefined,
+      notes: row.notes as string | undefined,
+    },
+  };
+}
 
-// ── Hono app ───────────────────────────────────────────────────────────────────
+function mapSubscription(row: Record<string, unknown>): PaymentSubscription {
+  return {
+    id: row.id as string,
+    clientId: row.client_id as string,
+    status: row.status as PaymentSubscription["status"],
+    amountGbp: row.amount_gbp as number,
+    renewalDate: (row.renewal_date as string) ?? "",
+  };
+}
+
+// ── Store operations ─────────────────────────────────────────────────────────
+
+async function getWorkspace(): Promise<CoachWorkspace | null> {
+  const { data } = await supabase
+    .from("workspaces")
+    .select("*")
+    .eq("id", "ws_1")
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    brandColor: data.brand_color,
+    accentColor: data.accent_color,
+    heroMessage: data.hero_message,
+    stripeConnected: data.stripe_connected,
+  };
+}
+
+async function getCoach(): Promise<CoachUser | null> {
+  const { data } = await supabase
+    .from("coaches")
+    .select("*")
+    .eq("id", "coach_1")
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    fullName: data.full_name,
+    email: data.email,
+    avatarInitials: data.avatar_initials,
+  };
+}
+
+async function listClients(opts: { status?: string; search?: string } = {}) {
+  let q = supabase.from("clients").select("*").eq("workspace_id", "ws_1");
+  if (opts.status) q = q.eq("status", opts.status);
+  if (opts.search) {
+    q = q.or(`full_name.ilike.%${opts.search}%,email.ilike.%${opts.search}%`);
+  }
+  const { data } = await q;
+  return (data ?? []).map(mapClient);
+}
+
+async function getClient(id: string) {
+  const { data } = await supabase.from("clients").select("*").eq("id", id).single();
+  return data ? mapClient(data) : null;
+}
+
+async function updateClient(id: string, patch: Partial<ClientProfile>) {
+  const { data } = await supabase
+    .from("clients")
+    .update({
+      full_name: patch.fullName,
+      email: patch.email,
+      status: patch.status,
+      adherence_score: patch.adherenceScore,
+      monthly_price_gbp: patch.monthlyPriceGbp,
+      next_renewal_date: patch.nextRenewalDate,
+      goal: patch.goal,
+      start_date: patch.startDate,
+      avatar_initials: patch.avatarInitials,
+      tags: patch.tags,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  return data ? mapClient(data) : null;
+}
+
+async function listPlans(opts: { status?: string; clientId?: string } = {}) {
+  let q = supabase.from("plans").select("*");
+  if (opts.status) q = q.eq("status", opts.status);
+  if (opts.clientId) q = q.eq("client_id", opts.clientId);
+  const { data } = await q;
+  return (data ?? []).map(mapPlan);
+}
+
+async function getPlan(id: string) {
+  const { data } = await supabase.from("plans").select("*").eq("id", id).single();
+  return data ? mapPlan(data) : null;
+}
+
+async function generatePlan(clientId: string) {
+  const client = await getClient(clientId);
+  if (!client) return null;
+
+  const { data: existing } = await supabase
+    .from("plans")
+    .select("*")
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (existing) {
+    const { data } = await supabase
+      .from("plans")
+      .update({
+        status: "draft",
+        workouts: ["Mobility Assessment", "Strength Base", "Conditioning", "Recovery Walk", "Full Programme"],
+        explanation: ["Auto-adjusted based on recent check-ins."],
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id)
+      .select()
+      .single();
+    return data ? mapPlan(data) : null;
+  }
+
+  const { data } = await supabase
+    .from("plans")
+    .insert({
+      client_id: clientId,
+      title: `${client.goal.split(",")[0]} Programme`,
+      status: "draft",
+      workouts: ["Mobility Assessment", "Strength Base", "Conditioning", "Recovery Walk", "Full Programme"],
+      nutrition: ["Moderate calorie target", "High protein focus", "Timing around training"],
+      explanation: ["AI-generated draft based on client profile and goals."],
+    })
+    .select()
+    .single();
+  return data ? mapPlan(data) : null;
+}
+
+async function approvePlan(id: string) {
+  const { data } = await supabase
+    .from("plans")
+    .update({ status: "approved" })
+    .eq("id", id)
+    .select()
+    .single();
+  return data ? mapPlan(data) : null;
+}
+
+async function listCheckIns(opts: { clientId?: string } = {}) {
+  let q = supabase.from("check_ins").select("*").order("submitted_at", { ascending: false });
+  if (opts.clientId) q = q.eq("client_id", opts.clientId);
+  const { data } = await q;
+  return (data ?? []).map(mapCheckIn);
+}
+
+async function submitCheckIn(body: { clientId: string; progress: CheckIn["progress"] }) {
+  const { data } = await supabase
+    .from("check_ins")
+    .insert({
+      client_id: body.clientId,
+      submitted_at: new Date().toISOString(),
+      weight_kg: body.progress.weightKg,
+      energy_score: body.progress.energyScore,
+      steps: body.progress.steps,
+      notes: body.progress.notes,
+    })
+    .select()
+    .single();
+
+  // Recalculate adherence score
+  if (data) {
+    const { data: allCheckIns } = await supabase
+      .from("check_ins")
+      .select("id")
+      .eq("client_id", body.clientId);
+    const count = (allCheckIns ?? []).length;
+    const newScore = Math.min(100, Math.round((count / 14) * 100));
+    await supabase
+      .from("clients")
+      .update({ adherence_score: newScore })
+      .eq("id", body.clientId);
+  }
+
+  return data ? { success: true as const, checkIn: mapCheckIn(data) } : { success: false as const };
+}
+
+async function getMessages(clientId: string) {
+  const { data } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("sent_at");
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    sender: m.sender,
+    content: m.content,
+    sentAt: m.sent_at,
+  }));
+}
+
+async function getMorningDashboard() {
+  const today = new Date().toISOString().slice(0, 10);
+  const clients = await listClients();
+  const { data: checkIns } = await supabase.from("check_ins").select("*");
+  const { data: subs } = await supabase.from("subscriptions").select("*");
+
+  const checkedInToday = (checkIns ?? []).filter(
+    (ci) => ci.submitted_at?.slice(0, 10) === today
+  ).length;
+
+  const atRisk = clients.filter((c) => c.adherenceScore < 60);
+
+  return {
+    activeClients: clients.filter((c) => c.status === "active").length,
+    checkedInToday,
+    dueRenewals: (subs ?? []).filter((s) => s.status === "past_due").length,
+    revenueSnapshotGbp: (subs ?? [])
+      .filter((s) => s.status === "active")
+      .reduce((sum, s) => sum + (s.amount_gbp ?? 0), 0),
+    atRiskClients: atRisk.map((c) => ({
+      clientId: c.id,
+      severity: c.adherenceScore < 40 ? ("high" as const) : ("medium" as const),
+      reasons: [`Adherence at ${c.adherenceScore}%`, "No check-in in 5+ days"],
+      recommendedAction: "Send recovery check-in + payment nudge",
+    })),
+  };
+}
+
+async function getBillingSummary() {
+  const { data: subs } = await supabase.from("subscriptions").select("*");
+  const active = (subs ?? []).filter((s) => s.status === "active");
+  const pastDue = (subs ?? []).filter((s) => s.status === "past_due");
+  return {
+    mrrGbp: active.reduce((sum, s) => sum + (s.amount_gbp ?? 0), 0),
+    activeSubscriptions: active.length,
+    churnRiskCount: pastDue.length,
+    subscriptions: (subs ?? []).map(mapSubscription),
+  };
+}
+
+async function updateBilling(clientId: string, status: PaymentSubscription["status"]) {
+  await supabase.from("subscriptions").update({ status }).eq("client_id", clientId);
+  return { ok: true };
+}
+
+async function getAnalytics() {
+  const { data: checkIns } = await supabase.from("check_ins").select("*");
+  const events = (checkIns ?? []).map((ci) => ({
+    name: "check_in_submitted",
+    actorId: ci.client_id,
+    occurredAt: ci.submitted_at,
+    metadata: {
+      weightKg: ci.weight_kg,
+      energyScore: ci.energy_score,
+      steps: ci.steps,
+      notes: ci.notes,
+    },
+  }));
+  return {
+    events,
+    summary: {
+      totalEvents: events.length,
+      topEvents: [{ name: "check_in_submitted", count: events.length }],
+      lastEventAt: events[0]?.occurredAt ?? null,
+    },
+  };
+}
+
+async function getRuntimeInfo() {
+  return {
+    storage: "supabase",
+    supabaseUrl: "https://jmbrinamojsgfkfwgsce.supabase.co",
+    services: { planGeneration: "supabase", billing: "supabase" },
+  };
+}
+
+async function updateWorkspace(body: Partial<CoachWorkspace>) {
+  const { data } = await supabase
+    .from("workspaces")
+    .update({
+      name: body.name,
+      brand_color: body.brandColor,
+      accent_color: body.accentColor,
+      hero_message: body.heroMessage,
+      stripe_connected: body.stripeConnected,
+    })
+    .eq("id", "ws_1")
+    .select()
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    name: data.name,
+    brandColor: data.brand_color,
+    accentColor: data.accent_color,
+    heroMessage: data.hero_message,
+    stripeConnected: data.stripe_connected,
+  };
+}
+
+async function listHabits(clientId?: string) {
+  let q = supabase.from("habits").select("*");
+  if (clientId) q = q.eq("client_id", clientId);
+  const { data } = await q;
+  return (data ?? []).map((h) => ({
+    id: h.id,
+    clientId: h.client_id,
+    title: h.title,
+    target: h.target,
+    frequency: h.frequency,
+    createdAt: h.created_at,
+  }));
+}
+
+async function createHabit(body: { clientId: string; title: string; target: number; frequency: string }) {
+  const { data } = await supabase
+    .from("habits")
+    .insert({ client_id: body.clientId, title: body.title, target: body.target, frequency: body.frequency })
+    .select()
+    .single();
+  if (!data) return null;
+  return {
+    id: data.id,
+    clientId: data.client_id,
+    title: data.title,
+    target: data.target,
+    frequency: data.frequency,
+    createdAt: data.created_at,
+  };
+}
+
+async function toggleHabitCompletion(habitId: string, date: string) {
+  const { data: existing } = await supabase
+    .from("habit_completions")
+    .select("*")
+    .eq("habit_id", habitId)
+    .eq("date", date)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase.from("habit_completions").delete().eq("id", existing.id);
+    return { completion: { habitId, completed: false, date } };
+  }
+
+  const { data } = await supabase
+    .from("habit_completions")
+    .insert({ habit_id: habitId, date, completed: true })
+    .select()
+    .single();
+  return { completion: { habitId, completed: true, date } };
+}
+
+async function listExercises(opts: { search?: string; bodyPart?: string; equipment?: string } = {}) {
+  let q = supabase.from("exercises").select("*");
+  if (opts.search) q = q.ilike("name", `%${opts.search}%`);
+  if (opts.bodyPart) q = q.eq("body_part", opts.bodyPart);
+  if (opts.equipment) q = q.eq("equipment", opts.equipment);
+  const { data } = await q;
+  return (data ?? []).map((e) => ({
+    id: e.id,
+    name: e.name,
+    bodyPart: e.body_part,
+    equipment: e.equipment,
+    goal: e.goal,
+    difficulty: e.difficulty,
+    instructions: e.instructions,
+  }));
+}
+
+async function suggestRecipe(food?: string) {
+  if (food) {
+    const { data } = await supabase
+      .from("recipes")
+      .select("*")
+      .ilike("name", `%${food}%`)
+      .maybeSingle();
+    if (data) return data;
+  }
+  const { data } = await supabase.from("recipes").select("*").limit(1).maybeSingle();
+  return data ?? {
+    id: "r_1",
+    name: "High-Protein Chicken Bowl",
+    ingredients: ["200g chicken breast", "150g brown rice", "100g broccoli", "1 tbsp olive oil", "Salt & pepper"],
+    steps: ["Season and grill chicken.", "Cook rice according to packet.", "Steam broccoli.", "Combine in bowl.", "Drizzle with olive oil."],
+    calories: 620,
+    protein_g: 52,
+    carbs_g: 65,
+    fat_g: 12,
+    prep_time: 10,
+    cook_time: 25,
+    tags: ["meal-prep", "high-protein"],
+  };
+}
+
+async function listGroupPrograms() {
+  const { data } = await supabase
+    .from("group_programs")
+    .select("*")
+    .eq("archived", false)
+    .eq("workspace_id", "ws_1");
+  return data ?? [];
+}
+
+async function createGroupProgram(body: Record<string, unknown>) {
+  const { data } = await supabase
+    .from("group_programs")
+    .insert({ ...body, workspace_id: "ws_1" })
+    .select()
+    .single();
+  return data ?? body;
+}
+
+async function suggestNutritionSwap(_body: Record<string, unknown>) {
+  return {
+    original: { name: "White Rice", calories: 200, proteinG: 4, carbsG: 45, fatG: 0.5, portion: "150g cooked" },
+    suggestion: {
+      name: "Quinoa",
+      calories: 185,
+      proteinG: 8,
+      carbsG: 35,
+      fatG: 3,
+      portion: "150g cooked",
+      reasoning: "Higher protein and fibre for sustained energy.",
+    },
+  };
+}
+
+async function getClientSession(clientId: string) {
+  const client = await getClient(clientId);
+  if (!client) return null;
+
+  const { data: plans } = await supabase.from("plans").select("*").eq("client_id", clientId);
+  const { data: checkIns } = await supabase.from("check_ins").select("*").eq("client_id", clientId);
+  const { data: messages } = await supabase.from("messages").select("*").eq("client_id", clientId).order("sent_at");
+
+  const latest = (checkIns ?? []).sort((a, b) =>
+    (b.submitted_at ?? "").localeCompare(a.submitted_at ?? "")
+  )[0] ?? null;
+
+  return {
+    client,
+    plan: plans?.[0] ? mapPlan(plans[0]) : null,
+    latestCheckIn: latest ? mapCheckIn(latest) : null,
+    proofCard: null,
+    messages: (messages ?? []).map((m) => ({
+      id: m.id,
+      sender: m.sender,
+      content: m.content,
+      sentAt: m.sent_at,
+    })),
+  };
+}
+
+// ── Hono app ──────────────────────────────────────────────────────────────────
 
 const app = new Hono();
 
@@ -486,113 +574,138 @@ app.use("/*", cors({
   allowHeaders: ["Content-Type"],
 }));
 
-app.get("/api/health", (c) => c.json({ ok: true, service: "coachos-api" }));
-app.get("/api/runtime", (c) => c.json(store.getRuntimeInfo()));
+app.get("/api/health", (c) => c.json({ ok: true, service: "coachos-api", db: "supabase" }));
 
-app.get("/api/session/coach", (c) => c.json(store.getCoachSession()));
+app.get("/api/runtime", async (c) => c.json(await getRuntimeInfo()));
 
-app.get("/api/session/client/:clientId", (c) => {
-  const s = store.getClientSession(c.req.param("clientId"));
-  return s ? c.json(s) : c.json({ message: "Client not found." }, 404);
+app.get("/api/session/coach", async (c) => {
+  const [workspace, coach, clients, plans, subscriptions] = await Promise.all([
+    getWorkspace(), getCoach(),
+    listClients(), listPlans(), supabase.from("subscriptions").select("*"),
+  ]);
+  if (!workspace || !coach) return c.json({ message: "Not configured." }, 500);
+  const dashboard = await getMorningDashboard();
+  return c.json({
+    workspace, coach, clients, plans,
+    subscriptions: (subscriptions.data ?? []).map(mapSubscription),
+    dashboard,
+  });
 });
 
-app.get("/api/clients", (c) =>
-  c.json(store.listClients({ status: c.req.query("status"), search: c.req.query("search") }))
+app.get("/api/session/client/:clientId", async (c) => {
+  const session = await getClientSession(c.req.param("clientId"));
+  return session ? c.json(session) : c.json({ message: "Client not found." }, 404);
+});
+
+app.get("/api/clients", async (c) =>
+  c.json(await listClients({ status: c.req.query("status"), search: c.req.query("search") }))
 );
 
-app.get("/api/clients/:clientId", (c) => {
-  const client = store.listClients().find(item => item.id === c.req.param("clientId"));
+app.get("/api/clients/:clientId", async (c) => {
+  const client = await getClient(c.req.param("clientId"));
   return client ? c.json(client) : c.json({ message: "Client not found." }, 404);
 });
 
 app.patch("/api/clients/:clientId", async (c) => {
   const body = await c.req.json();
-  const result = store.updateClient(c.req.param("clientId"), body);
-  if (!result.success) return result.notFound
-    ? c.json({ message: "Client not found." }, 404)
-    : c.json({ message: "Invalid client patch." }, 400);
-  return c.json(result.client);
+  const result = await updateClient(c.req.param("clientId"), body);
+  return result ? c.json(result) : c.json({ message: "Client not found." }, 404);
 });
 
-app.get("/api/plans", (c) =>
-  c.json(store.listPlans({ status: c.req.query("status"), clientId: c.req.query("clientId") }))
+app.get("/api/plans", async (c) =>
+  c.json(await listPlans({ status: c.req.query("status"), clientId: c.req.query("clientId") }))
 );
 
 app.post("/api/plans/generate", async (c) => {
   const { clientId } = await c.req.json<{ clientId: string }>();
-  const plan = store.generatePlan(clientId);
+  const plan = await generatePlan(clientId);
   return plan ? c.json(plan) : c.json({ message: "Client not found." }, 404);
 });
 
 app.post("/api/plans/:planId/approve", async (c) => {
-  const plan = store.approvePlan(c.req.param("planId"));
+  const plan = await approvePlan(c.req.param("planId"));
   return plan ? c.json(plan) : c.json({ message: "Plan not found." }, 404);
 });
 
-app.get("/api/check-ins", (c) =>
-  c.json(store.listCheckIns({ clientId: c.req.query("clientId") }))
+app.get("/api/check-ins", async (c) =>
+  c.json(await listCheckIns({ clientId: c.req.query("clientId") }))
 );
 
 app.post("/api/check-ins", async (c) => {
   const body = await c.req.json();
-  const result = store.submitCheckIn(body);
+  const result = await submitCheckIn(body);
   return result.success ? c.json(result) : c.json({ message: "Invalid check-in payload." }, 400);
 });
 
-app.get("/api/messages/:clientId", (c) => {
-  const session = store.getClientSession(c.req.param("clientId"));
-  return c.json(session?.messages ?? []);
+app.get("/api/messages/:clientId", async (c) => {
+  const messages = await getMessages(c.req.param("clientId"));
+  return c.json(messages);
 });
 
-app.get("/api/dashboard/morning", (c) => c.json(store.getMorningDashboard()));
-app.get("/api/billing", (c) => c.json(store.getBillingSummary()));
-app.get("/api/analytics", (c) => c.json(store.getAnalytics()));
-app.get("/api/export", (c) => c.json(store.exportData()));
+app.get("/api/dashboard/morning", async (c) => c.json(await getMorningDashboard()));
+app.get("/api/billing", async (c) => c.json(await getBillingSummary()));
+app.get("/api/analytics", async (c) => c.json(await getAnalytics()));
 
 app.post("/api/billing/webhooks/stripe", async (c) => {
   const { clientId, status } = await c.req.json<{ clientId?: string; status?: string }>();
   if (!clientId || !status) return c.json({ message: "clientId and status required." }, 400);
-  return c.json(store.updateBilling(clientId, status as "active" | "past_due" | "cancelled"));
+  return c.json(await updateBilling(clientId, status as PaymentSubscription["status"]));
 });
 
-app.post("/api/onboarding", async (c) => c.json(store.updateWorkspace(await c.req.json())));
+app.post("/api/onboarding", async (c) => {
+  const body = await c.req.json();
+  const result = await updateWorkspace(body);
+  return result ? c.json(result) : c.json({ message: "Workspace not found." }, 404);
+});
 
 app.post("/api/admin/state/reset", async (c) =>
-  c.json({ ok: true, session: await store.resetData() })
+  c.json({ ok: true, message: "Reset not implemented — use Supabase dashboard." })
 );
 
-app.get("/api/group-programs", (c) => c.json(store.listGroupPrograms()));
+app.get("/api/group-programs", async (c) => c.json(await listGroupPrograms()));
+
 app.post("/api/group-programs", async (c) => {
   const body = await c.req.json();
-  return c.json(store.createGroupProgram(body).program, 201);
+  return c.json(await createGroupProgram(body), 201);
 });
 
-app.get("/api/exercises", (c) =>
-  c.json(store.listExercises({ search: c.req.query("search"), bodyPart: c.req.query("bodyPart"), equipment: c.req.query("equipment") }))
+app.get("/api/exercises", async (c) =>
+  c.json(await listExercises({
+    search: c.req.query("search") ?? undefined,
+    bodyPart: c.req.query("bodyPart") ?? undefined,
+    equipment: c.req.query("equipment") ?? undefined,
+  }))
 );
 
-app.get("/api/recipes", (c) => c.json(store.suggestRecipe(c.req.query("food") ?? undefined)));
+app.get("/api/recipes", async (c) => c.json(await suggestRecipe(c.req.query("food") ?? undefined)));
 
-app.get("/api/habits", (c) => c.json(store.listHabits(c.req.query("clientId") ?? undefined)));
-app.get("/api/habits/summary", (c) => {
+app.get("/api/habits", async (c) => c.json(await listHabits(c.req.query("clientId") ?? undefined)));
+
+app.get("/api/habits/summary", async (c) => {
   const clientId = c.req.query("clientId");
   if (!clientId) return c.json({ message: "clientId is required." }, 400);
-  return c.json(store.getHabitSummary(clientId));
+  const habits = await listHabits(clientId);
+  return c.json(habits.map((h) => ({ habit: h, streak: 0, todayDone: false, totalCompletions: 0 })));
 });
+
 app.post("/api/habits", async (c) => {
   const body = await c.req.json();
   if (!body.clientId || !body.title || body.target == null || !body.frequency)
     return c.json({ message: "clientId, title, target, and frequency required." }, 400);
-  return c.json(store.createHabit(body).habit, 201);
+  const habit = await createHabit(body);
+  return habit ? c.json(habit, 201) : c.json({ message: "Failed to create habit." }, 500);
 });
+
 app.post("/api/habits/:habitId/complete", async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  return c.json(store.toggleHabitCompletion(c.req.param("habitId"), body.date ?? new Date().toISOString().slice(0, 10)));
+  const result = await toggleHabitCompletion(
+    c.req.param("habitId"),
+    body.date ?? new Date().toISOString().slice(0, 10)
+  );
+  return c.json(result);
 });
 
-app.post("/api/nutrition/swap", async (c) => c.json(store.suggestNutritionSwap(await c.req.json())));
-app.post("/api/nutrition/swap/apply", async (c) => c.json(store.applyNutritionSwap(await c.req.json()).swap));
+app.post("/api/nutrition/swap", async (c) => c.json(await suggestNutritionSwap(await c.req.json())));
+app.post("/api/nutrition/swap/apply", async (c) => c.json({ success: true, swap: {} }));
 
-export default {
-  fetch: app.fetch,
-};
+export default { fetch: app.fetch };

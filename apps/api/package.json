@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "npx tsx src/server.ts",
+    "build": "echo 'Node.js API - see api/src/index.ts for Cloudflare Workers deployment'",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4"
+  }
 }
