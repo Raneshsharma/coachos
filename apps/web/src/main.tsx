@@ -476,13 +476,14 @@ function SessionBookingModal({ client, onClose, onSuccess, push }: {
 }
 
 // ── DASHBOARD VIEW ──────────────────────
-function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push, onLogWorkout }: {
+function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push, onLogWorkout, onOpenClientNotes }: {
   session: CoachSession;
   onNav: (id: NavId) => void;
   onSimulateCheckIn: (clientId: string) => Promise<void>;
   onMarkPayment: (clientId: string) => Promise<void>;
   push: (message: string, type?: "success"|"error"|"info") => void;
   onLogWorkout: () => void;
+  onOpenClientNotes: () => void;
 }) {
   const { dashboard, workspace, clients } = session;
   const mrrGbp = session.subscriptions
@@ -514,18 +515,46 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
               <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>calendar_month</span>
               View Schedule
             </button>
-            <button onClick={() => onNav("clients")} style={{ padding: "0.6rem 1.25rem", borderRadius: "9999px", background: "white", color: "#181c1c", border: "1.5px solid #e8e7f0", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+            <button onClick={onOpenClientNotes} style={{ padding: "0.6rem 1.25rem", borderRadius: "9999px", background: "white", color: "#181c1c", border: "1.5px solid #e8e7f0", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
               Client Notes
             </button>
           </div>
         </div>
         <div className="editorial-hero-right">
-          {workspace.stripeConnected
-            ? <span className="pill pill-success">● Stripe Connected</span>
-            : <span className="pill pill-danger">● Stripe Disconnected</span>}
-          {workspace.parallelRunDaysLeft > 0 && (
-            <span className="pill pill-info">Parallel run: {workspace.parallelRunDaysLeft}d left</span>
-          )}
+          {/* Coach mascot based on gender */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: "50%", background: workspace.brandColor, display: "grid", placeItems: "center",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)", flexShrink: 0,
+            }}>
+              {session.coach.gender === "female" ? (
+                /* Female coach mascot */
+                <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                  <circle cx="18" cy="12" r="7" fill="white" opacity="0.95"/>
+                  <path d="M8 28 C8 20 28 20 28 28" fill="white" opacity="0.9"/>
+                  <circle cx="15" cy="11" r="1.2" fill="#123f2d"/>
+                  <circle cx="21" cy="11" r="1.2" fill="#123f2d"/>
+                  <path d="M16 14 Q18 16 20 14" stroke="#123f2d" strokeWidth="1" fill="none" strokeLinecap="round"/>
+                  <path d="M10 9 Q12 5 16 6 Q18 4 20 6 Q24 5 26 9" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                </svg>
+              ) : (
+                /* Male coach mascot */
+                <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                  <circle cx="18" cy="13" r="7" fill="white" opacity="0.95"/>
+                  <path d="M9 28 C9 21 27 21 27 28" fill="white" opacity="0.9"/>
+                  <circle cx="15" cy="12" r="1.2" fill="#123f2d"/>
+                  <circle cx="21" cy="12" r="1.2" fill="#123f2d"/>
+                  <path d="M16 15 Q18 17 20 15" stroke="#123f2d" strokeWidth="1" fill="none" strokeLinecap="round"/>
+                  <rect x="14" y="8" width="8" height="3" rx="1" fill="white" opacity="0.9"/>
+                  <rect x="14" y="7.5" width="8" height="1.5" rx="0.5" fill="white" opacity="0.85"/>
+                </svg>
+              )}
+            </div>
+            <div style={{ lineHeight: 1.2 }}>
+              <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "0.8rem", color: "var(--text-primary)" }}>{session.coach.firstName}</div>
+              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--outline)" }}>Your Coach</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -591,7 +620,6 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         <div>
           <div className="section-meta">
             <h2 className="section-title" style={{ margin: 0 }}>At-Risk Clients</h2>
-            <button className="ghost sm" onClick={() => onNav("clients")} style={{ fontSize: "0.8rem" }}>View Report</button>
           </div>
           <div className="at-risk-card">
             {dashboard.atRiskClients.length > 0 ? dashboard.atRiskClients.map(alert => {
@@ -658,12 +686,66 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
           {/* AI Insight */}
           <div className="ai-insight-card">
             <h4 className="ai-insight-title">Coach AI Insight</h4>
-            <p className="ai-insight-body">
-              {dashboard.atRiskClients.length > 0
-                ? `Based on recent activity, ${clients.find(c => c.id === dashboard.atRiskClients[0].clientId)?.fullName} may need a curriculum pivot to maintain momentum.`
-                : "Your clients are progressing well. No urgent action items detected."}
-            </p>
-            <button className="ai-insight-btn" onClick={() => push("Draft email ready — review in your outbox", "success")}>Generate Draft Email</button>
+            <div>
+              {(() => {
+                const atRisk = dashboard.atRiskClients;
+                const lowAdherence = clients.filter(c => c.adherenceScore < 50);
+                const noCheckIn = clients.filter(c => {
+                  if (!c.lastCheckInDate) return true;
+                  const daysSince = Math.floor((Date.now() - new Date(c.lastCheckInDate).getTime()) / 86400000);
+                  return daysSince > 7;
+                });
+                const highRevenue = session.subscriptions.filter(s => s.status === "active").sort((a, b) => b.amountGbp - a.amountGbp)[0];
+                const highRevenueClient = highRevenue ? clients.find(c => c.id === highRevenue.clientId) : null;
+
+                let insight = "";
+                let insightIcon = "";
+                if (atRisk.length > 0) {
+                  const client = clients.find(c => c.id === atRisk[0].clientId);
+                  insight = `${client?.fullName ?? "A client"} is at risk — ${atRisk[0].reasons[0]}. Consider reaching out this week with a tailored check-in.`;
+                  insightIcon = "warning";
+                } else if (lowAdherence.length > 0) {
+                  insight = `${lowAdherence[0].fullName}'s adherence is at ${lowAdherence[0].adherenceScore}%. A quick motivational message could help restore consistency.`;
+                  insightIcon = "trending_down";
+                } else if (noCheckIn.length > 0) {
+                  const daysSince = noCheckIn[0].lastCheckInDate
+                    ? Math.floor((Date.now() - new Date(noCheckIn[0].lastCheckInDate!).getTime()) / 86400000)
+                    : 999;
+                  insight = `${noCheckIn[0].fullName} hasn't checked in for ${daysSince > 99 ? "over a week" : `${daysSince} days`}. Send a friendly reminder to keep them engaged.`;
+                  insightIcon = "schedule";
+                } else if (highRevenueClient) {
+                  insight = `${highRevenueClient.fullName} is your highest-value client at £${highRevenue?.amountGbp}/month. Consider offering an upsell or premium session.`;
+                  insightIcon = "stars";
+                } else {
+                  insight = "All clients are on track. Keep up the great work — consider reaching out proactively this week.";
+                  insightIcon = "celebration";
+                }
+                return (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--primary)", flexShrink: 0, marginTop: "0.1rem" }}>{insightIcon}</span>
+                      <p className="ai-insight-body" style={{ margin: 0 }}>{insight}</p>
+                    </div>
+                    <button className="ai-insight-btn" onClick={() => {
+                      const client = atRisk.length > 0 ? clients.find(c => c.id === atRisk[0].clientId)
+                        : lowAdherence.length > 0 ? lowAdherence[0]
+                        : noCheckIn.length > 0 ? noCheckIn[0]
+                        : highRevenueClient ?? clients[0];
+                      if (!client) return;
+                      const subject = encodeURIComponent("Quick check-in from your coach");
+                      const body = encodeURIComponent(
+                        `Hi ${client.fullName.split(" ")[0]},\n\nI wanted to reach out because ${insight.toLowerCase().trim()}.\n\nLet me know how I can support you this week.\n\nBest,\n${session.coach.firstName}`
+                      );
+                      window.open(`mailto:${client.email}?subject=${subject}&body=${body}`, "_blank");
+                      push("Email draft opened in your mail client.", "success");
+                    }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>send</span>
+                      Send Email to Client
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       </div>
@@ -3014,6 +3096,7 @@ function SettingsView({ session, onSave }: {
     accentColor: session.workspace.accentColor,
     heroMessage: session.workspace.heroMessage,
     stripeConnected: session.workspace.stripeConnected,
+    coachGender: (session.coach as any).gender ?? "male",
   });
   const [notifPrefs, setNotifPrefs] = useState({
     enabled: true,
@@ -3066,6 +3149,16 @@ function SettingsView({ session, onSave }: {
             <input type="checkbox" checked={draft.stripeConnected} onChange={e => setDraft(d => ({ ...d, stripeConnected: e.target.checked }))} />
             Stripe GBP connected
           </label>
+          <div>
+            <label style={{ display: "block", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase", marginBottom: "0.4rem" }}>Coach Mascot Gender</label>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              {(["male", "female"] as const).map(g => (
+                <button key={g} type="button" onClick={() => setDraft(d => ({ ...d, coachGender: g }))} style={{ flex: 1, padding: "0.5rem", borderRadius: "var(--r-md)", border: "1.5px solid", borderColor: draft.coachGender === g ? "var(--primary)" : "var(--outline-variant)", background: draft.coachGender === g ? "var(--primary-light)" : "var(--surface-container)", color: draft.coachGender === g ? "var(--primary)" : "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="inline">
             <button type="submit">Save settings</button>
           </div>
@@ -3280,6 +3373,214 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────
+   CLIENT NOTES MODAL
+──────────────────────────────────────── */
+function ClientNotesModal({ onClose, push, clients }: {
+  onClose: () => void;
+  push: (message: string, type?: "success"|"error"|"info") => void;
+  clients: ClientProfile[];
+}) {
+  const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id ?? "");
+  const [activeTab, setActiveTab] = useState<"notes"|"chat">("notes");
+  const [notes, setNotes] = useState<Array<{ id: string; clientId: string; content: string; createdAt: string; updatedAt: string }>>([]);
+  const [messages, setMessages] = useState<Array<{ id: string; sender: string; content: string; sentAt: string }>>([]);
+  const [newNote, setNewNote] = useState("");
+  const [newMessage, setNewMessage] = useState("");
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [submittingNote, setSubmittingNote] = useState(false);
+  const [submittingMessage, setSubmittingMessage] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Load notes when client changes
+  useEffect(() => {
+    if (!selectedClientId) return;
+    setLoadingNotes(true);
+    fetchJson<typeof notes>(`/clients/${selectedClientId}/notes`)
+      .then(data => { setNotes(data); })
+      .catch(() => push("Failed to load notes.", "error"))
+      .finally(() => setLoadingNotes(false));
+  }, [selectedClientId]);
+
+  // Load messages when switching to chat tab
+  useEffect(() => {
+    if (activeTab !== "chat" || !selectedClientId) return;
+    setLoadingMessages(true);
+    fetchJson<typeof messages>(`/messages/${selectedClientId}`)
+      .then(data => { setMessages(data); setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100); })
+      .catch(() => push("Failed to load messages.", "error"))
+      .finally(() => setLoadingMessages(false));
+  }, [activeTab, selectedClientId]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (activeTab === "chat") messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, activeTab]);
+
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.trim() || !selectedClientId) return;
+    setSubmittingNote(true);
+    try {
+      const note = await fetchJson<{ id: string; clientId: string; content: string; createdAt: string; updatedAt: string }>(`/clients/${selectedClientId}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ content: newNote.trim() }),
+      });
+      setNotes(prev => [note, ...prev]);
+      setNewNote("");
+      push("Note added.", "success");
+    } catch { push("Failed to add note.", "error"); }
+    finally { setSubmittingNote(false); }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedClientId) return;
+    setSubmittingMessage(true);
+    try {
+      const msg = await fetchJson<{ id: string; sender: string; content: string; sentAt: string }>("/messages", {
+        method: "POST",
+        body: JSON.stringify({ clientId: selectedClientId, content: newMessage.trim() }),
+      });
+      setMessages(prev => [...prev, msg]);
+      setNewMessage("");
+    } catch { push("Failed to send message.", "error"); }
+    finally { setSubmittingMessage(false); }
+  };
+
+  const formatTime = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-panel" style={{ maxWidth: 560, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexShrink: 0 }}>
+          <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", margin: 0 }}>Client Notes & Chat</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>×</button>
+        </div>
+
+        {/* Client selector */}
+        <div style={{ marginBottom: "1rem", flexShrink: 0 }}>
+          <select
+            value={selectedClientId}
+            onChange={e => setSelectedClientId(e.target.value)}
+            style={{ width: "100%", padding: "0.5rem 0.6rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", boxSizing: "border-box" }}
+          >
+            {clients.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+          </select>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", borderBottom: "1.5px solid var(--outline-variant)", marginBottom: "1rem", flexShrink: 0 }}>
+          {(["notes", "chat"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: "0.5rem 1rem", border: "none", background: "none", cursor: "pointer",
+                fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem",
+                color: activeTab === tab ? "var(--primary)" : "var(--outline)",
+                borderBottom: activeTab === tab ? "2px solid var(--primary)" : "2px solid transparent",
+                marginBottom: "-1.5px", textTransform: "capitalize",
+              }}
+            >
+              {tab === "notes" ? "Notes" : "Chat"}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+          {activeTab === "notes" ? (
+            <div>
+              {loadingNotes ? (
+                <p style={{ color: "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem" }}>Loading notes...</p>
+              ) : notes.length === 0 ? (
+                <p style={{ color: "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", textAlign: "center", padding: "2rem" }}>No notes yet. Add one below.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
+                  {notes.map(note => (
+                    <div key={note.id} style={{ padding: "0.75rem", borderRadius: "var(--r-md)", background: "var(--surface-container)", borderLeft: "3px solid var(--primary)" }}>
+                      <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-primary)", margin: "0 0 0.4rem" }}>{note.content}</p>
+                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", color: "var(--outline)" }}>{formatTime(note.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              {loadingMessages ? (
+                <p style={{ color: "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem" }}>Loading messages...</p>
+              ) : messages.length === 0 ? (
+                <p style={{ color: "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", textAlign: "center", padding: "2rem" }}>No messages yet. Start a conversation below.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginBottom: "0.75rem", maxHeight: 300, overflowY: "auto" }}>
+                  {messages.map(msg => (
+                    <div key={msg.id} style={{
+                      display: "flex", justifyContent: msg.sender === "coach" ? "flex-end" : "flex-start",
+                    }}>
+                      <div style={{
+                        maxWidth: "75%", padding: "0.5rem 0.75rem", borderRadius: "var(--r-lg)",
+                        background: msg.sender === "coach" ? "var(--primary)" : "var(--surface-container)",
+                        color: msg.sender === "coach" ? "white" : "var(--text-primary)",
+                        fontFamily: "Inter, sans-serif", fontSize: "0.78rem",
+                        borderBottomRightRadius: msg.sender === "coach" ? "4px" : "var(--r-lg)",
+                        borderBottomLeftRadius: msg.sender === "client" ? "4px" : "var(--r-lg)",
+                      }}>
+                        <p style={{ margin: "0 0 0.2rem" }}>{msg.content}</p>
+                        <span style={{ fontSize: "0.62rem", opacity: 0.7 }}>{formatTime(msg.sentAt)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Input form */}
+        <div style={{ borderTop: "1px solid var(--surface-container)", paddingTop: "1rem", marginTop: "0.5rem", flexShrink: 0 }}>
+          {activeTab === "notes" ? (
+            <form onSubmit={handleAddNote} style={{ display: "flex", gap: "0.5rem" }}>
+              <textarea
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                placeholder="Add a note..."
+                rows={2}
+                style={{ flex: 1, padding: "0.5rem 0.6rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", resize: "none", boxSizing: "border-box" }}
+              />
+              <button type="submit" disabled={submittingNote || !newNote.trim()} style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "none", background: newNote.trim() && !submittingNote ? "var(--primary)" : "var(--surface-container)", color: newNote.trim() && !submittingNote ? "white" : "var(--outline)", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, cursor: newNote.trim() && !submittingNote ? "pointer" : "not-allowed", alignSelf: "flex-end" }}>
+                {submittingNote ? "..." : "Add"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSendMessage} style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                style={{ flex: 1, padding: "0.5rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", boxSizing: "border-box" }}
+              />
+              <button type="submit" disabled={submittingMessage || !newMessage.trim()} style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "none", background: newMessage.trim() && !submittingMessage ? "var(--primary)" : "var(--surface-container)", color: newMessage.trim() && !submittingMessage ? "white" : "var(--outline)", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, cursor: newMessage.trim() && !submittingMessage ? "pointer" : "not-allowed" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>send</span>
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3914,7 +4215,7 @@ function ExercisesView() {
 type CalendarEvent = {
   id: string;
   date: string; // YYYY-MM-DD
-  type: "check-in"|"renewal"|"billing"|"session"|"reminder";
+  type: "check-in"|"renewal"|"billing"|"session"|"reminder"|"blocked";
   clientId?: string;
   clientName?: string;
   label: string;
@@ -3926,6 +4227,7 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [monthOffset, setMonthOffset] = useState(0);
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
 
   const displayDate = useMemo(() => {
     const d = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
@@ -3988,8 +4290,18 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
         }
       }
     });
+    // Add blocked dates as events
+    blockedDates.forEach(date => {
+      evs.push({
+        id: `blocked-${date}`,
+        date,
+        type: "blocked",
+        label: "Blocked",
+        color: "var(--danger)",
+      });
+    });
     return evs;
-  }, [session, month, year]);
+  }, [session, month, year, blockedDates]);
 
   const eventMap = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -4028,6 +4340,7 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
     "billing": { icon: "payments", color: "var(--accent)", bg: "var(--accent-light)" },
     "session": { icon: "event", color: "var(--secondary)", bg: "var(--secondary-fixed)" },
     "reminder": { icon: "notifications", color: "var(--warning)", bg: "var(--warning-light)" },
+    "blocked": { icon: "block", color: "var(--danger)", bg: "rgba(239,68,68,0.1)" },
   };
 
   return (
@@ -4067,6 +4380,7 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                 if (!day) return <div key={`empty-${idx}`} />;
                 const dateStr = formatDate(day);
                 const dayEvents = eventMap.get(dateStr) ?? [];
+                const isBlocked = blockedDates.includes(dateStr);
                 const isToday = dateStr === todayStr;
                 const isSelected = dateStr === selectedDate;
                 return (
@@ -4085,15 +4399,19 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                       gap: "2px",
                       minHeight: "60px",
                       transition: "background 0.15s",
+                      position: "relative",
                     }}
                   >
+                    {isBlocked && (
+                      <div style={{ position: "absolute", top: "4px", right: "4px", width: "6px", height: "6px", borderRadius: "50%", background: "var(--danger)" }} />
+                    )}
                     <span style={{
                       fontFamily: "Manrope, sans-serif",
                       fontWeight: 800,
                       fontSize: "0.9rem",
                       color: isToday ? "var(--primary)" : "var(--text-primary)",
                     }}>{day}</span>
-                    {dayEvents.slice(0, 2).map(e => (
+                    {dayEvents.filter(e => e.type !== "blocked").slice(0, 2).map(e => (
                       <div key={e.id} style={{
                         width: "100%",
                         padding: "1px 4px",
@@ -4109,8 +4427,8 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                         whiteSpace: "nowrap",
                       }}>{e.clientName ? e.clientName.split(" ")[0] : e.type}</div>
                     ))}
-                    {dayEvents.length > 2 && (
-                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.5rem", color: "var(--outline)" }}>+{dayEvents.length - 2}</span>
+                    {dayEvents.filter(e => e.type !== "blocked").length > 2 && (
+                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.5rem", color: "var(--outline)" }}>+{dayEvents.filter(e => e.type !== "blocked").length - 2}</span>
                     )}
                   </button>
                 );
@@ -4166,7 +4484,31 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                   <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>close</span>
                 </button>
               </div>
-              {selectedEvents.length === 0 ? (
+
+              {/* Block/Unblock date */}
+              <div style={{ marginBottom: "1rem" }}>
+                {blockedDates.includes(selectedDate!) ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.75rem", borderRadius: "var(--r-md)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--danger)" }}>block</span>
+                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", flex: 1 }}>Date is blocked</span>
+                    <button
+                      onClick={() => setBlockedDates(prev => prev.filter(d => d !== selectedDate))}
+                      style={{ border: "none", background: "transparent", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 600, color: "var(--danger)", padding: "0.1rem 0.25rem", textDecoration: "underline" }}>
+                      Unblock
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { if (selectedDate && !blockedDates.includes(selectedDate)) setBlockedDates(prev => [...prev, selectedDate]); }}
+                    style={{ width: "100%", padding: "0.45rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.06)", color: "var(--danger)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "center" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>block</span>
+                    Block this date
+                  </button>
+                )}
+              </div>
+
+              {/* Events list */}
+              {selectedEvents.filter(e => e.type !== "blocked").length === 0 && selectedEvents.filter(e => e.type === "blocked").length === 0 ? (
                 <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--outline)" }}>No events on this day.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -4989,6 +5331,7 @@ function App() {
   const [activeNav, setActiveNav] = useState<NavId>("dashboard");
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showWorkoutLogger, setShowWorkoutLogger] = useState(false);
+  const [showClientNotesModal, setShowClientNotesModal] = useState(false);
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: string; time: string; read: boolean }>>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const { toasts, push, dismiss } = useToast();
@@ -5163,6 +5506,7 @@ function App() {
             onMarkPayment={async id => { await handleToggleBilling(id, "active"); }}
             push={push}
             onLogWorkout={() => setShowWorkoutLogger(true)}
+            onOpenClientNotes={() => setShowClientNotesModal(true)}
           />
         )}
         {activeNav === "clients" && (
@@ -5233,6 +5577,14 @@ function App() {
           clients={session.clients}
           onClose={() => setShowWorkoutLogger(false)}
           onSuccess={() => { setShowWorkoutLogger(false); push("Workout session logged!", "success"); }}
+          push={push}
+        />
+      )}
+
+      {showClientNotesModal && (
+        <ClientNotesModal
+          clients={session.clients}
+          onClose={() => setShowClientNotesModal(false)}
           push={push}
         />
       )}

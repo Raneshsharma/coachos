@@ -15,7 +15,8 @@ export const coachUserSchema = z.object({
   workspaceId: z.string(),
   firstName: z.string(),
   lastName: z.string(),
-  email: z.email()
+  email: z.email(),
+  gender: z.enum(["male", "female"]).optional().default("male")
 });
 
 export const clientProfileSchema = z.object({
@@ -242,7 +243,8 @@ export function createSeedState(): DemoState {
     workspaceId: workspace.id,
     firstName: "Jake",
     lastName: "Morgan",
-    email: "jake@coachos.demo"
+    email: "jake@coachos.demo",
+    gender: "male"
   };
 
   const clients: ClientProfile[] = [

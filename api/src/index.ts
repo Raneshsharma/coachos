@@ -75,7 +75,8 @@ interface CoachUser {
 function mapClient(row: Record<string, unknown>): ClientProfile {
   // Normalize Supabase status values to match frontend domain types
   const rawStatus = row.status as string;
-  const status = rawStatus === "trialing" ? "trial" : rawStatus as ClientProfile["status"];
+  const status = rawStatus === "trialing" || rawStatus === "trial" ? "trial"
+    : (rawStatus === "active" || rawStatus === "at_risk" ? rawStatus : "active") as ClientProfile["status"];
   return {
     id: row.id as string,
     fullName: row.full_name as string,
@@ -159,11 +160,14 @@ async function getCoach(): Promise<CoachUser | null> {
     .eq("id", "coach_1")
     .single();
   if (!data) return null;
+  const nameParts = (data.full_name ?? "Coach").split(" ");
   return {
     id: data.id,
-    fullName: data.full_name,
-    email: data.email,
-    avatarInitials: data.avatar_initials,
+    workspaceId: data.workspace_id ?? "ws_1",
+    firstName: nameParts[0] ?? "Coach",
+    lastName: nameParts.slice(1).join(" ") || "",
+    email: data.email as any,
+    gender: (data.gender as "male" | "female") ?? "male",
   };
 }
 
@@ -322,12 +326,12 @@ async function listCheckIns(opts: { clientId?: string } = {}) {
   return (data ?? []).map(mapCheckIn);
 }
 
-async function submitCheckIn(body: { clientId: string; progress: CheckIn["progress"] }) {
+async function submitCheckIn(body: { clientId: string; submittedAt?: string; progress: CheckIn["progress"] }) {
   const { data } = await supabase
     .from("check_ins")
     .insert({
       client_id: body.clientId,
-      submitted_at: new Date().toISOString(),
+      submitted_at: body.submittedAt ? new Date(body.submittedAt).toISOString() : new Date().toISOString(),
       weight_kg: body.progress.weightKg,
       energy_score: body.progress.energyScore,
       steps: body.progress.steps,
@@ -700,7 +704,7 @@ app.post("/api/clients", async (c) => {
     goal: body.goal.trim(),
     monthlyPriceGbp: Number(body.monthlyPriceGbp),
     nextRenewalDate: body.nextRenewalDate ?? new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10),
-    status: body.status ?? "trialing",
+    status: (body.status === "trialing" ? "trial" : body.status) as "active" | "at_risk" | "trial",
   });
 
   return result
@@ -784,6 +788,20 @@ app.post("/api/check-ins/:id/photo", async (c) => {
 app.get("/api/messages/:clientId", async (c) => {
   const messages = await getMessages(c.req.param("clientId"));
   return c.json(messages);
+});
+
+app.post("/api/messages", async (c) => {
+  const { clientId, content } = await c.req.json();
+  if (!clientId?.trim() || !content?.trim()) return c.json({ message: "clientId and content are required." }, 400);
+  const coach = await getCoach();
+  if (!coach) return c.json({ message: "Coach not found." }, 404);
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({ coach_id: coach.id, client_id: clientId, content: content.trim(), sender: "coach", sent_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) return c.json({ message: "Failed to send message." }, 500);
+  return c.json({ id: data.id, sender: data.sender, content: data.content, sentAt: data.sent_at }, 201);
 });
 
 app.get("/api/clients/:clientId/notes", async (c) => {
