@@ -196,6 +196,8 @@ async function updateClient(id: string, patch: Partial<ClientProfile>) {
       start_date: patch.startDate,
       avatar_initials: patch.avatarInitials,
       tags: patch.tags,
+      plan_id: (patch as any).planId ?? null,
+      nutrition_plan_id: (patch as any).nutritionPlanId ?? null,
     })
     .eq("id", id)
     .select()
