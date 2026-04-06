@@ -892,6 +892,8 @@ function ClientsView({
   const [activeTab, setActiveTab] = useState<'overview'|'notes'|'workouts'|'nutrition'|'progress'|'payments'>('overview');
   const [bookingClient, setBookingClient] = useState<{ id: string; fullName: string } | null>(null);
   const [notes, setNotes] = useState<ClientNote[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
 
   // Load notes when profile opens
@@ -999,14 +1001,61 @@ function ClientsView({
             </>
           )}
           {activeTab === 'notes' && (
-            notes.length === 0
-              ? <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>note_add</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No coach notes yet.</p></div>
-              : notes.map(note => (
-                <div key={note.id} className="card-glass" style={{ marginBottom: '0.75rem', padding: '1rem' }}>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.88rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: '0 0 0.4rem 0' }}>{note.content}</p>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--outline)', margin: 0 }}>{new Date(note.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                </div>
-              ))
+            <>
+              <div className="card-glass" style={{ padding: '1rem', marginBottom: '1rem' }}>
+                <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Add Note</h3>
+                <textarea
+                  value={newNote}
+                  onChange={e => setNewNote(e.target.value)}
+                  placeholder="Session observations, client mood, progress notes..."
+                  rows={3}
+                  style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box', marginBottom: '0.75rem' }}
+                />
+                <button
+                  onClick={async () => {
+                    if (!newNote.trim()) return;
+                    setNoteSaving(true);
+                    try {
+                      const created = await fetchJson<ClientNote>(`/clients/${profileClientId}/notes`, {
+                        method: 'POST',
+                        body: JSON.stringify({ content: newNote.trim() }),
+                      });
+                      setNotes(prev => [created, ...prev]);
+                      setNewNote('');
+                    } catch { /* silent */ } finally { setNoteSaving(false); }
+                  }}
+                  disabled={noteSaving || !newNote.trim()}
+                  style={{ padding: '0.5rem 1rem', borderRadius: 'var(--r-md)', border: 'none', background: newNote.trim() && !noteSaving ? 'var(--primary)' : 'var(--surface-container)', color: newNote.trim() && !noteSaving ? 'white' : 'var(--outline)', fontFamily: 'Manrope, sans-serif', fontSize: '0.8rem', fontWeight: 700, cursor: newNote.trim() && !noteSaving ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>{noteSaving ? 'progress_activity' : 'add'}</span>
+                  {noteSaving ? 'Saving...' : 'Add Note'}
+                </button>
+              </div>
+              {notes.length === 0 ? (
+                <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>note_add</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No coach notes yet.</p></div>
+              ) : (
+                <>
+                  {notes.map(note => (
+                    <div key={note.id} className="card-glass" style={{ marginBottom: '0.75rem', padding: '1rem', position: 'relative' }}>
+                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.88rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: '0 0 0.4rem 0' }}>{note.content}</p>
+                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--outline)', margin: 0 }}>{new Date(note.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Delete this note?')) return;
+                          try {
+                            await fetchJson(`/clients/${profileClientId}/notes/${note.id}`, { method: 'DELETE' });
+                            setNotes(prev => prev.filter(n => n.id !== note.id));
+                          } catch { /* silent */ }
+                        }}
+                        style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--outline)', padding: '0.25rem', display: 'grid', placeItems: 'center' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>delete</span>
+                      </button>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
           )}
           {activeTab === 'workouts' && (
             sortedCheckIns.length === 0 && !clientPlan
