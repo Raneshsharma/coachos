@@ -465,7 +465,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push 
           <h1 className="editorial-hero-greeting">Good morning, {session.coach.firstName}.</h1>
           <p className="editorial-hero-message">{workspace.heroMessage}</p>
           <div className="inline" style={{ marginTop: "1.5rem" }}>
-            <button onClick={() => onNav("clients")} style={{ padding: "0.6rem 1.25rem", borderRadius: "9999px", background: "#181c1c", color: "white", border: "none", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.4rem", boxShadow: "0 4px 16px rgba(24,28,28,0.15)" }}>
+            <button onClick={() => onNav("calendar")} style={{ padding: "0.6rem 1.25rem", borderRadius: "9999px", background: "#181c1c", color: "white", border: "none", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.4rem", boxShadow: "0 4px 16px rgba(24,28,28,0.15)" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>calendar_month</span>
               View Schedule
             </button>
@@ -895,6 +895,8 @@ function ClientsView({
   const [newNote, setNewNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
+  const [metricDraft, setMetricDraft] = useState({ weightKg: '', bodyFatPct: '', waistCm: '', hipsCm: '', armCm: '', thighCm: '', energyScore: '', sleepRating: '' });
+  const [savingMetric, setSavingMetric] = useState(false);
 
   // Load notes when profile opens
   useEffect(() => {
@@ -1109,9 +1111,59 @@ function ClientsView({
               : <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>restaurant</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No nutrition plan assigned yet.</p></div>
           )}
           {activeTab === 'progress' && (
-            metrics.length === 0
-              ? <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>show_chart</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No body metrics recorded yet.</p></div>
-              : (() => {
+            <>
+              <div className="card-glass" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>Log Check-in</h3>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  {[
+                    {l:'Weight (kg)',k:'weightKg',type:'number',step:'0.1',ph:'e.g. 78.5'},
+                    {l:'Body Fat (%)',k:'bodyFatPct',type:'number',step:'0.1',ph:'e.g. 18.5'},
+                    {l:'Waist (cm)',k:'waistCm',type:'number',step:'0.1',ph:'e.g. 82'},
+                    {l:'Hips (cm)',k:'hipsCm',type:'number',step:'0.1',ph:'e.g. 98'},
+                    {l:'Arm (cm)',k:'armCm',type:'number',step:'0.1',ph:'e.g. 35'},
+                    {l:'Thigh (cm)',k:'thighCm',type:'number',step:'0.1',ph:'e.g. 58'},
+                  ].map(f => (
+                    <div key={f.k}>
+                      <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.25rem' }}>{f.l}</label>
+                      <input type={f.type} step={f.step} value={metricDraft[f.k as keyof typeof metricDraft]} onChange={e => setMetricDraft(d => ({ ...d, [f.k]: e.target.value }))} placeholder={f.ph} style={{ width: '100%', padding: '0.4rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  {[{l:'Energy (1-10)',k:'energyScore',ph:'1-10'}, {l:'Sleep (1-10)',k:'sleepRating',ph:'1-10'}].map(f => (
+                    <div key={f.k}>
+                      <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.25rem' }}>{f.l}</label>
+                      <input type="number" min="1" max="10" value={metricDraft[f.k as keyof typeof metricDraft]} onChange={e => setMetricDraft(d => ({ ...d, [f.k]: e.target.value }))} placeholder={f.ph} style={{ width: '100%', padding: '0.4rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  ))}
+                </div>
+                <button onClick={async () => {
+                  setSavingMetric(true);
+                  try {
+                    const payload = {
+                      measuredAt: new Date().toISOString(),
+                      weightKg: metricDraft.weightKg ? Number(metricDraft.weightKg) : null,
+                      bodyFatPct: metricDraft.bodyFatPct ? Number(metricDraft.bodyFatPct) : null,
+                      waistCm: metricDraft.waistCm ? Number(metricDraft.waistCm) : null,
+                      hipsCm: metricDraft.hipsCm ? Number(metricDraft.hipsCm) : null,
+                      armCm: metricDraft.armCm ? Number(metricDraft.armCm) : null,
+                      thighCm: metricDraft.thighCm ? Number(metricDraft.thighCm) : null,
+                      energyScore: metricDraft.energyScore ? Number(metricDraft.energyScore) : null,
+                      sleepRating: metricDraft.sleepRating ? Number(metricDraft.sleepRating) : null,
+                    };
+                    const created = await fetchJson<BodyMetric>(`/clients/${profileClientId}/metrics`, { method: 'POST', body: JSON.stringify(payload) });
+                    setMetrics(prev => [...prev, created]);
+                    setMetricDraft({ weightKg: '', bodyFatPct: '', waistCm: '', hipsCm: '', armCm: '', thighCm: '', energyScore: '', sleepRating: '' });
+                  } catch { /* silent */ } finally { setSavingMetric(false); }
+                }} disabled={savingMetric} style={{ padding: '0.5rem 1rem', borderRadius: 'var(--r-md)', border: 'none', background: savingMetric ? 'var(--surface-container)' : 'var(--primary)', color: savingMetric ? 'var(--outline)' : 'white', fontFamily: 'Manrope, sans-serif', fontSize: '0.8rem', fontWeight: 700, cursor: savingMetric ? 'not-allowed' : 'pointer' }}>
+                  {savingMetric ? 'Saving...' : 'Log Check-in'}
+                </button>
+              </div>
+              {metrics.length === 0 ? (
+                <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>show_chart</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No body metrics recorded yet. Use the form above to log the first check-in.</p></div>
+              ) : (() => {
                 const mSorted = [...metrics].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt));
                 const latest = mSorted[mSorted.length - 1];
                 const first = mSorted[0];
@@ -1154,7 +1206,8 @@ function ClientsView({
                     </div>
                   </div>
                 );
-              })()
+              })()}
+            </>
           )}
           {activeTab === 'payments' && (
             clientSubscription ? (
