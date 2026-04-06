@@ -3024,6 +3024,18 @@ function SettingsView({ session, onSave }: {
     emailEnabled: true,
   });
   const [savingNotif, setSavingNotif] = useState(false);
+  type DayKey = "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday";
+  const [availHours, setAvailHours] = useState<Record<DayKey, {enabled:boolean;start:string;end:string}>>({
+    monday: { enabled: true, start: "09:00", end: "17:00" },
+    tuesday: { enabled: true, start: "09:00", end: "17:00" },
+    wednesday: { enabled: true, start: "09:00", end: "17:00" },
+    thursday: { enabled: true, start: "09:00", end: "17:00" },
+    friday: { enabled: true, start: "09:00", end: "17:00" },
+    saturday: { enabled: false, start: "10:00", end: "14:00" },
+    sunday: { enabled: false, start: "10:00", end: "14:00" },
+  });
+  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [savingAvail, setSavingAvail] = useState(false);
 
   const notifTypes = [
     { key: "clientCheckIn", label: "Client Check-in", desc: "When a client submits a check-in" },
@@ -3103,6 +3115,62 @@ function SettingsView({ session, onSave }: {
               {savingNotif ? "Saving..." : "Save Preferences"}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Availability Settings */}
+      <div style={{ maxWidth: 640, marginTop: "2rem" }}>
+        <div className="panel">
+          <div>
+            <h2 className="section-title">Schedule Availability</h2>
+            <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--outline)", margin: "0.25rem 0 1.25rem" }}>Define your working hours so clients know when sessions are available.</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.75rem", marginBottom: "1.25rem" }}>
+            {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day, i) => {
+              const dayKey = day.toLowerCase() as "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday";
+              const hours = availHours[dayKey] ?? { enabled: i < 5, start: "09:00", end: "17:00" };
+              return (
+                <div key={day} style={{ padding: "0.75rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--surface-container)", background: "var(--surface-container-low)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                    <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>{day.slice(0,3)}</span>
+                    <label className="toggle" style={{ transform: "scale(0.85)" }}>
+                      <input type="checkbox" checked={hours.enabled} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), enabled: e.target.checked } }))} />
+                    </label>
+                  </div>
+                  {hours.enabled && (
+                    <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                      <input type="time" value={hours.start} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), start: e.target.value } }))} style={{ flex: 1, padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
+                      <span style={{ color: "var(--outline)", fontSize: "0.75rem" }}>–</span>
+                      <input type="time" value={hours.end} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), end: e.target.value } }))} style={{ flex: 1, padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
+                    </div>
+                  )}
+                  {!hours.enabled && (
+                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)" }}>Unavailable</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Blocked dates */}
+          <div style={{ marginBottom: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+              <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "var(--outline)" }}>Block specific dates</label>
+              <button onClick={() => setBlockedDates(prev => [...prev, ""])} style={{ padding: "0.25rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--primary)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>+ Add date</button>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {blockedDates.map((d, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                  <input type="date" value={d} onChange={e => setBlockedDates(prev => prev.map((x, j) => j === i ? e.target.value : x))} style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
+                  <button onClick={() => setBlockedDates(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.1rem" }}>×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={async () => { setSavingAvail(true); await new Promise(r => setTimeout(r, 400)); setSavingAvail(false); }} disabled={savingAvail} style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "none", background: "var(--primary)", color: "white", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, cursor: savingAvail ? "not-allowed" : "pointer" }}>
+            {savingAvail ? "Saving..." : "Save Availability"}
+          </button>
         </div>
       </div>
     </div>
