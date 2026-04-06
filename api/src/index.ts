@@ -767,6 +767,20 @@ app.post("/api/check-ins", async (c) => {
   return result.success ? c.json(result) : c.json({ message: "Invalid check-in payload." }, 400);
 });
 
+app.post("/api/check-ins/:id/photo", async (c) => {
+  const checkInId = c.req.param("id");
+  const formData = await c.req.formData();
+  const file = formData.get("photo");
+  if (!file || !(file instanceof File)) return c.json({ message: "No file provided" }, 400);
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const path = `${checkInId}/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("progress-photos").upload(path, file);
+  if (error) return c.json({ message: "Upload failed: " + error.message }, 500);
+  const { data } = supabase.storage.from("progress-photos").getPublicUrl(path);
+  await supabase.from("check_ins").update({ photo_url: data.publicUrl }).eq("id", checkInId);
+  return c.json({ url: data.publicUrl });
+});
+
 app.get("/api/messages/:clientId", async (c) => {
   const messages = await getMessages(c.req.param("clientId"));
   return c.json(messages);

@@ -476,12 +476,13 @@ function SessionBookingModal({ client, onClose, onSuccess, push }: {
 }
 
 // ── DASHBOARD VIEW ──────────────────────
-function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push }: {
+function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push, onLogWorkout }: {
   session: CoachSession;
   onNav: (id: NavId) => void;
   onSimulateCheckIn: (clientId: string) => Promise<void>;
   onMarkPayment: (clientId: string) => Promise<void>;
   push: (message: string, type?: "success"|"error"|"info") => void;
+  onLogWorkout: () => void;
 }) {
   const { dashboard, workspace, clients } = session;
   const mrrGbp = session.subscriptions
@@ -562,6 +563,26 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push 
           <div className="bento-value">{dashboard.checkedInToday}</div>
           <div className="bento-trend">{clients.length - dashboard.checkedInToday} pending</div>
         </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+        <button onClick={() => onNav("clients")} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>person_add</span>
+          Add Client
+        </button>
+        <button onClick={onLogWorkout} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>fitness_center</span>
+          Log Workout
+        </button>
+        <button onClick={() => onNav("plans")} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>auto_awesome</span>
+          Create Plan
+        </button>
+        <button onClick={() => onNav("calendar")} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>calendar_month</span>
+          Schedule Session
+        </button>
       </div>
 
       {/* Dashboard Content: 2/3 + 1/3 split */}
@@ -3089,6 +3110,114 @@ function SettingsView({ session, onSave }: {
 }
 
 /* ────────────────────────────────────────
+   WORKOUT LOGGER MODAL
+──────────────────────────────────────── */
+function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
+  onClose: () => void;
+  onSuccess: () => void;
+  push: (msg: string, type?: "success"|"error"|"info") => void;
+  clients: ClientProfile[];
+}) {
+  const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id ?? "");
+  const [workoutDate, setWorkoutDate] = useState(new Date().toISOString().slice(0, 10));
+  const [sessionType, setSessionType] = useState("strength");
+  const [exercises, setExercises] = useState([{ name: "", sets: "", reps: "", weight: "", notes: "" }]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const addExercise = () => setExercises(prev => [...prev, { name: "", sets: "", reps: "", weight: "", notes: "" }]);
+  const removeExercise = (i: number) => setExercises(prev => prev.filter((_, idx) => idx !== i));
+  const updateExercise = (i: number, field: string, value: string) =>
+    setExercises(prev => prev.map((ex, idx) => idx === i ? { ...ex, [field]: value } : ex));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClientId) return;
+    setSubmitting(true);
+    try {
+      const completed = exercises.filter(ex => ex.name.trim());
+      await fetchJson("/check-ins", {
+        method: "POST",
+        body: JSON.stringify({
+          clientId: selectedClientId,
+          submittedAt: new Date(workoutDate).toISOString(),
+          progress: {
+            notes: `Workout — ${sessionType}. Exercises: ${completed.map(ex =>
+              `${ex.name} ${ex.sets}×${ex.reps}${ex.weight ? ` @${ex.weight}kg` : ""}`
+            ).join(" | ")}`,
+          },
+        })
+      });
+      onSuccess();
+    } catch { push("Failed to log workout", "error"); }
+    finally { setSubmitting(false); }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-panel" style={{ maxWidth: 520 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", margin: 0 }}>Log Workout Session</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>×</button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
+            <div>
+              <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase", display: "block", marginBottom: "0.3rem" }}>Client</label>
+              <select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)} style={{ width: "100%", padding: "0.5rem 0.6rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", boxSizing: "border-box" }}>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.fullName}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase", display: "block", marginBottom: "0.3rem" }}>Date</label>
+              <input type="date" value={workoutDate} onChange={e => setWorkoutDate(e.target.value)} style={{ width: "100%", padding: "0.5rem 0.6rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", boxSizing: "border-box" }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase", display: "block", marginBottom: "0.3rem" }}>Session Type</label>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {["strength","cardio","hiit","flexibility","other"].map(t => (
+                <button key={t} type="button" onClick={() => setSessionType(t)} style={{ padding: "0.3rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid", borderColor: sessionType === t ? "var(--primary)" : "var(--outline-variant)", background: sessionType === t ? "var(--primary-container)" : "var(--surface-container)", color: sessionType === t ? "var(--primary)" : "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+              <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase" }}>Exercises</label>
+              <button type="button" onClick={addExercise} style={{ padding: "0.2rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--primary)", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer" }}>+ Add</button>
+            </div>
+            {exercises.map((ex, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: "0.4rem", marginBottom: "0.4rem", alignItems: "center" }}>
+                <input value={ex.name} onChange={e => updateExercise(i, "name", e.target.value)} placeholder="Exercise name" style={{ padding: "0.35rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
+                <input value={ex.sets} onChange={e => updateExercise(i, "sets", e.target.value)} placeholder="Sets" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
+                <input value={ex.reps} onChange={e => updateExercise(i, "reps", e.target.value)} placeholder="Reps" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
+                <input value={ex.weight} onChange={e => updateExercise(i, "weight", e.target.value)} placeholder="kg" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
+                {exercises.length > 1 && (
+                  <button type="button" onClick={() => removeExercise(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.2rem" }}>×</button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", borderTop: "1px solid var(--surface-container)", paddingTop: "1rem" }}>
+            <button type="button" onClick={onClose} style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "none", color: "var(--outline)", fontFamily: "Manrope, sans-serif", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+            <button type="submit" disabled={submitting || !selectedClientId} style={{ padding: "0.5rem 1.25rem", borderRadius: "var(--r-md)", border: "none", background: submitting || !selectedClientId ? "var(--surface-container)" : "var(--primary)", color: submitting || !selectedClientId ? "var(--outline)" : "white", fontFamily: "Manrope, sans-serif", fontSize: "0.82rem", fontWeight: 700, cursor: submitting || !selectedClientId ? "not-allowed" : "pointer" }}>
+              {submitting ? "Saving..." : "Log Session"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────
    ONBOARDING WIZARD
 ──────────────────────────────────────── */
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
@@ -4528,7 +4657,7 @@ function ClientAppPreviewInner({ clientPortal }: { clientPortal: ClientSession }
     if (!checkInWeight && !checkInSteps) return;
     setCheckInSubmitting(true);
     try {
-      await fetchJson("/check-ins", {
+      const result = await fetchJson<{id: string}>("/check-ins", {
         method: "POST",
         body: JSON.stringify({
           clientId: clientPortal.client.id,
@@ -4540,7 +4669,21 @@ function ClientAppPreviewInner({ clientPortal }: { clientPortal: ClientSession }
           },
         })
       });
+      if (checkInPhoto && result?.id) {
+        try {
+          const [header, data] = checkInPhoto.split(",");
+          const mime = header.match(/:(.*?);/)?.[1] ?? "image/jpeg";
+          const binary = atob(data);
+          const arr = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+          const blob = new Blob([arr], { type: mime });
+          const formData = new FormData();
+          formData.append("photo", blob, "photo.jpg");
+          await fetch(`/api/check-ins/${result.id}/photo`, { method: "POST", body: formData });
+        } catch { /* photo upload failed, non-critical */ }
+      }
       setCheckInSuccess(true);
+      setCheckInPhoto(null);
       setTimeout(() => setCheckInSuccess(false), 3000);
     } catch { /* silent */ }
     setCheckInSubmitting(false);
@@ -4777,6 +4920,7 @@ function App() {
   const [checkInHistory, setCheckInHistory] = useState<CheckInWithDelta[]>([]);
   const [activeNav, setActiveNav] = useState<NavId>("dashboard");
   const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [showWorkoutLogger, setShowWorkoutLogger] = useState(false);
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: string; time: string; read: boolean }>>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const { toasts, push, dismiss } = useToast();
@@ -4950,6 +5094,7 @@ function App() {
             onSimulateCheckIn={async id => { await handleCheckIn(id); push("Check-in recovery simulated"); }}
             onMarkPayment={async id => { await handleToggleBilling(id, "active"); }}
             push={push}
+            onLogWorkout={() => setShowWorkoutLogger(true)}
           />
         )}
         {activeNav === "clients" && (
@@ -5011,6 +5156,15 @@ function App() {
         <AddClientModal
           onClose={() => setShowAddClientModal(false)}
           onSuccess={handleAddClientSuccess}
+          push={push}
+        />
+      )}
+
+      {showWorkoutLogger && (
+        <WorkoutLoggerModal
+          clients={session.clients}
+          onClose={() => setShowWorkoutLogger(false)}
+          onSuccess={() => { setShowWorkoutLogger(false); push("Workout session logged!", "success"); }}
           push={push}
         />
       )}
