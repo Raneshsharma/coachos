@@ -263,8 +263,17 @@ function ToastContainer({
    SIDEBAR
 ──────────────────────────────────────── */
 function Sidebar({
-  active, onNav, session, atRiskCount
-}: { active: NavId; onNav: (id: NavId) => void; session: CoachSession | null; atRiskCount: number }) {
+  active, onNav, session, atRiskCount, notifications, setNotifications, showNotifications, setShowNotifications
+}: {
+  active: NavId;
+  onNav: (id: NavId) => void;
+  session: CoachSession | null;
+  atRiskCount: number;
+  notifications: Array<{ id: string; message: string; type: string; time: string; read: boolean }>;
+  setNotifications: React.Dispatch<React.SetStateAction<Array<{ id: string; message: string; type: string; time: string; read: boolean }>>>;
+  showNotifications: boolean;
+  setShowNotifications: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
   const nav = (id: NavId, icon: string, label: string, badge?: number) => (
     <button key={id} className={`nav-item${active === id ? " active" : ""}`} onClick={() => onNav(id)}>
       <span className="nav-item-icon">{icon}</span>
@@ -281,6 +290,41 @@ function Sidebar({
           <div className="sidebar-logo-tag">v1.0</div>
         </div>
       </div>
+
+      <button
+        onClick={() => setShowNotifications(v => !v)}
+        style={{ position: 'relative', background: showNotifications ? 'var(--primary-light)' : 'none', border: 'none', cursor: 'pointer', padding: '0.5rem', borderRadius: 'var(--r-md)', display: 'grid', placeItems: 'center', alignSelf: 'flex-start', width: '36px', height: '36px', marginLeft: 'auto', marginBottom: '0.5rem' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: showNotifications ? 'var(--primary)' : 'var(--outline)' }}>notifications</span>
+        {notifications.filter(n => !n.read).length > 0 && (
+          <span style={{ position: 'absolute', top: '4px', right: '4px', background: 'var(--danger)', color: 'white', borderRadius: '50%', width: '14px', height: '14px', fontSize: '0.55rem', fontWeight: 800, display: 'grid', placeItems: 'center', fontFamily: 'Inter, sans-serif' }}>
+            {notifications.filter(n => !n.read).length}
+          </span>
+        )}
+      </button>
+      {showNotifications && (
+        <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-lg)', border: '1px solid var(--outline-variant)', padding: '0.75rem', marginBottom: '0.75rem', maxHeight: '280px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-primary)', margin: 0 }}>Notifications</h3>
+            {notifications.length > 0 && (
+              <button onClick={() => setNotifications(ns => ns.map(n => ({ ...n, read: true })))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', fontWeight: 600 }}>Mark all read</button>
+            )}
+          </div>
+          {notifications.length === 0 ? (
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)', textAlign: 'center', padding: '1rem 0' }}>No notifications yet</p>
+          ) : (
+            notifications.map(n => (
+              <div key={n.id} style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--surface-container)', display: 'flex', gap: '0.5rem', alignItems: 'flex-start', opacity: n.read ? 0.6 : 1 }}>
+                {!n.read && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)', flexShrink: 0, marginTop: '0.35rem' }} />}
+                {n.read && <span style={{ width: '6px', height: '6px', flexShrink: 0, marginTop: '0.35rem' }} />}
+                <div>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--text-primary)', margin: 0 }}>{n.message}</p>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', margin: '0.1rem 0 0 0' }}>{n.time}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       <nav className="sidebar-nav">
         <span className="nav-section-label">Overview</span>
@@ -4445,6 +4489,8 @@ function App() {
   const [checkInHistory, setCheckInHistory] = useState<CheckInWithDelta[]>([]);
   const [activeNav, setActiveNav] = useState<NavId>("dashboard");
   const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: string; time: string; read: boolean }>>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const { toasts, push, dismiss } = useToast();
 
   // Check if onboarding was already completed
@@ -4606,7 +4652,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar active={activeNav} onNav={handleNavWithPortal} session={session} atRiskCount={atRiskCount} />
+      <Sidebar active={activeNav} onNav={handleNavWithPortal} session={session} atRiskCount={atRiskCount} notifications={notifications} setNotifications={setNotifications} showNotifications={showNotifications} setShowNotifications={setShowNotifications} />
 
       <div className="page-content">
         {activeNav === "dashboard" && (
