@@ -323,6 +323,114 @@ function Sidebar({
    VIEWS
 ──────────────────────────────────────── */
 
+
+// ── SESSION BOOKING MODAL ──────────────
+function SessionBookingModal({ client, onClose, onSuccess, push }: {
+  client: { id: string; fullName: string };
+  onClose: () => void;
+  onSuccess: () => void;
+  push: (msg: string, type?: string) => void;
+}) {
+  const [sessionType, setSessionType] = useState<'virtual' | 'in_person'>('virtual');
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    return d.toISOString().split('T')[0];
+  });
+  const [time, setTime] = useState('10:00');
+  const [duration, setDuration] = useState('60');
+  const [notes, setNotes] = useState('');
+  const [sending, setSending] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      await fetchJson(`/clients/${client.id}/sessions`, {
+        method: 'POST',
+        body: JSON.stringify({ sessionType, date, time, duration: Number(duration), notes }),
+      });
+      setSuccess(true);
+      setTimeout(() => { onSuccess(); push(`Session booked for ${client.fullName}!`, 'success'); }, 1500);
+    } catch {
+      push('Failed to book session. Try again.', 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)' }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-xl)', padding: '1.75rem', width: 'min(480px, 95vw)', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.24)', border: '1px solid var(--outline-variant)' }}>
+        {success ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '0.75rem', animation: 'fadeIn 0.4s ease' }}>check_circle</div>
+            <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Session Booked!</h3>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>Invite sent to {client.fullName}.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0 }}>Book Session</h2>
+              <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--outline)', padding: '0.25rem', display: 'grid', placeItems: 'center' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>close</span>
+              </button>
+            </div>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--outline)', marginBottom: '1rem' }}>Schedule a coaching session with {client.fullName}.</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.35rem' }}>Date</label>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} required style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', boxSizing: 'border-box', outline: 'none' }} />
+              </div>
+              <div>
+                <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.35rem' }}>Time</label>
+                <input type="time" value={time} onChange={e => setTime(e.target.value)} required style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', boxSizing: 'border-box', outline: 'none' }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.35rem' }}>Duration</label>
+              <select value={duration} onChange={e => setDuration(e.target.value)} style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', outline: 'none' }}>
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">60 min</option>
+                <option value="90">90 min</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.35rem' }}>Session Type</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {(['virtual', 'in_person'] as const).map(type => (
+                  <button type="button" key={type} onClick={() => setSessionType(type)} style={{ flex: 1, padding: '0.5rem', borderRadius: 'var(--r-md)', border: `1.5px solid ${sessionType === type ? 'var(--primary)' : 'var(--outline-variant)'}`, background: sessionType === type ? 'var(--primary-light)' : 'var(--surface-container)', color: sessionType === type ? 'var(--primary)' : 'var(--on-surface)', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>{type === 'virtual' ? 'videocam' : 'person_pin'}</span>
+                    {type === 'virtual' ? 'Virtual' : 'In-Person'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.35rem' }}>Notes</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Session focus, goals, topics to cover..." style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+            </div>
+
+            <button type="submit" disabled={sending} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--r-lg)', border: 'none', background: sending ? 'var(--surface-container)' : 'var(--primary)', color: sending ? 'var(--outline)' : 'white', fontFamily: 'Manrope, sans-serif', fontSize: '0.85rem', fontWeight: 700, cursor: sending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.15s ease' }}>
+              {sending ? (
+                <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>progress_activity</span> Sending...</>
+              ) : (
+                <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span> Send Invite</>
+              )}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── DASHBOARD VIEW ──────────────────────
 function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push }: {
   session: CoachSession;
@@ -782,6 +890,7 @@ function ClientsView({
   const [profileClientId, setProfileClientId] = useState<string | null>(null);
   const profileClient = profileClientId ? session.clients.find(c => c.id === profileClientId) ?? null : null;
   const [activeTab, setActiveTab] = useState<'overview'|'notes'|'workouts'|'nutrition'|'progress'|'payments'>('overview');
+  const [bookingClient, setBookingClient] = useState<{ id: string; fullName: string } | null>(null);
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [metrics, setMetrics] = useState<BodyMetric[]>([]);
 
@@ -835,6 +944,12 @@ function ClientsView({
             <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{latestCi?.progress.weightKg ?? '—'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Weight</div></div>
             <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>£{clientSubscription?.amountGbp ?? '—'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>MRR</div></div>
           </div>
+        </div>
+        <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+          <button onClick={() => setBookingClient({ id: profileClient.id, fullName: profileClient.fullName })} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--r-lg)', border: '1.5px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>event</span>
+            Book Session
+          </button>
         </div>
 
         <div className="profile-tabs">
@@ -1025,6 +1140,16 @@ function ClientsView({
         </div>
       </div>
     );
+    <>
+    {bookingClient && (
+      <SessionBookingModal
+        client={bookingClient as { id: string; fullName: string }}
+        onClose={() => setBookingClient(null)}
+        onSuccess={() => { setBookingClient(null); }}
+        push={(msg, type) => {}}
+      />
+    )}
+    </>
   }
 
   return (
