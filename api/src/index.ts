@@ -734,6 +734,29 @@ app.post("/api/plans/:planId/approve", async (c) => {
   return plan ? c.json(plan) : c.json({ message: "Plan not found." }, 404);
 });
 
+app.patch("/api/plans/:planId", async (c) => {
+  const planId = c.req.param("planId");
+  const patch = await c.req.json<{
+    title?: string;
+    workouts?: string[];
+    nutrition?: string[];
+    explanation?: string[];
+  }>();
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.title !== undefined) updates.title = patch.title;
+  if (patch.workouts !== undefined) updates.workouts = patch.workouts;
+  if (patch.nutrition !== undefined) updates.nutrition = patch.nutrition;
+  if (patch.explanation !== undefined) updates.explanation = patch.explanation;
+  const { data, error } = await supabase
+    .from("plans")
+    .update(updates)
+    .eq("id", planId)
+    .select()
+    .single();
+  if (error || !data) return c.json({ message: "Failed to update plan." }, 500);
+  return c.json(mapPlan(data));
+});
+
 app.get("/api/check-ins", async (c) =>
   c.json(await listCheckIns({ clientId: c.req.query("clientId") }))
 );

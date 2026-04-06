@@ -1785,6 +1785,93 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
   const [mealWeekOffset, setMealWeekOffset] = useState(0);
   const [editingMeal, setEditingMeal] = useState<{ day: string; slot: string } | null>(null);
   const [showArchitect, setShowArchitect] = useState(true);
+  const [mealWeek, setMealWeek] = useState([
+    { name: "Mon", meals: [
+      { slot: "Breakfast", name: "Greek Yogurt with Berries", cal: 320, protein: 24 },
+      { slot: "Lunch", name: "Grilled Salmon Salad", cal: 480, protein: 38 },
+      { slot: "Snacks", name: "Almonds & Apple", cal: 210, protein: 6 },
+      { slot: "Dinner", name: "Sesame Tofu Stir-fry", cal: 540, protein: 22 },
+    ]},
+    { name: "Tue", meals: [
+      { slot: "Breakfast", name: "Oatmeal with Banana", cal: 380, protein: 12 },
+      { slot: "Lunch", name: "Chicken Quinoa Bowl", cal: 520, protein: 42 },
+      { slot: "Snacks", name: "Greek Yogurt", cal: 150, protein: 15 },
+      { slot: "Dinner", name: "Baked Cod & Asparagus", cal: 430, protein: 40 },
+    ]},
+    { name: "Wed", meals: [
+      { slot: "Breakfast", name: "Avocado Toast & Eggs", cal: 450, protein: 20 },
+      { slot: "Lunch", name: "Turkey & Hummus Wrap", cal: 490, protein: 35 },
+      { slot: "Snacks", name: "Mixed Nuts & Dates", cal: 280, protein: 8 },
+      { slot: "Dinner", name: "Lean Beef Stir-fry", cal: 580, protein: 45 },
+    ]},
+    { name: "Thu", meals: [
+      { slot: "Breakfast", name: "Protein Smoothie Bowl", cal: 340, protein: 30 },
+      { slot: "Lunch", name: "Tuna Nicoise Salad", cal: 420, protein: 40 },
+      { slot: "Snacks", name: "Rice Cakes & Almond Butter", cal: 180, protein: 5 },
+      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+    ]},
+    { name: "Fri", meals: [
+      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+    ]},
+    { name: "Sat", meals: [
+      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+    ]},
+    { name: "Sun", meals: [
+      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+    ]},
+  ]);
+  const [savingMeal, setSavingMeal] = useState(false);
+  const [foodSearch, setFoodSearch] = useState("");
+  const [foodSuggestions, setFoodSuggestions] = useState<string[]>([]);
+  const [searchingFood, setSearchingFood] = useState(false);
+
+  // Load nutrition from plan into mealWeek
+  useEffect(() => {
+    const nutrition = clientPortal?.plan?.latestVersion?.nutrition;
+    if (!nutrition || nutrition.length === 0) return;
+    try {
+      const parsed = JSON.parse(nutrition[0]);
+      if (Array.isArray(parsed) && parsed.length > 0 && Array.isArray(parsed[0]?.meals)) {
+        setMealWeek(parsed);
+      }
+    } catch { /* keep default */ }
+  }, [clientPortal?.plan]);
+
+  // Food search
+  useEffect(() => {
+    if (!foodSearch.trim()) { setFoodSuggestions([]); return; }
+    setSearchingFood(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetchJson<{name?: string; recipes?: string[]}>(`/recipes?food=${encodeURIComponent(foodSearch)}`);
+        setFoodSuggestions(Array.isArray(res) ? res.slice(0, 5) : (res?.recipes ?? []));
+      } catch { setFoodSuggestions([]); }
+      finally { setSearchingFood(false); }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [foodSearch]);
+
+  const saveMealPlan = async () => {
+    if (!clientPortal?.plan) return;
+    setSavingMeal(true);
+    try {
+      const nutritionStrings = mealWeek.map(day =>
+        `${day.name}: ${day.meals.filter(m => m.name !== "—").map(m => `${m.slot} — ${m.name} (${m.cal} cal, ${m.protein}g protein)`).join(" | ")}`
+      );
+      await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ nutrition: nutritionStrings }) });
+      push("Meal plan saved to client profile!", "success");
+    } catch { push("Failed to save meal plan", "error"); }
+    finally { setSavingMeal(false); }
+  };
 
   // Workout Plan state
   const [workoutExercises, setWorkoutExercises] = useState([
@@ -1793,6 +1880,44 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
     { id: 3, name: "Butt Kicks", tag: "Metabolic / Warmup", sets: "Fixed: 40", duration: "30 Seconds", advanced: "" },
   ]);
   const [workoutDiscarded, setWorkoutDiscarded] = useState(false);
+  const [savingWorkout, setSavingWorkout] = useState(false);
+  const [exerciseLibrary, setExerciseLibrary] = useState<{id:string;name:string;bodyPart:string;equipment:string}[]>([]);
+  const [exerciseSearch, setExerciseSearch] = useState("");
+  const [exerciseFilter, setExerciseFilter] = useState("all");
+  const [loadingExercises, setLoadingExercises] = useState(false);
+
+  // Load exercises when workout tab is active
+  useEffect(() => {
+    if (activeTab !== "workout") return;
+    setLoadingExercises(true);
+    fetchJson<{id:string;name:string;bodyPart:string;equipment:string}[]>(`/exercises`).then(exs => {
+      setExerciseLibrary(exs);
+    }).catch(() => {}).finally(() => setLoadingExercises(false));
+  }, [activeTab]);
+
+  const filteredExercises = exerciseLibrary.filter(e => {
+    const matchesSearch = !exerciseSearch || e.name.toLowerCase().includes(exerciseSearch.toLowerCase());
+    const matchesFilter = exerciseFilter === "all" || e.bodyPart?.toLowerCase() === exerciseFilter.toLowerCase();
+    return matchesSearch && matchesFilter;
+  });
+
+  // Load workout exercises from plan when portal loads
+  useEffect(() => {
+    const workouts = clientPortal?.plan?.latestVersion?.workouts;
+    if (!workouts || workouts.length === 0) return;
+    try {
+      // Try parsing as JSON exercise objects
+      const parsed = JSON.parse(workouts[0]);
+      if (Array.isArray(parsed)) {
+        setWorkoutExercises(parsed.map((ex, i) => ({ ...ex, id: ex.id ?? i + 1 })));
+      }
+    } catch {
+      // Fallback: convert legacy string array to exercise objects
+      setWorkoutExercises(workouts.map((w, i) => ({
+        id: i + 1, name: w, tag: "Custom", sets: "3 Sets of 12", duration: "45 Seconds", advanced: ""
+      })));
+    }
+  }, [clientPortal?.plan]);
 
   useEffect(() => {
     if (clientPortal) {
@@ -2120,11 +2245,49 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                       </button>
                     </div>
                   </div>
-                  <button className="meal-save-btn" onClick={() => { push("Meal plan saved and assigned to " + (clientPortal?.client.fullName ?? "client")); setEditingMeal(null); }}>
+                  <button className="meal-save-btn" onClick={async () => { await saveMealPlan(); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle", marginRight: "0.35rem" }}>check_circle</span>
-                    Save &amp; Assign
+                    {savingMeal ? "Saving..." : "Save & Assign"}
+                  </button>
+                  <button className="meal-save-btn" onClick={() => setEditingMeal(d => d === null ? { day: mealWeek[0]?.name, slot: "Breakfast" } : null)} style={{ background: editingMeal ? "var(--primary)" : "var(--surface-container)", color: editingMeal ? "white" : "var(--text-primary)", border: "1.5px solid var(--outline-variant)", marginLeft: "0.5rem" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle", marginRight: "0.35rem" }}>edit</span>
+                    Edit Meals
                   </button>
                 </div>
+
+                {/* Inline Meal Editor */}
+                {editingMeal && (
+                  <div className="card-glass" style={{ padding: "0.75rem", marginBottom: "1rem" }}>
+                    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                      <select value={editingMeal.day} onChange={e => setEditingMeal(d => d ? { ...d, day: e.target.value } : null)} style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }}>
+                        {mealWeek.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                      </select>
+                      <select value={editingMeal.slot} onChange={e => setEditingMeal(d => d ? { ...d, slot: e.target.value } : null)} style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }}>
+                        {["Breakfast","Lunch","Snacks","Dinner"].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <input type="text" placeholder="Meal name (e.g. Grilled Chicken Salad)" value={(() => { const day = mealWeek.find(d => d.name === editingMeal.day); const meal = day?.meals.find(m => m.slot === editingMeal.slot); return meal?.name ?? ""; })()} onChange={e => setMealWeek(prev => prev.map(d => d.name === editingMeal.day ? { ...d, meals: d.meals.map(m => m.slot === editingMeal.slot ? { ...m, name: e.target.value } : m) } : d))} style={{ flex: 1, padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
+                      <input type="number" placeholder="Cal" value={(() => { const day = mealWeek.find(d => d.name === editingMeal.day); const meal = day?.meals.find(m => m.slot === editingMeal.slot); return meal?.cal || ""; })()} onChange={e => setMealWeek(prev => prev.map(d => d.name === editingMeal.day ? { ...d, meals: d.meals.map(m => m.slot === editingMeal.slot ? { ...m, cal: Number(e.target.value) || 0 } : m) } : d))} style={{ width: "60px", padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
+                      <input type="number" placeholder="Protein (g)" value={(() => { const day = mealWeek.find(d => d.name === editingMeal.day); const meal = day?.meals.find(m => m.slot === editingMeal.slot); return meal?.protein || ""; })()} onChange={e => setMealWeek(prev => prev.map(d => d.name === editingMeal.day ? { ...d, meals: d.meals.map(m => m.slot === editingMeal.slot ? { ...m, protein: Number(e.target.value) || 0 } : m) } : d))} style={{ width: "70px", padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
+                      <button onClick={() => setEditingMeal(null)} style={{ padding: "0.3rem 0.6rem", borderRadius: "var(--r-sm)", border: "none", background: "var(--surface-container)", color: "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", cursor: "pointer" }}>Done</button>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <input type="text" placeholder="Search foods to add..." value={foodSearch} onChange={e => setFoodSearch(e.target.value)} style={{ flex: 1, padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
+                      {searchingFood && <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)" }}>Searching...</span>}
+                    </div>
+                    {foodSuggestions.length > 0 && (
+                      <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {foodSuggestions.map((s, i) => (
+                          <button key={i} onClick={() => { const day = mealWeek.find(d => d.name === editingMeal.day); const meal = day?.meals.find(m => m.slot === editingMeal.slot); if (meal) { setMealWeek(prev => prev.map(d => d.name === editingMeal.day ? { ...d, meals: d.meals.map(m => m.slot === editingMeal.slot ? { ...m, name: s } : m) } : d)); setFoodSearch(""); setFoodSuggestions([]); } }} style={{ padding: "0.25rem 0.6rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", cursor: "pointer" }}>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ marginTop: "0.5rem", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)" }}>
+                      Select day + slot above, then type or search to update the meal.
+                    </div>
+                  </div>
+                )}
 
                 <div className="meal-calendar">
                   {/* Helper to render a day column */}
@@ -2317,20 +2480,42 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 <div className="workout-library-sidebar">
                   <div>
                     <div className="workout-library-title">Exercise Library</div>
-                    <div className="workout-library-subtitle">Drag to sequence</div>
+                    <input
+                      type="text"
+                      placeholder="Search exercises..."
+                      value={exerciseSearch}
+                      onChange={e => setExerciseSearch(e.target.value)}
+                      style={{ width: "100%", padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", marginBottom: "0.4rem", boxSizing: "border-box" }}
+                    />
+                    <select value={exerciseFilter} onChange={e => setExerciseFilter(e.target.value)} style={{ width: "100%", padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", marginBottom: "0.5rem", boxSizing: "border-box" }}>
+                      <option value="all">All</option>
+                      <option value="chest">Chest</option>
+                      <option value="back">Back</option>
+                      <option value="legs">Legs</option>
+                      <option value="shoulders">Shoulders</option>
+                      <option value="arms">Arms</option>
+                      <option value="core">Core</option>
+                      <option value="cardio">Cardio</option>
+                    </select>
                   </div>
-                  {[
-                    { icon: "arrow_warm_up", label: "Warm-up", active: true },
-                    { icon: "fitness_center", label: "Strength", active: false },
-                    { icon: "shutter_speed", label: "Hypertrophy", active: false },
-                    { icon: "self_care", label: "Mobility", active: false },
-                    { icon: "waves", label: "Cool-down", active: false },
-                  ].map(item => (
-                    <div key={item.label} className={`workout-lib-item${item.active ? " workout-lib-item--active" : ""}`}>
-                      <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>{item.icon}</span>
-                      <span>{item.label}</span>
-                    </div>
-                  ))}
+                  <div style={{ overflowY: "auto", flex: 1, maxHeight: "320px" }}>
+                    {loadingExercises ? (
+                      <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)", padding: "0.5rem" }}>Loading...</p>
+                    ) : filteredExercises.length === 0 ? (
+                      <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)", padding: "0.5rem" }}>No exercises found.</p>
+                    ) : (
+                      filteredExercises.slice(0, 50).map(ex => (
+                        <div key={ex.id} className="workout-lib-item" style={{ fontSize: "0.72rem", padding: "0.35rem 0.5rem", cursor: "pointer" }} onClick={() => {
+                          const nextId = Math.max(0, ...workoutExercises.map(e => e.id)) + 1;
+                          setWorkoutExercises(prev => [...prev, { id: nextId, name: ex.name, tag: ex.bodyPart || "Custom", sets: "3 Sets of 12", duration: "45 Seconds", advanced: "" }]);
+                          push(`"${ex.name}" added to plan`);
+                        }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>fitness_center</span>
+                          <span style={{ fontFamily: "Inter, sans-serif" }}>{ex.name}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
                   <button className="workout-lib-add-btn" onClick={() => { const nextId = Math.max(0, ...workoutExercises.map(e => e.id)) + 1; setWorkoutExercises(prev => [...prev, { id: nextId, name: "New Exercise", tag: "Custom", sets: "3 Sets of 12", duration: "45 Seconds", advanced: "" }]); push("Custom exercise added to plan"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>add</span>
                     Add Custom Move
@@ -2448,11 +2633,11 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
               <div className="workout-bottom-bar">
                 <div className="workout-save-status">
                   <div className="workout-save-dot" />
-                  Last saved 2m ago
+                  {savingWorkout ? "Saving..." : "All changes saved"}
                 </div>
                 <div className="workout-bottom-actions">
                   <button className="workout-discard-btn" onClick={() => { setWorkoutExercises([{ id: 1, name: "Jumping Jacks", tag: "Metabolic / Plyometric", sets: "3 Sets of 50", duration: "60 Seconds", advanced: "" }, { id: 2, name: "High Knees", tag: "Agility / Power", sets: "Per Set: 30", duration: "45 Seconds", advanced: "Ankle Weights 1kg" }, { id: 3, name: "Butt Kicks", tag: "Metabolic / Warmup", sets: "Fixed: 40", duration: "30 Seconds", advanced: "" }]); push("Workout draft discarded - reverted to last saved version"); }}>Discard Draft</button>
-                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { await onApprove(clientPortal.plan.id); push("Workout plan approved and published!", "success"); } else { push("No active plan to approve", "error"); } }}>Review &amp; Finalize</button>
+                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { setSavingWorkout(true); try { await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ workouts: JSON.stringify(workoutExercises) }) }); await onApprove(clientPortal.plan.id); push("Workout plan saved and published!", "success"); } catch { push("Failed to save workout plan", "error"); } finally { setSavingWorkout(false); } } else { push("No active plan — generate one from AI Plans first", "error"); } }}>Save &amp; Publish</button>
                 </div>
               </div>
             </div>
