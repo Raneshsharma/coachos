@@ -522,14 +522,14 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </div>
         <div className="editorial-hero-right">
           {/* Coach mascot based on gender */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <div style={{
-              width: 56, height: 56, borderRadius: "50%", background: workspace.brandColor, display: "grid", placeItems: "center",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.15)", flexShrink: 0,
+              width: 168, height: 168, borderRadius: "50%", background: workspace.brandColor, display: "grid", placeItems: "center",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.2)", flexShrink: 0,
             }}>
               {session.coach.gender === "female" ? (
                 /* Female coach mascot */
-                <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <svg width="108" height="108" viewBox="0 0 36 36" fill="none">
                   <circle cx="18" cy="12" r="7" fill="white" opacity="0.95"/>
                   <path d="M8 28 C8 20 28 20 28 28" fill="white" opacity="0.9"/>
                   <circle cx="15" cy="11" r="1.2" fill="#123f2d"/>
@@ -539,7 +539,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                 </svg>
               ) : (
                 /* Male coach mascot */
-                <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <svg width="108" height="108" viewBox="0 0 36 36" fill="none">
                   <circle cx="18" cy="13" r="7" fill="white" opacity="0.95"/>
                   <path d="M9 28 C9 21 27 21 27 28" fill="white" opacity="0.9"/>
                   <circle cx="15" cy="12" r="1.2" fill="#123f2d"/>
@@ -549,10 +549,6 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                   <rect x="14" y="7.5" width="8" height="1.5" rx="0.5" fill="white" opacity="0.85"/>
                 </svg>
               )}
-            </div>
-            <div style={{ lineHeight: 1.2 }}>
-              <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "0.8rem", color: "var(--text-primary)" }}>{session.coach.firstName}</div>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--outline)" }}>Your Coach</div>
             </div>
           </div>
         </div>
@@ -4227,7 +4223,14 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [monthOffset, setMonthOffset] = useState(0);
-  const [blockedDates, setBlockedDates] = useState<string[]>([]);
+  const [blockedDates, setBlockedDates] = useState<Record<string, string[]>>({});
+  const [newBlockComment, setNewBlockComment] = useState("");
+  const [showBlockInput, setShowBlockInput] = useState(false);
+
+  useEffect(() => {
+    setShowBlockInput(false);
+    setNewBlockComment("");
+  }, [selectedDate]);
 
   const displayDate = useMemo(() => {
     const d = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
@@ -4290,14 +4293,16 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
         }
       }
     });
-    // Add blocked dates as events
-    blockedDates.forEach(date => {
-      evs.push({
-        id: `blocked-${date}`,
-        date,
-        type: "blocked",
-        label: "Blocked",
-        color: "var(--danger)",
+    // Add blocked dates as events (one per comment)
+    Object.entries(blockedDates).forEach(([date, comments]) => {
+      comments.forEach((comment, i) => {
+        evs.push({
+          id: `blocked-${date}-${i}`,
+          date,
+          type: "blocked",
+          label: comment,
+          color: "var(--danger)",
+        });
       });
     });
     return evs;
@@ -4380,7 +4385,7 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                 if (!day) return <div key={`empty-${idx}`} />;
                 const dateStr = formatDate(day);
                 const dayEvents = eventMap.get(dateStr) ?? [];
-                const isBlocked = blockedDates.includes(dateStr);
+                const isBlocked = (blockedDates[dateStr]?.length ?? 0) > 0;
                 const isToday = dateStr === todayStr;
                 const isSelected = dateStr === selectedDate;
                 return (
@@ -4449,13 +4454,14 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                 {upcomingEvents.map(e => {
                   const cfg = typeConfig[e.type];
                   const client = e.clientId ? session.clients.find(c => c.id === e.clientId) : null;
+                  const isBlocked = e.type === "blocked";
                   return (
-                    <div key={e.id} className="card-glass" style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem", cursor: client ? "pointer" : "default" }} onClick={client ? () => { setSelectedDate(e.date); setMonthOffset(0); } : undefined}>
+                    <div key={e.id} className="card-glass" style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem", cursor: (client || isBlocked) ? "pointer" : "default", borderLeft: isBlocked ? "3px solid var(--danger)" : undefined, opacity: isBlocked ? 0.85 : 1 }} onClick={() => { setSelectedDate(e.date); setMonthOffset(0); }}>
                       <div style={{ width: 36, height: 36, borderRadius: "50%", background: cfg?.bg, display: "grid", placeItems: "center", flexShrink: 0 }}>
                         <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: cfg?.color }}>{cfg?.icon}</span>
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>{e.label}</div>
+                        <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: isBlocked ? "var(--danger)" : "var(--text-primary)" }}>{e.label}</div>
                         <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)" }}>{new Date(e.date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
                       </div>
                       {client && (
@@ -4463,6 +4469,9 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                           onClick={ev => { ev.stopPropagation(); onNav("clients"); }}>
                           View
                         </button>
+                      )}
+                      {isBlocked && (
+                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "var(--danger)", background: "rgba(239,68,68,0.1)", padding: "0.15rem 0.4rem", borderRadius: "9999px" }}>Blocked</span>
                       )}
                     </div>
                   );
@@ -4485,30 +4494,89 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                 </button>
               </div>
 
-              {/* Block/Unblock date */}
+              {/* Block this date */}
               <div style={{ marginBottom: "1rem" }}>
-                {blockedDates.includes(selectedDate!) ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.75rem", borderRadius: "var(--r-md)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--danger)" }}>block</span>
-                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", flex: 1 }}>Date is blocked</span>
-                    <button
-                      onClick={() => setBlockedDates(prev => prev.filter(d => d !== selectedDate))}
-                      style={{ border: "none", background: "transparent", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 600, color: "var(--danger)", padding: "0.1rem 0.25rem", textDecoration: "underline" }}>
-                      Unblock
-                    </button>
+                {/* Existing block comments for this date */}
+                {(blockedDates[selectedDate!]?.length ?? 0) > 0 && (
+                  <div style={{ marginBottom: "0.75rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.2rem" }}>
+                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "var(--danger)", textTransform: "uppercase" }}>
+                        Blocked ({blockedDates[selectedDate!]?.length}/10)
+                      </span>
+                    </div>
+                    {blockedDates[selectedDate!].map((comment, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "0.4rem", padding: "0.35rem 0.5rem", borderRadius: "var(--r-sm)", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.8rem", color: "var(--danger)", flexShrink: 0, marginTop: "0.05rem" }}>block</span>
+                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-primary)", flex: 1, lineHeight: 1.4 }}>{comment}</span>
+                        <button
+                          onClick={() => setBlockedDates(prev => {
+                            const existing = prev[selectedDate!] ?? [];
+                            const updated = existing.filter((_, idx) => idx !== i);
+                            if (updated.length === 0) {
+                              const n = { ...prev };
+                              delete n[selectedDate!];
+                              return n;
+                            }
+                            return { ...prev, [selectedDate!]: updated };
+                          })}
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--outline)", fontSize: "0.75rem", padding: "0 0.2rem", flexShrink: 0, lineHeight: 1 }}>
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add comment input or button */}
+                {showBlockInput ? (
+                  <div>
+                    <textarea
+                      value={newBlockComment}
+                      onChange={e => setNewBlockComment(e.target.value)}
+                      placeholder="e.g. Going out for dinner with family..."
+                      rows={2}
+                      maxLength={200}
+                      style={{ width: "100%", padding: "0.4rem 0.6rem", borderRadius: "var(--r-md)", border: "1.5px solid rgba(239,68,68,0.3)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", resize: "none", boxSizing: "border-box", marginBottom: "0.4rem" }}
+                    />
+                    <div style={{ display: "flex", gap: "0.4rem" }}>
+                      <button
+                        onClick={() => {
+                          if (!newBlockComment.trim() || !selectedDate) return;
+                          if ((blockedDates[selectedDate]?.length ?? 0) >= 10) return;
+                          setBlockedDates(prev => ({
+                            ...prev,
+                            [selectedDate!]: [...(prev[selectedDate!] ?? []), newBlockComment.trim()],
+                          }));
+                          setNewBlockComment("");
+                          setShowBlockInput(false);
+                        }}
+                        disabled={!newBlockComment.trim() || (blockedDates[selectedDate!]?.length ?? 0) >= 10}
+                        style={{ flex: 1, padding: "0.4rem", borderRadius: "var(--r-sm)", border: "none", background: newBlockComment.trim() ? "var(--danger)" : "var(--surface-container)", color: newBlockComment.trim() ? "white" : "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: newBlockComment.trim() ? "pointer" : "not-allowed" }}>
+                        Add Block
+                      </button>
+                      <button
+                        onClick={() => { setShowBlockInput(false); setNewBlockComment(""); }}
+                        style={{ padding: "0.4rem 0.6rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>
+                        Cancel
+                      </button>
+                    </div>
+                    {(blockedDates[selectedDate!]?.length ?? 0) >= 10 && (
+                      <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", color: "var(--danger)", margin: "0.25rem 0 0" }}>Maximum 10 blocks per day.</p>
+                    )}
                   </div>
                 ) : (
                   <button
-                    onClick={() => { if (selectedDate && !blockedDates.includes(selectedDate)) setBlockedDates(prev => [...prev, selectedDate]); }}
-                    style={{ width: "100%", padding: "0.45rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.06)", color: "var(--danger)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "center" }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>block</span>
-                    Block this date
+                    onClick={() => setShowBlockInput(true)}
+                    disabled={(blockedDates[selectedDate!]?.length ?? 0) >= 10}
+                    style={{ width: "100%", padding: "0.45rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid rgba(239,68,68,0.3)", background: (blockedDates[selectedDate!]?.length ?? 0) < 10 ? "rgba(239,68,68,0.06)" : "var(--surface-container)", color: (blockedDates[selectedDate!]?.length ?? 0) < 10 ? "var(--danger)" : "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, cursor: (blockedDates[selectedDate!]?.length ?? 0) < 10 ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "center" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>add</span>
+                    {(blockedDates[selectedDate!]?.length ?? 0) > 0 ? "Add another block" : "Block this date"}
                   </button>
                 )}
               </div>
 
               {/* Events list */}
-              {selectedEvents.filter(e => e.type !== "blocked").length === 0 && selectedEvents.filter(e => e.type === "blocked").length === 0 ? (
+              {selectedEvents.filter(e => e.type !== "blocked").length === 0 ? (
                 <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--outline)" }}>No events on this day.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
