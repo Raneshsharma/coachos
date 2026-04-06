@@ -488,7 +488,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push 
     .filter(s => s.status === "active")
     .reduce((sum, s) => sum + s.amountGbp, 0);
 
-  const today = new Date("2026-04-03");
+  const today = new Date();
   const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
   const dateStr = today.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
@@ -536,15 +536,15 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push 
           </div>
           <div className="bento-label">Active Clients</div>
           <div className="bento-value">{dashboard.activeClients}</div>
-          <div className="bento-trend">↑ 12% this month</div>
+          <div className="bento-trend">{clients.length} total clients</div>
         </div>
         <div className="bento-card">
           <div className="bento-icon-wrap">
             <span className="material-symbols-outlined bento-icon">payments</span>
           </div>
           <div className="bento-label">Monthly Revenue</div>
-          <div className="bento-value">£{mrrGbp}</div>
-          <div className="bento-trend">↑ 8% vs last month</div>
+          <div className="bento-value">£{mrrGbp.toLocaleString()}</div>
+          <div className="bento-trend">{session.subscriptions.filter(s => s.status === "active").length} active subscriptions</div>
         </div>
         <div className="bento-card">
           <div className="bento-icon-wrap">
@@ -2994,6 +2994,22 @@ function SettingsView({ session, onSave }: {
     heroMessage: session.workspace.heroMessage,
     stripeConnected: session.workspace.stripeConnected,
   });
+  const [notifPrefs, setNotifPrefs] = useState({
+    enabled: true,
+    clientCheckIn: true,
+    sessionReminder: true,
+    paymentReceived: true,
+    newClientRequest: false,
+    emailEnabled: true,
+  });
+  const [savingNotif, setSavingNotif] = useState(false);
+
+  const notifTypes = [
+    { key: "clientCheckIn", label: "Client Check-in", desc: "When a client submits a check-in" },
+    { key: "sessionReminder", label: "Session Reminder", desc: "30 min before a scheduled session" },
+    { key: "paymentReceived", label: "Payment Received", desc: "When a client payment comes through" },
+    { key: "newClientRequest", label: "New Client Request", desc: "When a new client signs up" },
+  ];
 
   return (
     <div className="page-view">
@@ -3021,6 +3037,52 @@ function SettingsView({ session, onSave }: {
             <button type="submit">Save settings</button>
           </div>
         </form>
+      </div>
+
+      {/* Notification Preferences */}
+      <div style={{ maxWidth: 640, marginTop: "2rem" }}>
+        <div className="panel">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+            <div>
+              <h2 className="section-title" style={{ margin: 0 }}>Notification Preferences</h2>
+              <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--outline)", margin: "0.25rem 0 0" }}>Control how you receive alerts from CoachOS.</p>
+            </div>
+            <label className="toggle">
+              <input type="checkbox" checked={notifPrefs.enabled} onChange={e => setNotifPrefs(p => ({ ...p, enabled: e.target.checked }))} />
+              In-App
+            </label>
+          </div>
+
+          <div className="stack compact">
+            {notifTypes.map(nt => (
+              <div key={nt.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid var(--surface-container)" }}>
+                <div>
+                  <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>{nt.label}</div>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)" }}>{nt.desc}</div>
+                </div>
+                <label className="toggle" style={{ flexShrink: 0 }}>
+                  <input type="checkbox" checked={(notifPrefs as any)[nt.key]} onChange={e => setNotifPrefs(p => ({ ...p, [nt.key]: e.target.checked }))} disabled={!notifPrefs.enabled} />
+                </label>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--surface-container)", paddingTop: "1rem" }}>
+            <div>
+              <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>Email notifications</div>
+              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)" }}>Receive summaries via email</div>
+            </div>
+            <label className="toggle" style={{ flexShrink: 0 }}>
+              <input type="checkbox" checked={notifPrefs.emailEnabled} onChange={e => setNotifPrefs(p => ({ ...p, emailEnabled: e.target.checked }))} disabled={!notifPrefs.enabled} />
+            </label>
+          </div>
+
+          <div style={{ marginTop: "1rem" }}>
+            <button onClick={async () => { setSavingNotif(true); await new Promise(r => setTimeout(r, 400)); setSavingNotif(false); }} disabled={savingNotif} style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "none", background: notifPrefs.enabled ? "var(--primary)" : "var(--surface-container)", color: notifPrefs.enabled ? "white" : "var(--outline)", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, cursor: savingNotif ? "not-allowed" : "pointer" }}>
+              {savingNotif ? "Saving..." : "Save Preferences"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
