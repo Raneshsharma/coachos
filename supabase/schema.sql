@@ -42,6 +42,16 @@ create table if not exists clients (
   start_date       text,
   avatar_initials  text,
   tags             text[] not null default '{}',
+  -- Extended profile fields
+  health_conditions jsonb not null default '[]',
+  daily_water_target integer not null default 3,
+  daily_steps_target integer not null default 10000,
+  supplements       text[] not null default '{}',
+  nutrition_calories integer,
+  nutrition_protein_g integer,
+  nutrition_fat_g   integer,
+  nutrition_carbs_g integer,
+  nutrition_coach_note text not null default '',
   created_at       timestamptz not null default now()
 );
 
@@ -68,7 +78,8 @@ create table if not exists check_ins (
   energy_score  integer,
   steps         integer,
   notes         text,
-  adherence_score integer
+  adherence_score integer,
+  photo_url     text
 );
 
 -- ── Subscriptions ───────────────────────────────────────────
@@ -84,6 +95,7 @@ create table if not exists subscriptions (
 -- ── Messages ─────────────────────────────────────────────────
 create table if not exists messages (
   id          text primary key default 'msg_' || gen_random_uuid()::text,
+  coach_id    text not null references coaches(id) on delete cascade,
   client_id   text not null references clients(id) on delete cascade,
   sender      text not null check (sender in ('coach', 'client')),
   content     text not null,
@@ -141,7 +153,23 @@ create table if not exists group_programs (
   name        text not null,
   description text,
   archived    boolean not null default false,
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  goal        text not null default '',
+  member_ids  text[] not null default '{}',
+  monthly_price_gbp integer not null default 0
+);
+
+-- ── Booked Sessions ─────────────────────────────────────────────
+create table if not exists booked_sessions (
+  id            text primary key default 'bs_' || gen_random_uuid()::text,
+  client_id     text not null references clients(id) on delete cascade,
+  coach_id      text not null references coaches(id) on delete cascade,
+  session_type  text not null check (session_type in ('virtual', 'in-person')),
+  session_date  text not null,
+  session_time  text not null,
+  duration_mins integer not null default 60,
+  notes         text not null default '',
+  created_at    timestamptz not null default now()
 );
 
 -- ── Body Metrics ─────────────────────────────────────────────
@@ -228,10 +256,10 @@ values
   ('sub_3', 'c_3', 'trialing',  99, '2026-04-10')
 on conflict (id) do nothing;
 
-insert into messages (id, client_id, sender, content, sent_at)
+insert into messages (id, coach_id, client_id, sender, content, sent_at)
 values
-  ('msg_1', 'c_1', 'coach',  'Great work today! Keep it up.',         '2026-04-03T10:00:00Z'),
-  ('msg_2', 'c_1', 'client', 'Thanks! The session was tough but I loved it.', '2026-04-03T10:15:00Z')
+  ('msg_1', 'coach_1', 'c_1', 'coach',  'Great work today! Keep it up.',         '2026-04-03T10:00:00Z'),
+  ('msg_2', 'coach_1', 'c_1', 'client', 'Thanks! The session was tough but I loved it.', '2026-04-03T10:15:00Z')
 on conflict (id) do nothing;
 
 insert into client_notes (id, coach_id, client_id, content)

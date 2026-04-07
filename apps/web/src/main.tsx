@@ -1032,7 +1032,31 @@ function ClientsView({
   // Profile tab state
   const [profileClientId, setProfileClientId] = useState<string | null>(null);
   const profileClient = profileClientId ? session.clients.find(c => c.id === profileClientId) ?? null : null;
+  const [profileEdit, setProfileEdit] = useState({ goal: false, email: false });
+  const [profileDraft, setProfileDraft] = useState({ goal: '', email: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview'|'notes'|'workouts'|'nutrition'|'progress'|'payments'>('overview');
+
+  const saveProfileField = async (field: 'goal' | 'email') => {
+    if (!profileClientId) return;
+    setProfileSaving(true);
+    try {
+      const patch: Record<string, string> = {};
+      patch[field] = profileDraft[field];
+      await fetchJson(`/clients/${profileClientId}`, { method: 'PATCH', body: JSON.stringify(patch) });
+      // @ts-expect-error — setSession is declared later in the component, visible at runtime via closure
+      (setSession as any)((s: CoachSession | null) => s ? { ...s, clients: s.clients.map((c: ClientProfile) => c.id === profileClientId ? { ...c, [field]: profileDraft[field] } : c) } : s);
+      setProfileEdit(ed => ({ ...ed, [field]: false }));
+      // @ts-expect-error — push is declared later in the component, visible at runtime via closure
+      (push as any)(`${field === 'goal' ? 'Goal' : 'Email'} updated`);
+    } catch {
+      // @ts-expect-error
+      (push as any)('Failed to update', 'error');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   const [bookingClient, setBookingClient] = useState<{ id: string; fullName: string } | null>(null);
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [newNote, setNewNote] = useState("");
@@ -1085,10 +1109,45 @@ function ClientsView({
           </div>
           <div className="profile-info">
             <h2 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: 'var(--text-primary)', margin: '0 0 0.25rem 0', letterSpacing: '-0.02em' }}>{profileClient.fullName}</h2>
-            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--on-surface-variant)', margin: '0 0 0.5rem 0' }}>{profileClient.goal}</p>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              {profileEdit.goal ? (
+                <>
+                  <input
+                    autoFocus
+                    value={profileDraft.goal}
+                    onChange={e => setProfileDraft(d => ({ ...d, goal: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') saveProfileField('goal'); if (e.key === 'Escape') setProfileEdit(ed => ({ ...ed, goal: false })); }}
+                    style={{ flex: 1, padding: '0.3rem 0.6rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--primary)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', outline: 'none' }}
+                  />
+                  <button onClick={() => saveProfileField('goal')} disabled={profileSaving} style={{ padding: '0.3rem 0.6rem', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                  <button onClick={() => setProfileEdit(ed => ({ ...ed, goal: false }))} style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.75rem', cursor: 'pointer' }}>✕</button>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--on-surface-variant)', margin: 0 }}>{profileClient.goal || <span style={{ color: 'var(--outline)', fontStyle: 'italic' }}>No goal set</span>}</p>
+                  <button onClick={() => { setProfileDraft(d => ({ ...d, goal: profileClient.goal })); setProfileEdit(ed => ({ ...ed, goal: true })); }} style={{ padding: '0.2rem', border: 'none', background: 'none', color: 'var(--outline)', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center' }} title='Edit goal'><span className='material-symbols-outlined' style={{ fontSize: '0.9rem' }}>edit</span></button>
+                </>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
               <span className={`badge-${profileClient.status === 'at_risk' ? 'danger' : profileClient.status === 'trial' ? 'warning' : 'success'}`}>{profileClient.status === 'at_risk' ? 'At Risk' : profileClient.status === 'trial' ? 'Trial' : 'Active'}</span>
-              <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)' }}>{profileClient.email}</span>
+              {profileEdit.email ? (
+                <>
+                  <input
+                    autoFocus
+                    value={profileDraft.email}
+                    onChange={e => setProfileDraft(d => ({ ...d, email: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') saveProfileField('email'); if (e.key === 'Escape') setProfileEdit(ed => ({ ...ed, email: false })); }}
+                    style={{ padding: '0.2rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--primary)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', outline: 'none', width: '180px' }}
+                  />
+                  <button onClick={() => saveProfileField('email')} disabled={profileSaving} style={{ padding: '0.2rem 0.5rem', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                  <button onClick={() => setProfileEdit(ed => ({ ...ed, email: false }))} style={{ padding: '0.2rem 0.4rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.72rem', cursor: 'pointer' }}>✕</button>
+                </>
+              ) : (
+                <button onClick={() => { setProfileDraft(d => ({ ...d, email: profileClient.email })); setProfileEdit(ed => ({ ...ed, email: true })); }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.15rem 0.5rem', border: 'none', background: 'none', color: 'var(--outline)', cursor: 'pointer', borderRadius: '4px', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem' }} title='Edit email'>
+                  {profileClient.email} <span className='material-symbols-outlined' style={{ fontSize: '0.8rem' }}>edit</span>
+                </button>
+              )}
             </div>
           </div>
           <div className="profile-stats">
@@ -1129,12 +1188,29 @@ function ClientsView({
                 <div className="profile-stat-card card-glass"><div className="profile-stat-label">Energy</div><div className="profile-stat-value">{latestCi?.progress.energyScore != null ? `${latestCi.progress.energyScore}/10` : '—'}</div></div>
                 <div className="profile-stat-card card-glass"><div className="profile-stat-label">Steps</div><div className="profile-stat-value">{latestCi?.progress.steps != null ? latestCi.progress.steps.toLocaleString() : '—'}</div></div>
               </div>
-              {profileClient.goal && (
-                <div className="profile-goal-card card-glass" style={{ marginTop: '1rem' }}>
-                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Primary Goal</h3>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: 0 }}>{profileClient.goal}</p>
+              <div className="profile-goal-card card-glass" style={{ marginTop: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>Primary Goal</h3>
+                  <button onClick={() => { setProfileDraft(d => ({ ...d, goal: profileClient.goal })); setProfileEdit(ed => ({ ...ed, goal: true })); }} style={{ padding: '0.2rem', border: 'none', background: 'none', color: 'var(--outline)', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center' }} title='Edit goal'><span className='material-symbols-outlined' style={{ fontSize: '0.9rem' }}>edit</span></button>
                 </div>
-              )}
+                {profileEdit.goal ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <textarea
+                      autoFocus
+                      value={profileDraft.goal}
+                      onChange={e => setProfileDraft(d => ({ ...d, goal: e.target.value }))}
+                      rows={2}
+                      style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--primary)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', outline: 'none', resize: 'vertical', width: '100%', boxSizing: 'border-box', lineHeight: 1.6 }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={() => saveProfileField('goal')} disabled={profileSaving} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--r-md)', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
+                      <button onClick={() => setProfileEdit(ed => ({ ...ed, goal: false }))} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.8rem', cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: 0 }}>{profileClient.goal || <span style={{ color: 'var(--outline)', fontStyle: 'italic' }}>No goal set — click the pencil icon to add one</span>}</p>
+                )}
+              </div>
               {latestCi && (
                 <div style={{ marginTop: '1.25rem' }}>
                   <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Latest Check-in</h3>
@@ -1388,6 +1464,51 @@ function ClientsView({
                         </tbody>
                       </table>
                     </div>
+                    {/* SVG Trend Charts */}
+                    {mSorted.length >= 2 && (
+                      <div style={{ marginTop: "1.5rem" }}>
+                        <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)", marginBottom: "0.75rem" }}>Progress Trends</div>
+                        <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+                          {([
+                            { key: "weightKg", label: "Weight (kg)", color: "var(--primary)" },
+                            { key: "bodyFatPct", label: "Body Fat (%)", color: "var(--tertiary)" },
+                            { key: "waistCm", label: "Waist (cm)", color: "var(--accent)" },
+                          ] as const).map(metric => {
+                            const validData = mSorted.map(m => m[metric.key]).filter(v => v != null) as number[];
+                            if (validData.length < 2) return null;
+                            const min = Math.min(...validData);
+                            const max = Math.max(...validData);
+                            const range = max - min || 1;
+                            const height = 80;
+                            const width = Math.min(500, mSorted.length * 60);
+                            const step = width / (mSorted.length - 1);
+                            const pts = mSorted.map((m, i) => {
+                              const val = m[metric.key] as number | null;
+                              if (val == null) return null;
+                              return `${i * step},${height - ((val - min) / range) * height}`;
+                            }).filter(Boolean);
+                            const ptsStr = pts.join(" ");
+                            return (
+                              <div key={metric.key} style={{ flex: "1 1 140px" }}>
+                                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--outline)", marginBottom: "0.3rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{metric.label}</div>
+                                <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "80px", overflow: "visible" }}>
+                                  <polyline points={ptsStr} fill="none" stroke={metric.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                                  {pts.map((p, i) => {
+                                    if (!p) return null;
+                                    const [x, y] = p.split(",");
+                                    return <circle key={i} cx={x} cy={y} r="3" fill={metric.color} />;
+                                  })}
+                                </svg>
+                                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Inter, sans-serif", fontSize: "0.6rem", color: "var(--outline)", marginTop: "0.15rem" }}>
+                                  <span>{new Date(mSorted[0].measuredAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                                  <span>{new Date(mSorted[mSorted.length - 1].measuredAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -1877,7 +1998,21 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
 
   const [editDraft, setEditDraft] = useState<ClientProfilePatch>({});
   const [msgDraft, setMsgDraft] = useState("");
+  const [editing, setEditing] = useState<{
+    goal?: boolean;
+    health?: boolean;
+    nutrition?: boolean;
+    water?: boolean;
+    steps?: boolean;
+    supplements?: boolean;
+  }>({});
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [tempHealth, setTempHealth] = useState<{ label: string; note: string }[]>([]);
+  const [tempSupplements, setTempSupplements] = useState("");
+  const [newHealthLabel, setNewHealthLabel] = useState("");
+  const [newHealthNote, setNewHealthNote] = useState("");
   const [activeTab, setActiveTab] = useState<"plan"|"meal"|"workout"|"messages"|"history">("plan");
+  const [showPhotos, setShowPhotos] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
 
   // Meal Planner state
@@ -1932,6 +2067,33 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
   const [foodSearch, setFoodSearch] = useState("");
   const [foodSuggestions, setFoodSuggestions] = useState<string[]>([]);
   const [searchingFood, setSearchingFood] = useState(false);
+
+  // Profile section save handler
+  const startEdit = useCallback((section: keyof typeof editing) => {
+    if (!clientPortal) return;
+    const c = clientPortal.client as any;
+    setTempHealth([...(c.healthConditions ?? [])]);
+    setTempSupplements((c.supplements ?? []).join(", "));
+    setEditing({ [section]: true });
+  }, [clientPortal]);
+
+  const cancelEdit = useCallback(() => {
+    setEditing({});
+    setTempHealth([]);
+    setTempSupplements("");
+    setNewHealthLabel("");
+    setNewHealthNote("");
+  }, []);
+
+  const saveProfile = useCallback(async (patch: ClientProfilePatch) => {
+    setSavingProfile(true);
+    try {
+      await onSaveEdits(patch);
+      setEditing({});
+    } finally {
+      setSavingProfile(false);
+    }
+  }, [onSaveEdits]);
 
   // Load nutrition from plan into mealWeek
   useEffect(() => {
@@ -2166,108 +2328,186 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
           </div>
 
           {/* OVERVIEW TAB */}
-          {activeTab === "plan" && (
+          {activeTab === "plan" && clientPortal && (
             <div>
-              {clientPortal.plan ? (
-                <>
-                  <div className="portal-dashboard-row">
-                    <div className="portal-goal-card">
-                      <div className="portal-goal-header">
-                        <div>
-                          <div className="portal-goal-title">Primary Goal</div>
-                          <div className="portal-goal-text">{clientPortal.client.goal}</div>
-                        </div>
-                        <span className="material-symbols-outlined" style={{ color: "var(--primary)", fontSize: "1.5rem" }}>track_changes</span>
-                      </div>
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.5rem" }}>
-                          <span>Current Progress</span>
-                          <span style={{ color: "var(--primary)" }}>
-                            {checkInHistory.length > 0
-                              ? `${(checkInHistory.reduce((s, c) => s + (c.weightDelta ?? 0), 0)).toFixed(1)}kg lost`
-                              : "Tracking started"}
-                          </span>
-                        </div>
-                        <div style={{ height: 10, background: "var(--surface-container)", borderRadius: "9999px", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${Math.min(clientPortal.client.adherenceScore, 100)}%`, background: "linear-gradient(90deg, var(--primary) 0%, var(--primary-container) 100%)", borderRadius: "9999px" }} />
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: "0.4rem" }}>
-                          <span>Month 1</span><span>Month 3</span><span>Month 5</span>
-                        </div>
-                      </div>
+              <div className="portal-dashboard-row">
+                {/* PRIMARY GOAL */}
+                <div className="portal-goal-card">
+                  <div className="portal-goal-header">
+                    <div>
+                      <div className="portal-goal-title">Primary Goal</div>
+                      {editing.goal ? (
+                        <input
+                          autoFocus
+                          id="edit-goal"
+                          defaultValue={(clientPortal.client as any).goal}
+                          style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)", background: "var(--surface-container)", border: "1.5px solid var(--primary)", borderRadius: "var(--r-sm)", padding: "0.2rem 0.5rem", width: "100%", maxWidth: 260 }}
+                          onKeyDown={e => { if (e.key === "Enter") saveProfile({ goal: (document.getElementById("edit-goal") as HTMLInputElement).value }); if (e.key === "Escape") cancelEdit(); }}
+                        />
+                      ) : (
+                        <div className="portal-goal-text">{(clientPortal.client as any).goal || "Not set — click edit to add"}</div>
+                      )}
                     </div>
-
-                    <div className="portal-health-card">
-                      <div className="portal-health-header">
-                        <span className="material-symbols-outlined" style={{ color: "var(--tertiary)", fontSize: "1.1rem" }}>medical_services</span>
-                        <h4>Health &amp; Considerations</h4>
-                      </div>
-                      <div>
-                        <div className="portal-health-item">
-                          <div className="portal-health-item-label">Managing Type 2 Diabetes</div>
-                          <div className="portal-health-item-desc">Monitoring glucose levels pre/post activity.</div>
-                        </div>
-                        <div className="portal-health-item" style={{ borderLeftColor: "var(--outline)" }}>
-                          <div className="portal-health-item-label">Low-impact focus</div>
-                          <div className="portal-health-item-desc">Limit high-intensity bursts to protect joint integrity.</div>
-                        </div>
-                      </div>
+                    <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+                      {editing.goal ? (
+                        <>
+                          <button onClick={() => saveProfile({ goal: (document.getElementById("edit-goal") as HTMLInputElement).value })} disabled={savingProfile} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", display: "grid", placeItems: "center" }} title="Save"><span className="material-symbols-outlined" style={{ fontSize: "1.1rem" }}>check</span></button>
+                          <button onClick={cancelEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }} title="Cancel"><span className="material-symbols-outlined" style={{ fontSize: "1.1rem" }}>close</span></button>
+                        </>
+                      ) : (
+                        <button onClick={() => startEdit("goal")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }} title="Edit goal"><span className="material-symbols-outlined" style={{ fontSize: "1.1rem" }}>edit</span></button>
+                      )}
+                      <span className="material-symbols-outlined" style={{ color: "var(--primary)", fontSize: "1.5rem" }}>track_changes</span>
                     </div>
                   </div>
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+                      <span>Current Progress</span>
+                      <span style={{ color: "var(--primary)" }}>
+                        {checkInHistory.length > 0
+                          ? `${(checkInHistory.reduce((s, c) => s + (c.weightDelta ?? 0), 0)).toFixed(1)}kg lost`
+                          : "Tracking started"}
+                      </span>
+                    </div>
+                    <div style={{ height: 10, background: "var(--surface-container)", borderRadius: "9999px", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${Math.min(clientPortal.client.adherenceScore, 100)}%`, background: "linear-gradient(90deg, var(--primary) 0%, var(--primary-container) 100%)", borderRadius: "9999px" }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: "0.4rem" }}>
+                      <span>Month 1</span><span>Month 3</span><span>Month 5</span>
+                    </div>
+                  </div>
+                </div>
 
-                  <div className="portal-dashboard-row">
-                    <div className="portal-nutrition-card">
-                      <div className="portal-nutrition-header">
-                        <h4>Nutrition Strategy</h4>
-                        <span className="portal-plan-badge">Active Plan</span>
+                {/* HEALTH & CONSIDERATIONS */}
+                <div className="portal-health-card">
+                  <div className="portal-health-header">
+                    <span className="material-symbols-outlined" style={{ color: "var(--tertiary)", fontSize: "1.1rem" }}>medical_services</span>
+                    <h4>Health &amp; Considerations</h4>
+                    <div style={{ marginLeft: "auto", display: "flex", gap: "0.2rem" }}>
+                      {editing.health ? (
+                        <>
+                          <button onClick={() => saveProfile({ healthConditions: tempHealth })} disabled={savingProfile} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", display: "grid", placeItems: "center" }} title="Save"><span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>check</span></button>
+                          <button onClick={cancelEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }} title="Cancel"><span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>close</span></button>
+                        </>
+                      ) : (
+                        <button onClick={() => startEdit("health")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }} title="Edit health"><span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>edit</span></button>
+                      )}
+                    </div>
+                  </div>
+                  {editing.health ? (
+                    <div>
+                      {tempHealth.map((h, i) => (
+                        <div key={i} style={{ marginBottom: "0.6rem", padding: "0.5rem", background: "var(--surface-container)", borderRadius: "var(--r-sm)", borderLeft: "3px solid var(--tertiary)" }}>
+                          <input value={h.label} placeholder="Condition (e.g. Knee injury)" style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.78rem", background: "transparent", border: "none", borderBottom: "1px solid var(--outline-variant)", padding: "0.1rem 0", width: "100%", color: "var(--text-primary)", display: "block" }} onChange={e => { const n = [...tempHealth]; n[i] = { label: e.target.value, note: n[i].note }; setTempHealth(n); }} />
+                          <input value={h.note} placeholder="Coach note..." style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", background: "transparent", border: "none", padding: "0.1rem 0", width: "100%", color: "var(--on-surface-variant)", display: "block", marginTop: "0.2rem" }} onChange={e => { const n = [...tempHealth]; n[i] = { label: n[i].label, note: e.target.value }; setTempHealth(n); }} />
+                          <button onClick={() => setTempHealth(n => n.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.7rem", padding: "0.1rem 0", marginTop: "0.2rem" }}>Remove</button>
+                        </div>
+                      ))}
+                      <button onClick={() => setTempHealth(n => [...n, { label: "", note: "" }])} style={{ background: "none", border: "1px dashed var(--outline-variant)", borderRadius: "var(--r-sm)", padding: "0.3rem 0.6rem", fontSize: "0.72rem", color: "var(--primary)", cursor: "pointer", fontFamily: "Inter, sans-serif" }}>+ Add condition</button>
+                    </div>
+                  ) : (
+                    <div>
+                      {((clientPortal.client as any).healthConditions?.length > 0
+                        ? (clientPortal.client as any).healthConditions
+                        : [{ label: "No health conditions recorded", note: "Click the edit icon above to add health considerations for this client" }]
+                      ).map((h: any, i: number) => (
+                        <div key={i} className="portal-health-item" style={{ borderLeftColor: i === 0 ? "var(--danger)" : "var(--outline)", opacity: (clientPortal.client as any).healthConditions?.length === 0 ? 0.5 : 1 }}>
+                          <div className="portal-health-item-label">{h.label}</div>
+                          <div className="portal-health-item-desc">{h.note}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="portal-dashboard-row">
+                {/* NUTRITION STRATEGY */}
+                <div className="portal-nutrition-card">
+                  <div className="portal-nutrition-header">
+                    <h4>Nutrition Strategy</h4>
+                    <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+                      {editing.nutrition ? (
+                        <>
+                          <button onClick={() => {
+                            const cal = parseInt((document.getElementById("edit-nut-cal") as HTMLInputElement)?.value) || null;
+                            const prot = parseInt((document.getElementById("edit-nut-prot") as HTMLInputElement)?.value) || null;
+                            const fat = parseInt((document.getElementById("edit-nut-fat") as HTMLInputElement)?.value) || null;
+                            const carbs = parseInt((document.getElementById("edit-nut-carbs") as HTMLInputElement)?.value) || null;
+                            const note = (document.getElementById("edit-nut-note") as HTMLTextAreaElement)?.value ?? "";
+                            saveProfile({ nutritionCalories: cal, nutritionProteinG: prot, nutritionFatG: fat, nutritionCarbsG: carbs, nutritionCoachNote: note });
+                          }} disabled={savingProfile} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", display: "grid", placeItems: "center" }} title="Save"><span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>check</span></button>
+                          <button onClick={cancelEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }} title="Cancel"><span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>close</span></button>
+                        </>
+                      ) : (
+                        <button onClick={() => startEdit("nutrition")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }} title="Edit nutrition"><span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>edit</span></button>
+                      )}
+                      <span className="portal-plan-badge">{clientPortal.plan ? "Active Plan" : "Manual"}</span>
+                    </div>
+                  </div>
+                  {editing.nutrition ? (
+                    <div>
+                      <div className="portal-macro-grid" style={{ marginBottom: "0.75rem" }}>
+                        {[
+                          { label: "Calories", id: "edit-nut-cal", key: "nutritionCalories", unit: "KCAL" },
+                          { label: "Protein", id: "edit-nut-prot", key: "nutritionProteinG", unit: "g" },
+                          { label: "Fats", id: "edit-nut-fat", key: "nutritionFatG", unit: "g" },
+                          { label: "Carbs", id: "edit-nut-carbs", key: "nutritionCarbsG", unit: "g" },
+                        ].map(m => (
+                          <div key={m.id} className="portal-macro-chip" style={{ flexDirection: "column", alignItems: "center", gap: "0.2rem" }}>
+                            <div className="portal-macro-label">{m.label}</div>
+                            <input id={m.id} type="number" defaultValue={(clientPortal.client as any)[m.key] ?? ""} style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", background: "var(--surface-container)", border: "1.5px solid var(--primary)", borderRadius: "var(--r-sm)", padding: "0.2rem 0.4rem", width: "70px", textAlign: "center" }} />
+                            <div className="portal-macro-unit">{m.unit}</div>
+                          </div>
+                        ))}
                       </div>
+                      <textarea id="edit-nut-note" defaultValue={(clientPortal.client as any).nutritionCoachNote} placeholder="Coach's note for this client..." style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-primary)", background: "var(--surface-container)", border: "1.5px solid var(--primary)", borderRadius: "var(--r-sm)", padding: "0.4rem", width: "100%", minHeight: "60px", resize: "vertical" }} />
+                    </div>
+                  ) : (
+                    <div>
                       <div className="portal-macro-grid">
-                        <div className="portal-macro-chip">
-                          <div className="portal-macro-label">Calories</div>
-                          <div className="portal-macro-value">{macros?.calories}</div>
-                          <div className="portal-macro-unit">KCAL</div>
-                        </div>
-                        <div className="portal-macro-chip">
-                          <div className="portal-macro-label">Protein</div>
-                          <div className="portal-macro-value" style={{ color: "var(--text-primary)" }}>{macros?.proteinG}g</div>
-                          <div className="portal-macro-unit">40% Target</div>
-                        </div>
-                        <div className="portal-macro-chip">
-                          <div className="portal-macro-label">Fats</div>
-                          <div className="portal-macro-value" style={{ color: "var(--text-primary)" }}>{macros?.fatG}g</div>
-                          <div className="portal-macro-unit">30% Target</div>
-                        </div>
-                        <div className="portal-macro-chip">
-                          <div className="portal-macro-label">Carbs</div>
-                          <div className="portal-macro-value" style={{ color: "var(--text-primary)" }}>{macros?.carbsG}g</div>
-                          <div className="portal-macro-unit">30% Target</div>
-                        </div>
+                        {[
+                          { label: "Calories", value: (clientPortal.client as any).nutritionCalories, unit: "KCAL" },
+                          { label: "Protein", value: (clientPortal.client as any).nutritionProteinG, unit: "g" },
+                          { label: "Fats", value: (clientPortal.client as any).nutritionFatG, unit: "g" },
+                          { label: "Carbs", value: (clientPortal.client as any).nutritionCarbsG, unit: "g" },
+                        ].map(m => (
+                          <div key={m.label} className="portal-macro-chip">
+                            <div className="portal-macro-label">{m.label}</div>
+                            <div className="portal-macro-value">{m.value ?? "—"}</div>
+                            <div className="portal-macro-unit">{m.unit}</div>
+                          </div>
+                        ))}
                       </div>
                       <div className="portal-coach-note">
                         <span className="material-symbols-outlined portal-coach-note-icon">tips_and_updates</span>
                         <div className="portal-coach-note-text">
-                          <strong>Coach's Note:</strong> Focus on complex carbohydrates from fibrous vegetables to maintain stable blood sugar levels.
+                          <strong>Coach's Note:</strong> {(clientPortal.client as any).nutritionCoachNote || "Click the edit icon to add a coaching note."}
                         </div>
                       </div>
                     </div>
+                  )}
+                </div>
 
-                    <div>
-                      <div className="portal-workouts-card" style={{ marginBottom: "1rem" }}>
-                        <div className="portal-workouts-header">
-                          <h4>Workouts</h4>
-                          <div style={{ background: "rgba(0,135,103,0.1)", borderRadius: "var(--r-lg)", padding: "0.4rem", display: "grid", placeItems: "center" }}>
-                            <span className="material-symbols-outlined" style={{ color: "var(--primary)", fontSize: "1rem" }}>fitness_center</span>
-                          </div>
-                        </div>
+                {/* RIGHT COLUMN */}
+                <div>
+                  {/* WORKOUTS */}
+                  <div className="portal-workouts-card" style={{ marginBottom: "1rem" }}>
+                    <div className="portal-workouts-header">
+                      <h4>Workouts</h4>
+                      <div style={{ background: "rgba(0,135,103,0.1)", borderRadius: "var(--r-lg)", padding: "0.4rem", display: "grid", placeItems: "center" }}>
+                        <span className="material-symbols-outlined" style={{ color: "var(--primary)", fontSize: "1rem" }}>fitness_center</span>
+                      </div>
+                    </div>
+                    {clientPortal.plan ? (
+                      <>
                         <div>
                           {clientPortal.plan.latestVersion.workouts.map((w, i) => (
                             <div key={i} className="portal-workout-item">
                               <div className={`portal-workout-dot${i > 0 ? " portal-workout-dot--dim" : ""}`} />
                               <div>
                                 <div className="portal-workout-name">{w.split("(")[0].trim()}</div>
-                                {w.includes("(") && (
-                                  <div className="portal-workout-meta">{w.match(/\([^)]+\)/)?.[0].replace(/[()]/g, "")}</div>
-                                )}
+                                {w.includes("(") && <div className="portal-workout-meta">{w.match(/\([^)]+\)/)?.[0].replace(/[()]/g, "")}</div>}
                               </div>
                             </div>
                           ))}
@@ -2278,49 +2518,96 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                             {clientPortal.plan.latestVersion.status}
                           </span>
                         </div>
+                      </>
+                    ) : (
+                      <div style={{ textAlign: "center", padding: "1.5rem 0.5rem", color: "var(--on-surface-variant)", fontFamily: "Inter, sans-serif", fontSize: "0.8rem" }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "2rem", display: "block", marginBottom: "0.5rem", color: "var(--outline)" }}>fitness_center</span>
+                        No workout plan yet.<br />Generate one in AI Plans.
                       </div>
+                    )}
+                  </div>
 
-                      <div className="portal-lifestyle-grid">
-                        <div className="portal-lifestyle-card">
-                          <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--primary-container)" }}>water_drop</span>
-                          <div>
-                            <div className="portal-lifestyle-label">Water Intake</div>
-                            <div className="portal-lifestyle-value">3.5L</div>
+                  {/* LIFESTYLE GRID */}
+                  <div className="portal-lifestyle-grid">
+                    {/* WATER */}
+                    <div className="portal-lifestyle-card">
+                      <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--primary-container)" }}>water_drop</span>
+                      <div style={{ flex: 1 }}>
+                        <div className="portal-lifestyle-label">Water Target</div>
+                        {editing.water ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", marginTop: "0.2rem" }}>
+                            <input id="edit-water" type="number" min="1" max="10" defaultValue={(clientPortal.client as any).dailyWaterTarget ?? 3} style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.9rem", background: "var(--surface-container)", border: "1.5px solid var(--primary)", borderRadius: "var(--r-sm)", padding: "0.15rem 0.3rem", width: "50px", textAlign: "center" }} />
+                            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--on-surface-variant)" }}>L / day</span>
+                            <button onClick={() => saveProfile({ dailyWaterTarget: parseInt((document.getElementById("edit-water") as HTMLInputElement).value) || 3 })} disabled={savingProfile} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", display: "grid", placeItems: "center" }}><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>check</span></button>
+                            <button onClick={cancelEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }}><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>close</span></button>
                           </div>
-                          <div className="portal-lifestyle-progress">
-                            <div className="portal-lifestyle-progress-fill" style={{ width: "85%" }} />
-                          </div>
-                        </div>
-                        <div className="portal-lifestyle-card">
-                          <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--tertiary-fixed)" }}>footprint</span>
-                          <div>
-                            <div className="portal-lifestyle-label">Daily Steps</div>
-                            <div className="portal-lifestyle-value">8,000</div>
-                          </div>
-                          <div className="portal-lifestyle-target">Target: 10,000</div>
-                        </div>
-                        <div className="portal-lifestyle-card portal-lifestyle-card--wide">
-                          <div className="portal-supplements-header">
-                            <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--tertiary)" }}>pill</span>
-                            <h4>Supplements</h4>
-                          </div>
-                          <div className="portal-supplement-pills">
-                            {["Vitamin D3", "Omega-3", "Magnesium"].map(s => (
-                              <span key={s} className="portal-supplement-pill">{s}</span>
-                            ))}
-                          </div>
-                        </div>
+                        ) : (
+                          <>
+                            <div className="portal-lifestyle-value">{(clientPortal.client as any).dailyWaterTarget ?? 3}L</div>
+                            <div className="portal-lifestyle-progress"><div className="portal-lifestyle-progress-fill" style={{ width: `${Math.min(clientPortal.client.adherenceScore, 100)}%` }} /></div>
+                            <button onClick={() => startEdit("water")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "0.65rem", fontFamily: "Inter, sans-serif", padding: "0", marginTop: "0.2rem", textDecoration: "underline" }}>Edit</button>
+                          </>
+                        )}
                       </div>
                     </div>
+
+                    {/* STEPS */}
+                    <div className="portal-lifestyle-card">
+                      <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--tertiary-fixed)" }}>footprint</span>
+                      <div style={{ flex: 1 }}>
+                        <div className="portal-lifestyle-label">Steps Target</div>
+                        {editing.steps ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", marginTop: "0.2rem" }}>
+                            <input id="edit-steps" type="number" min="1000" max="50000" defaultValue={(clientPortal.client as any).dailyStepsTarget ?? 10000} style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.9rem", background: "var(--surface-container)", border: "1.5px solid var(--primary)", borderRadius: "var(--r-sm)", padding: "0.15rem 0.3rem", width: "60px", textAlign: "center" }} />
+                            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--on-surface-variant)" }}>steps</span>
+                            <button onClick={() => saveProfile({ dailyStepsTarget: parseInt((document.getElementById("edit-steps") as HTMLInputElement).value) || 10000 })} disabled={savingProfile} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", display: "grid", placeItems: "center" }}><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>check</span></button>
+                            <button onClick={cancelEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }}><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>close</span></button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="portal-lifestyle-value">{((clientPortal.client as any).dailyStepsTarget ?? 10000).toLocaleString()}</div>
+                            <div className="portal-lifestyle-target">Daily</div>
+                            <button onClick={() => startEdit("steps")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "0.65rem", fontFamily: "Inter, sans-serif", padding: "0", marginTop: "0.2rem", textDecoration: "underline" }}>Edit</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* SUPPLEMENTS */}
+                    <div className="portal-lifestyle-card portal-lifestyle-card--wide">
+                      <div className="portal-supplements-header">
+                        <span className="material-symbols-outlined portal-lifestyle-icon" style={{ color: "var(--tertiary)" }}>pill</span>
+                        <h4>Supplements</h4>
+                        <div style={{ marginLeft: "auto", display: "flex", gap: "0.2rem" }}>
+                          {editing.supplements ? (
+                            <>
+                              <button onClick={() => saveProfile({ supplements: tempSupplements.split(",").map(s => s.trim()).filter(Boolean) })} disabled={savingProfile} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", display: "grid", placeItems: "center" }} title="Save"><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>check</span></button>
+                              <button onClick={cancelEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }} title="Cancel"><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>close</span></button>
+                            </>
+                          ) : (
+                            <button onClick={() => startEdit("supplements")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", display: "grid", placeItems: "center" }} title="Edit supplements"><span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>edit</span></button>
+                          )}
+                        </div>
+                      </div>
+                      {editing.supplements ? (
+                        <div>
+                          <input value={tempSupplements} onChange={e => setTempSupplements(e.target.value)} placeholder="Vitamin D3, Omega-3, Magnesium..." style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", background: "var(--surface-container)", border: "1.5px solid var(--primary)", borderRadius: "var(--r-sm)", padding: "0.4rem", width: "100%", color: "var(--text-primary)" }} />
+                          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", color: "var(--on-surface-variant)", marginTop: "0.3rem" }}>Separate supplements with commas</div>
+                        </div>
+                      ) : (
+                        <div className="portal-supplement-pills">
+                          {((clientPortal.client as any).supplements?.length > 0
+                            ? (clientPortal.client as any).supplements
+                            : ["No supplements added"]
+                          ).map((s: string) => (
+                            <span key={s} className="portal-supplement-pill" style={{ opacity: (clientPortal.client as any).supplements?.length === 0 ? 0.5 : 1 }}>{s}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </>
-              ) : (
-                <div className="empty-state">
-                  <span className="material-symbols-outlined" style={{ fontSize: "3rem", display: "block", marginBottom: "1rem", color: "var(--primary)" }}>library_books</span>
-                  <p style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)" }}>No approved plan yet</p>
-                  <p style={{ fontSize: "0.875rem" }}>Generate one in AI Plans to get started.</p>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -2898,6 +3185,35 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                       ))}
                     </div>
                   </div>
+                  {/* Progress Photos */}
+                  {checkInHistory.some(c => c.photoCount > 0) && (
+                    <div className="panel" style={{ marginTop: "1.5rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                        <h2>Progress Photos</h2>
+                        <button onClick={() => setShowPhotos(v => !v)}
+                          style={{ padding: "0.35rem 1rem", borderRadius: "9999px", border: "1.5px solid var(--outline-variant)",
+                            background: showPhotos ? "var(--primary)" : "transparent",
+                            color: showPhotos ? "white" : "var(--text-primary)",
+                            fontFamily: "Inter, sans-serif", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
+                          {showPhotos ? "Hide" : "View"} Photos
+                        </button>
+                      </div>
+                      {showPhotos && (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "0.75rem" }}>
+                          {checkInHistory.filter(c => c.photoCount > 0).map(ci => (
+                            <div key={ci.id} style={{ borderRadius: "var(--r-lg)", overflow: "hidden", background: "var(--surface-container)", aspectRatio: "3/4" }}>
+                              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0.5rem" }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: "2rem", color: "var(--outline)" }}>photo</span>
+                                <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--outline)", marginTop: "0.25rem" }}>
+                                  {new Date(ci.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -5094,7 +5410,7 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
 ──────────────────────────────────────── */
 type ClientAppTab = "today"|"plan"|"checkin"|"messages";
 
-function ClientAppPreviewInner({ clientPortal }: { clientPortal: ClientSession }) {
+function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPortal: ClientSession; onCheckInSuccess?: () => void }) {
   const [activeTab, setActiveTab] = useState<ClientAppTab>("today");
   const today = new Date();
   const firstName = clientPortal.client.fullName.split(" ")[0];
@@ -5163,6 +5479,7 @@ function ClientAppPreviewInner({ clientPortal }: { clientPortal: ClientSession }
       setCheckInSuccess(true);
       setCheckInPhoto(null);
       setTimeout(() => setCheckInSuccess(false), 3000);
+      onCheckInSuccess?.();
     } catch { /* silent */ }
     setCheckInSubmitting(false);
   };
@@ -5371,7 +5688,8 @@ function ClientAppView({ session, clientPortal, onSwitchClient }: {
                   <span className="phone-status-bar-right"><span>●●●●●</span><span>📶</span><span>🔋</span></span>
                 </div>
                 <div className="phone-viewport">
-                  <ClientAppPreviewInner clientPortal={clientPortal} />
+                  {/* @ts-expect-error — loadCoach/selectedClientId declared later, visible at runtime */}
+                  <ClientAppPreviewInner clientPortal={clientPortal} onCheckInSuccess={() => (loadCoach as any)((selectedClientId as any) ?? undefined)} />
                 </div>
                 <div className="phone-home-bar" />
               </div>
@@ -5487,7 +5805,19 @@ function App() {
   const handleSaveEdits = async (draft: ClientProfilePatch) => {
     if (!clientPortal) return;
     await fetchJson(`/clients/${clientPortal.client.id}`, { method: "PATCH", body: JSON.stringify(draft) });
-    await loadCoach(clientPortal.client.id);
+    // Reload the client portal to reflect saved changes
+    const [portal, checkIns] = await Promise.all([
+      fetchJson<ClientSession>(`/session/client/${clientPortal.client.id}`),
+      fetchJson<CheckIn[]>(`/check-ins?clientId=${clientPortal.client.id}`),
+    ]);
+    setClientPortal(portal);
+    setProofCard(portal.proofCard);
+    const sorted = [...checkIns].sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+    const withDeltas: CheckInWithDelta[] = sorted.map((c, i) => {
+      const prev = sorted[i - 1];
+      return { ...c, weightDelta: prev && c.progress.weightKg != null && prev.progress.weightKg != null ? +(c.progress.weightKg - prev.progress.weightKg).toFixed(1) : null, energyDelta: prev ? c.progress.energyScore - prev.progress.energyScore : null, adherenceDelta: null };
+    });
+    setCheckInHistory(withDeltas);
     push("Client updated");
   };
 

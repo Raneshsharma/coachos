@@ -30,7 +30,17 @@ export const clientProfileSchema = z.object({
   currentPlanId: z.string().nullable(),
   monthlyPriceGbp: z.number().positive(),
   nextRenewalDate: z.string(),
-  lastCheckInDate: z.string().nullable()
+  lastCheckInDate: z.string().nullable(),
+  // Extended profile fields
+  healthConditions: z.array(z.object({ label: z.string(), note: z.string() })).default([]),
+  dailyWaterTarget: z.number().int().nonnegative().default(3),
+  dailyStepsTarget: z.number().int().nonnegative().default(10000),
+  supplements: z.array(z.string()).default([]),
+  nutritionCalories: z.number().int().nonnegative().nullable().default(null),
+  nutritionProteinG: z.number().int().nonnegative().nullable().default(null),
+  nutritionFatG: z.number().int().nonnegative().nullable().default(null),
+  nutritionCarbsG: z.number().int().nonnegative().nullable().default(null),
+  nutritionCoachNote: z.string().default("")
 });
 
 export const clientProfilePatchSchema = z
@@ -38,7 +48,16 @@ export const clientProfilePatchSchema = z
     goal: z.string().min(3).optional(),
     status: z.enum(["active", "at_risk", "trial"]).optional(),
     monthlyPriceGbp: z.number().positive().optional(),
-    nextRenewalDate: z.string().optional()
+    nextRenewalDate: z.string().optional(),
+    healthConditions: z.array(z.object({ label: z.string(), note: z.string() })).optional(),
+    dailyWaterTarget: z.number().int().nonnegative().optional(),
+    dailyStepsTarget: z.number().int().nonnegative().optional(),
+    supplements: z.array(z.string()).optional(),
+    nutritionCalories: z.number().int().nonnegative().nullable().optional(),
+    nutritionProteinG: z.number().int().nonnegative().nullable().optional(),
+    nutritionFatG: z.number().int().nonnegative().nullable().optional(),
+    nutritionCarbsG: z.number().int().nonnegative().nullable().optional(),
+    nutritionCoachNote: z.string().optional()
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one client field must be provided."
@@ -259,7 +278,16 @@ export function createSeedState(): DemoState {
       currentPlanId: "plan_1",
       monthlyPriceGbp: 199,
       nextRenewalDate: "2026-04-10",
-      lastCheckInDate: "2026-04-02"
+      lastCheckInDate: "2026-04-02",
+      healthConditions: [{ label: "Previous knee injury", note: "Avoid deep squats" }],
+      dailyWaterTarget: 3,
+      dailyStepsTarget: 10000,
+      supplements: ["Vitamin D3", "Whey Protein"],
+      nutritionCalories: 2150,
+      nutritionProteinG: 160,
+      nutritionFatG: 65,
+      nutritionCarbsG: 260,
+      nutritionCoachNote: "Prioritise protein at every meal to support muscle repair."
     },
     {
       id: "client_2",
@@ -272,7 +300,16 @@ export function createSeedState(): DemoState {
       currentPlanId: "plan_2",
       monthlyPriceGbp: 149,
       nextRenewalDate: "2026-04-05",
-      lastCheckInDate: "2026-03-29"
+      lastCheckInDate: "2026-03-29",
+      healthConditions: [{ label: "Lower back stiffness", note: "Avoid deadlifts until cleared" }],
+      dailyWaterTarget: 3,
+      dailyStepsTarget: 8000,
+      supplements: ["Creatine", "Omega-3"],
+      nutritionCalories: 2400,
+      nutritionProteinG: 200,
+      nutritionFatG: 80,
+      nutritionCarbsG: 240,
+      nutritionCoachNote: "Keep carbs around workouts only to support fat loss."
     },
     {
       id: "client_3",
@@ -285,7 +322,16 @@ export function createSeedState(): DemoState {
       currentPlanId: null,
       monthlyPriceGbp: 129,
       nextRenewalDate: "2026-04-18",
-      lastCheckInDate: null
+      lastCheckInDate: null,
+      healthConditions: [{ label: "Post-pregnancy", note: "Clearance needed for core-heavy work" }],
+      dailyWaterTarget: 2,
+      dailyStepsTarget: 6000,
+      supplements: ["Prenatal Multivitamin", "Iron"],
+      nutritionCalories: 2000,
+      nutritionProteinG: 90,
+      nutritionFatG: 65,
+      nutritionCarbsG: 250,
+      nutritionCoachNote: "Focus on nutrient-dense whole foods. No calorie deficit yet."
     }
   ];
 

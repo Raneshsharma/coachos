@@ -24,7 +24,7 @@ interface ClientProfile {
   id: string;
   fullName: string;
   email: string;
-  status: "active" | "at_risk" | "trialing" | "inactive";
+  status: "active" | "at_risk" | "trial";
   adherenceScore: number;
   monthlyPriceGbp: number;
   nextRenewalDate: string;
@@ -32,6 +32,16 @@ interface ClientProfile {
   startDate: string;
   avatarInitials: string;
   tags: string[];
+  // Extended profile fields
+  healthConditions: { label: string; note: string }[];
+  dailyWaterTarget: number;
+  dailyStepsTarget: number;
+  supplements: string[];
+  nutritionCalories: number | null;
+  nutritionProteinG: number | null;
+  nutritionFatG: number | null;
+  nutritionCarbsG: number | null;
+  nutritionCoachNote: string;
 }
 
 interface ProgramPlan {
@@ -75,8 +85,7 @@ interface CoachUser {
 function mapClient(row: Record<string, unknown>): ClientProfile {
   // Normalize Supabase status values to match frontend domain types
   const rawStatus = row.status as string;
-  const status = rawStatus === "trialing" || rawStatus === "trial" ? "trial"
-    : (rawStatus === "active" || rawStatus === "at_risk" ? rawStatus : "active") as ClientProfile["status"];
+  const status = (rawStatus === "trialing" ? "trial" : rawStatus) as ClientProfile["status"];
   return {
     id: row.id as string,
     fullName: row.full_name as string,
@@ -89,6 +98,16 @@ function mapClient(row: Record<string, unknown>): ClientProfile {
     startDate: (row.start_date as string) ?? "",
     avatarInitials: (row.avatar_initials as string) ?? "",
     tags: (row.tags as string[]) ?? [],
+    // Extended profile fields
+    healthConditions: (row.health_conditions as ClientProfile["healthConditions"]) ?? [],
+    dailyWaterTarget: (row.daily_water_target as number) ?? 3,
+    dailyStepsTarget: (row.daily_steps_target as number) ?? 10000,
+    supplements: (row.supplements as string[]) ?? [],
+    nutritionCalories: (row.nutrition_calories as number | null) ?? null,
+    nutritionProteinG: (row.nutrition_protein_g as number | null) ?? null,
+    nutritionFatG: (row.nutrition_fat_g as number | null) ?? null,
+    nutritionCarbsG: (row.nutrition_carbs_g as number | null) ?? null,
+    nutritionCoachNote: (row.nutrition_coach_note as string) ?? "",
   };
 }
 
@@ -187,25 +206,28 @@ async function getClient(id: string) {
 }
 
 async function updateClient(id: string, patch: Partial<ClientProfile>) {
-  const { data } = await supabase
-    .from("clients")
-    .update({
-      full_name: patch.fullName,
-      email: patch.email,
-      status: patch.status,
-      adherence_score: patch.adherenceScore,
-      monthly_price_gbp: patch.monthlyPriceGbp,
-      next_renewal_date: patch.nextRenewalDate,
-      goal: patch.goal,
-      start_date: patch.startDate,
-      avatar_initials: patch.avatarInitials,
-      tags: patch.tags,
-      plan_id: (patch as any).planId ?? null,
-      nutrition_plan_id: (patch as any).nutritionPlanId ?? null,
-    })
-    .eq("id", id)
-    .select()
-    .single();
+  const updates: Record<string, unknown> = {};
+  if (patch.fullName !== undefined) updates.full_name = patch.fullName;
+  if (patch.email !== undefined) updates.email = patch.email;
+  if (patch.status !== undefined) updates.status = patch.status === "trial" ? "trialing" : patch.status;
+  if (patch.adherenceScore !== undefined) updates.adherence_score = patch.adherenceScore;
+  if (patch.monthlyPriceGbp !== undefined) updates.monthly_price_gbp = patch.monthlyPriceGbp;
+  if (patch.nextRenewalDate !== undefined) updates.next_renewal_date = patch.nextRenewalDate;
+  if (patch.goal !== undefined) updates.goal = patch.goal;
+  if (patch.startDate !== undefined) updates.start_date = patch.startDate;
+  if (patch.avatarInitials !== undefined) updates.avatar_initials = patch.avatarInitials;
+  if (patch.tags !== undefined) updates.tags = patch.tags;
+  if (patch.healthConditions !== undefined) updates.health_conditions = patch.healthConditions;
+  if (patch.dailyWaterTarget !== undefined) updates.daily_water_target = patch.dailyWaterTarget;
+  if (patch.dailyStepsTarget !== undefined) updates.daily_steps_target = patch.dailyStepsTarget;
+  if (patch.supplements !== undefined) updates.supplements = patch.supplements;
+  if (patch.nutritionCalories !== undefined) updates.nutrition_calories = patch.nutritionCalories;
+  if (patch.nutritionProteinG !== undefined) updates.nutrition_protein_g = patch.nutritionProteinG;
+  if (patch.nutritionFatG !== undefined) updates.nutrition_fat_g = patch.nutritionFatG;
+  if (patch.nutritionCarbsG !== undefined) updates.nutrition_carbs_g = patch.nutritionCarbsG;
+  if (patch.nutritionCoachNote !== undefined) updates.nutrition_coach_note = patch.nutritionCoachNote;
+
+  const { data } = await supabase.from("clients").update(updates).eq("id", id).select().single();
   return data ? mapClient(data) : null;
 }
 
@@ -234,7 +256,7 @@ async function createClient(body: {
       goal: body.goal,
       monthly_price_gbp: body.monthlyPriceGbp,
       next_renewal_date: body.nextRenewalDate,
-      status: body.status,
+      status: body.status === "trial" ? "trialing" : body.status,
       adherence_score: 0,
       avatar_initials: initials,
       tags: [],
@@ -525,6 +547,121 @@ async function toggleHabitCompletion(habitId: string, date: string) {
   return { completion: { habitId, completed: true, date } };
 }
 
+async function createBookedSession(body: {
+  clientId: string; sessionType: "virtual" | "in-person";
+  date: string; time: string; duration: number; notes: string;
+}) {
+  const coach = await getCoach();
+  if (!coach) return null;
+  const { data, error } = await supabase
+    .from("booked_sessions")
+    .insert({
+      client_id: body.clientId,
+      coach_id: coach.id,
+      session_type: body.sessionType,
+      session_date: body.date,
+      session_time: body.time,
+      duration_mins: body.duration,
+      notes: body.notes ?? "",
+    })
+    .select()
+    .single();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    clientId: data.client_id,
+    coachId: data.coach_id,
+    sessionType: data.session_type,
+    date: data.session_date,
+    time: data.session_time,
+    durationMins: data.duration_mins,
+    notes: data.notes,
+    createdAt: data.created_at,
+  };
+}
+
+async function generateProofCard(clientId: string) {
+  const client = await getClient(clientId);
+  if (!client) return null;
+  const [metricsResult, checkInsResult] = await Promise.all([
+    supabase.from("body_metrics").select("*").eq("client_id", clientId).order("measured_at", { ascending: true }),
+    supabase.from("check_ins").select("*").eq("client_id", clientId).order("submitted_at", { ascending: true }),
+  ]);
+  const metrics = metricsResult.data ?? [];
+  const checkIns = checkInsResult.data ?? [];
+  const latest = metrics[metrics.length - 1] ?? null;
+  const first = metrics[0] ?? null;
+
+  let weightDelta: number | null = null;
+  if (latest?.weight_kg && first?.weight_kg)
+    weightDelta = +(latest.weight_kg - first.weight_kg);
+
+  let bodyFatDelta: number | null = null;
+  if (latest?.body_fat_pct && first?.body_fat_pct)
+    bodyFatDelta = +(latest.body_fat_pct - first.body_fat_pct);
+
+  const energyScores = checkIns.map((ci) => ci.energy_score).filter((e): e is number => e != null);
+  const avgEnergy = energyScores.length > 0
+    ? +(energyScores.reduce((a, b) => a + b, 0) / energyScores.length).toFixed(1) : null;
+
+  const firstName = client.fullName.split(" ")[0];
+  const headline = weightDelta != null
+    ? weightDelta < 0
+      ? `${firstName} has lost ${Math.abs(weightDelta).toFixed(1)}kg and is building serious momentum`
+      : `${firstName} is building strength and consistency`
+    : `${firstName} is rebuilding consistency with premium accountability`;
+
+  const bodyParts: string[] = [];
+  if (weightDelta != null) bodyParts.push(`weight change of ${weightDelta > 0 ? "+" : ""}${weightDelta.toFixed(1)}kg`);
+  if (avgEnergy != null) bodyParts.push(`average energy ${avgEnergy}/10`);
+  if (bodyFatDelta != null) bodyParts.push(`body fat ${bodyFatDelta > 0 ? "+" : ""}${bodyFatDelta.toFixed(1)}%`);
+  const body = bodyParts.length > 0
+    ? `${bodyParts.join(", ")}. This client has ${client.adherenceScore}% adherence and ${checkIns.length} check-ins with measurable progress.`
+    : "Client has been onboarded and is ready for the first measurable proof milestone.";
+
+  const stats = [
+    { label: "Adherence", value: `${client.adherenceScore}%` },
+    { label: "Check-ins", value: `${checkIns.length}` },
+  ];
+  if (weightDelta != null) stats.push({ label: "Weight change", value: `${weightDelta > 0 ? "+" : ""}${weightDelta.toFixed(1)}kg` });
+  if (client.nutritionCalories != null) stats.push({ label: "Calorie target", value: `${client.nutritionCalories} kcal` });
+  stats.push({ label: "Monthly value", value: `GBP ${client.monthlyPriceGbp}` });
+  if (client.nextRenewalDate) stats.push({ label: "Next review", value: client.nextRenewalDate });
+
+  return { clientId, headline, body, stats };
+}
+
+async function updateGroupProgram(programId: string, patch: {
+  name?: string; description?: string; goal?: string;
+  monthlyPriceGbp?: number; memberIds?: string[];
+}) {
+  const updates: Record<string, unknown> = {};
+  if (patch.name !== undefined) updates.name = patch.name;
+  if (patch.description !== undefined) updates.description = patch.description;
+  if (patch.goal !== undefined) updates.goal = patch.goal;
+  if (patch.monthlyPriceGbp !== undefined) updates.monthly_price_gbp = patch.monthlyPriceGbp;
+  if (patch.memberIds !== undefined) updates.member_ids = patch.memberIds;
+  if (Object.keys(updates).length === 0) return null;
+  const { data, error } = await supabase
+    .from("group_programs")
+    .update(updates)
+    .eq("id", programId)
+    .select()
+    .single();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    coachId: data.coach_id ?? "",
+    title: data.name,
+    description: data.description ?? "",
+    goal: data.goal ?? "",
+    memberIds: data.member_ids ?? [],
+    monthlyPriceGbp: data.monthly_price_gbp ?? 0,
+    status: data.archived ? "archived" : "active",
+    createdAt: data.created_at,
+  };
+}
+
 async function listExercises(opts: { search?: string; bodyPart?: string; equipment?: string } = {}) {
   let q = supabase.from("exercises").select("*");
   if (opts.search) q = q.ilike("name", `%${opts.search}%`);
@@ -704,7 +841,7 @@ app.post("/api/clients", async (c) => {
     goal: body.goal.trim(),
     monthlyPriceGbp: Number(body.monthlyPriceGbp),
     nextRenewalDate: body.nextRenewalDate ?? new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10),
-    status: (body.status === "trialing" ? "trial" : body.status) as "active" | "at_risk" | "trial",
+    status: (body.status === "trial" ? "trialing" : body.status) as "active" | "at_risk" | "trial",
   });
 
   return result
@@ -848,6 +985,16 @@ app.delete("/api/notes/:noteId", async (c) => {
   return c.json({ ok: true });
 });
 
+app.delete("/api/clients/:clientId/notes/:noteId", async (c) => {
+  const { error } = await supabase
+    .from("client_notes")
+    .delete()
+    .eq("id", c.req.param("noteId"))
+    .eq("client_id", c.req.param("clientId"));
+  if (error) return c.json({ message: "Failed to delete note." }, 500);
+  return c.json({ ok: true });
+});
+
 app.get("/api/clients/:clientId/metrics", async (c) => {
   const { data, error } = await supabase
     .from("body_metrics")
@@ -940,6 +1087,69 @@ app.get("/api/group-programs", async (c) => c.json(await listGroupPrograms()));
 app.post("/api/group-programs", async (c) => {
   const body = await c.req.json();
   return c.json(await createGroupProgram(body), 201);
+});
+
+app.patch("/api/group-programs/:programId", async (c) => {
+  const body = await c.req.json();
+  const result = await updateGroupProgram(c.req.param("programId"), {
+    name: body.name,
+    description: body.description,
+    goal: body.goal,
+    monthlyPriceGbp: body.monthlyPriceGbp,
+    memberIds: body.memberIds,
+  });
+  return result ? c.json(result) : c.json({ message: "Failed to update program." }, 404);
+});
+
+app.delete("/api/group-programs/:programId", async (c) => {
+  const { error } = await supabase
+    .from("group_programs")
+    .update({ archived: true })
+    .eq("id", c.req.param("programId"));
+  if (error) return c.json({ message: "Failed to archive program." }, 500);
+  return c.json({ ok: true });
+});
+
+app.post("/api/clients/:clientId/sessions", async (c) => {
+  const body = await c.req.json();
+  if (!body.sessionType || !["virtual", "in-person"].includes(body.sessionType))
+    return c.json({ message: "sessionType must be 'virtual' or 'in-person'." }, 400);
+  if (!body.date?.trim()) return c.json({ message: "date is required." }, 400);
+  if (!body.time?.trim()) return c.json({ message: "time is required." }, 400);
+  if (typeof body.duration !== "number" || body.duration <= 0)
+    return c.json({ message: "duration must be a positive number." }, 400);
+  const result = await createBookedSession({
+    clientId: c.req.param("clientId"),
+    sessionType: body.sessionType,
+    date: body.date,
+    time: body.time,
+    duration: body.duration,
+    notes: body.notes ?? "",
+  });
+  return result
+    ? c.json(result, 201)
+    : c.json({ message: "Failed to book session." }, 500);
+});
+
+app.get("/api/proof-cards/:clientId", async (c) => {
+  const result = await generateProofCard(c.req.param("clientId"));
+  return result ? c.json(result) : c.json({ message: "Client not found." }, 404);
+});
+
+app.get("/api/clients/:clientId/photos", async (c) => {
+  const { data, error } = await supabase
+    .from("check_ins")
+    .select("id, client_id, submitted_at, photo_url")
+    .eq("client_id", c.req.param("clientId"))
+    .not("photo_url", "is", null)
+    .order("submitted_at", { ascending: true });
+  if (error) return c.json({ message: "Failed to load photos." }, 500);
+  return c.json(data.map((ci) => ({
+    checkInId: ci.id,
+    clientId: ci.client_id,
+    submittedAt: ci.submitted_at,
+    url: ci.photo_url,
+  })));
 });
 
 app.get("/api/exercises", async (c) =>
