@@ -7,6 +7,8 @@ import type {
 import { Pill, SectionShell, StatCard } from "@coachos/ui";
 import "./styles.css";
 import { CompetitorsView } from "./views/CompetitorsView";
+import { ExerciseLibraryView } from "./views/ExerciseLibraryView";
+import { RecipeBrowserView } from "./views/RecipeBrowserView";
 
 /* ────────────────────────────────────────
    TYPES
@@ -35,7 +37,7 @@ type Toast = {
   action?: ToastAction;
   duration: number;
 };
-type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"settings"|"migration"|"competitors"|"groups"|"habits"|"exercises"|"calendar";
+type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"settings"|"migration"|"competitors"|"groups"|"habits"|"exercises"|"calendar"|"recipes";
 type CheckInWithDelta = CheckIn & { weightDelta: number | null; energyDelta: number | null; adherenceDelta: number | null };
 type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceGbp: number; status: "active"|"archived"|"upcoming"; createdAt: string };
 type NutritionSwap = { id: string; planId: string; originalFood: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string }; swapSuggestion: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; reasoning: string }; appliedAt: string | null };
@@ -56,6 +58,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) throw new Error(`API error ${res.status} for ${path}`);
   return res.json() as Promise<T>;
 }
+export { fetchJson };
 
 /* ────────────────────────────────────────
    TOAST HOOK
@@ -336,10 +339,11 @@ function Sidebar({
         {nav("calendar", "▦", "Calendar")}
         {nav("plans", "✦", "AI Plans")}
         {nav("habits", "◉", "Habits")}
-        {nav("exercises", "⬢", "Exercise Library")}
         {nav("groups", "⬡", "Group Programs")}
 
         <span className="nav-section-label">Preview</span>
+        {nav("exercises", "⬢", "Exercise Library")}
+        {nav("recipes", "◈", "Recipe Browser")}
 
         <span className="nav-section-label">Business</span>
         {nav("billing", "£", "Billing & MRR")}
@@ -5950,7 +5954,10 @@ function App() {
           <HabitsView session={session} />
         )}
         {activeNav === "exercises" && (
-          <ExercisesView />
+          <ExerciseLibraryView />
+        )}
+        {activeNav === "recipes" && (
+          <RecipeBrowserView />
         )}
         {activeNav === "calendar" && (
           <CalendarView session={session} onNav={setActiveNav} />

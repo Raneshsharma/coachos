@@ -27,7 +27,41 @@ create table if not exists coachos_client_profile (
   current_plan_id text null,
   monthly_price_gbp numeric not null,
   next_renewal_date text not null,
-  last_checkin_date text null
+  last_checkin_date text null,
+  health_conditions jsonb not null default '[]',
+  daily_water_target integer not null default 3,
+  daily_steps_target integer not null default 10000,
+  supplements jsonb not null default '[]',
+  nutrition_calories integer,
+  nutrition_protein_g integer,
+  nutrition_fat_g integer,
+  nutrition_carbs_g integer,
+  nutrition_coach_note text not null default ''
+);
+
+create table if not exists coachos_client_note (
+  id text primary key,
+  client_id text not null references coachos_client_profile(id) on delete cascade,
+  content text not null,
+  created_at text not null
+);
+
+create table if not exists coachos_body_metric (
+  id text primary key,
+  client_id text not null references coachos_client_profile(id) on delete cascade,
+  date text not null,
+  weight_kg numeric,
+  body_fat_pct numeric,
+  waist_cm numeric
+);
+
+create table if not exists coachos_session (
+  id text primary key,
+  client_id text not null references coachos_client_profile(id) on delete cascade,
+  date text not null,
+  duration integer not null,
+  type text not null,
+  notes text
 );
 
 create table if not exists coachos_program_plan (

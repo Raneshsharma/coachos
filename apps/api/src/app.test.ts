@@ -49,6 +49,7 @@ describe("CoachOS API", () => {
           energyScore: 8,
           steps: 9000,
           waistCm: 84,
+          adherenceScore: null,
           notes: "Back on track."
         },
         photoCount: 1

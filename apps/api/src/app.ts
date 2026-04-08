@@ -39,6 +39,15 @@ export function createApp(store: DemoStore) {
     );
   });
 
+  app.post("/api/clients", async (req, res) => {
+    const result = await store.createClient(req.body);
+    if (!result.success) {
+      res.status(400).json({ message: "Invalid client payload.", issues: result.issues });
+      return;
+    }
+    res.status(201).json(result.client);
+  });
+
   app.get("/api/clients/:clientId", (req, res) => {
     const client = store.listClients().find((item) => item.id === req.params.clientId);
     if (!client) {
@@ -59,6 +68,73 @@ export function createApp(store: DemoStore) {
       return;
     }
     res.json(result.client);
+  });
+
+  // ── Client Notes ─────────────────────────────
+  app.get("/api/clients/:clientId/notes", (req, res) => {
+    const client = store.listClients().find((item) => item.id === req.params.clientId);
+    if (!client) { res.status(404).json({ message: "Client not found." }); return; }
+    res.json(store.listClientNotes(req.params.clientId));
+  });
+
+  app.post("/api/clients/:clientId/notes", async (req, res) => {
+    const client = store.listClients().find((item) => item.id === req.params.clientId);
+    if (!client) { res.status(404).json({ message: "Client not found." }); return; }
+    if (typeof req.body.content !== "string" || !req.body.content.trim()) {
+      res.status(400).json({ message: "content is required." }); return;
+    }
+    const note = await store.createClientNote(req.params.clientId, req.body.content);
+    res.status(201).json(note);
+  });
+
+  app.delete("/api/clients/:clientId/notes/:noteId", async (req, res) => {
+    const ok = await store.deleteClientNote(req.params.clientId, req.params.noteId);
+    if (!ok) { res.status(404).json({ message: "Note not found." }); return; }
+    res.json({ ok: true });
+  });
+
+  // ── Client Body Metrics ─────────────────────
+  app.get("/api/clients/:clientId/metrics", (req, res) => {
+    const client = store.listClients().find((item) => item.id === req.params.clientId);
+    if (!client) { res.status(404).json({ message: "Client not found." }); return; }
+    res.json(store.listBodyMetrics(req.params.clientId));
+  });
+
+  app.post("/api/clients/:clientId/metrics", async (req, res) => {
+    const client = store.listClients().find((item) => item.id === req.params.clientId);
+    if (!client) { res.status(404).json({ message: "Client not found." }); return; }
+    if (typeof req.body.date !== "string" || !req.body.date.trim()) {
+      res.status(400).json({ message: "date is required." }); return;
+    }
+    const metric = await store.saveBodyMetric(req.params.clientId, {
+      date: req.body.date,
+      weightKg: req.body.weightKg ?? null,
+      bodyFatPct: req.body.bodyFatPct ?? null,
+      waistCm: req.body.waistCm ?? null
+    });
+    res.status(201).json(metric);
+  });
+
+  // ── Session Booking ─────────────────────────
+  app.post("/api/clients/:clientId/sessions", async (req, res) => {
+    const client = store.listClients().find((item) => item.id === req.params.clientId);
+    if (!client) { res.status(404).json({ message: "Client not found." }); return; }
+    if (typeof req.body.date !== "string" || !req.body.date.trim()) {
+      res.status(400).json({ message: "date is required." }); return;
+    }
+    if (typeof req.body.duration !== "number" || req.body.duration <= 0) {
+      res.status(400).json({ message: "duration must be a positive number." }); return;
+    }
+    if (req.body.type !== "virtual" && req.body.type !== "in-person") {
+      res.status(400).json({ message: "type must be 'virtual' or 'in-person'." }); return;
+    }
+    const session = await store.createSession(req.params.clientId, {
+      date: req.body.date,
+      duration: req.body.duration,
+      type: req.body.type,
+      notes: typeof req.body.notes === "string" ? req.body.notes : undefined
+    });
+    res.status(201).json(session);
   });
 
   app.get("/api/plans", (req, res) => {

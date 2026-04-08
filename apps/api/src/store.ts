@@ -17,11 +17,50 @@ import {
   type HabitCompletion,
   type NutritionSwap
 } from "@coachos/domain";
+import { z } from "zod";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 import { createMockServiceAdapters, type DemoServiceAdapters } from "./services";
+
+// Extended state type — adds optional arrays for notes, metrics, and sessions
+// that are not in the shared domain package's DemoState.
+type ExtendedDemoState = DemoState & {
+  clientNotes?: ClientNote[];
+  bodyMetrics?: BodyMetric[];
+  sessions?: Session[];
+};
+
+export const clientNoteSchema = z.object({
+  id: z.string(),
+  clientId: z.string(),
+  content: z.string(),
+  createdAt: z.string()
+});
+
+export const bodyMetricSchema = z.object({
+  id: z.string(),
+  clientId: z.string(),
+  date: z.string(),
+  weightKg: z.number().nullable().default(null),
+  bodyFatPct: z.number().nullable().default(null),
+  waistCm: z.number().nullable().default(null)
+});
+
+export const sessionSchema = z.object({
+  id: z.string(),
+  clientId: z.string(),
+  date: z.string(),
+  duration: z.number().int().positive(),
+  type: z.enum(["virtual", "in-person"]),
+  notes: z.string().nullable().default(null),
+  createdAt: z.string()
+});
+
+export type ClientNote = z.infer<typeof clientNoteSchema>;
+export type BodyMetric = z.infer<typeof bodyMetricSchema>;
+export type Session = z.infer<typeof sessionSchema>;
 
 export interface DemoStateRepository {
   load(): Promise<DemoState>;
@@ -472,7 +511,7 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
 }
 
 export class DemoStore {
-  private state: DemoState;
+  private state: ExtendedDemoState;
 
   private constructor(
     private readonly repository: DemoStateRepository = new InMemoryDemoStateRepository(),
@@ -490,7 +529,7 @@ export class DemoStore {
     return new DemoStore(repository, adapters, initialState);
   }
 
-  getState() {
+  getState(): ExtendedDemoState {
     return this.state;
   }
 
@@ -703,6 +742,94 @@ export class DemoStore {
     this.state.messages.push(message);
     await this.commit();
     return { success: true as const, message };
+  }
+
+  // ── Client CRUD ─────────────────────────────────────────────────────────────
+  async createClient(payload: unknown) {
+    const parsed = clientProfileSchema.omit({ id: true }).safeParse(payload);
+    if (!parsed.success) {
+      return { success: false as const, issues: parsed.error.issues };
+    }
+
+    const client = {
+      ...parsed.data,
+      id: `client_${Date.now()}_${Math.random().toString(36).substring(7)}`
+    };
+    this.state.clients = [...this.state.clients, client];
+    await this.commit();
+    await this.track("coach_onboarded", this.state.coach.id, { clientCreated: client.id });
+    return { success: true as const, client };
+  }
+
+  // ── Client Notes ────────────────────────────────────────────────────────────
+  listClientNotes(clientId: string) {
+    if (!this.state.clientNotes) this.state.clientNotes = [];
+    return this.state.clientNotes.filter((n) => n.clientId === clientId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async createClientNote(clientId: string, content: string) {
+    if (!this.state.clientNotes) this.state.clientNotes = [];
+    const note = {
+      id: `note_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+      clientId,
+      content,
+      createdAt: new Date().toISOString()
+    };
+    this.state.clientNotes = [...this.state.clientNotes, note];
+    await this.commit();
+    await this.track("coach_onboarded", this.state.coach.id, { noteCreated: note.id });
+    return note;
+  }
+
+  async deleteClientNote(clientId: string, noteId: string) {
+    if (!this.state.clientNotes) return false;
+    const existing = this.state.clientNotes.find((n) => n.id === noteId && n.clientId === clientId);
+    if (!existing) return false;
+    this.state.clientNotes = this.state.clientNotes.filter((n) => n.id !== noteId);
+    await this.commit();
+    return true;
+  }
+
+  // ── Client Body Metrics ──────────────────────────────────────────────────────
+  listBodyMetrics(clientId: string) {
+    if (!this.state.bodyMetrics) this.state.bodyMetrics = [];
+    return this.state.bodyMetrics
+      .filter((m) => m.clientId === clientId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  async saveBodyMetric(clientId: string, payload: { date: string; weightKg?: number | null; bodyFatPct?: number | null; waistCm?: number | null }) {
+    if (!this.state.bodyMetrics) this.state.bodyMetrics = [];
+    const metric = {
+      id: `metric_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+      clientId,
+      date: payload.date,
+      weightKg: payload.weightKg ?? null,
+      bodyFatPct: payload.bodyFatPct ?? null,
+      waistCm: payload.waistCm ?? null
+    };
+    this.state.bodyMetrics = [...this.state.bodyMetrics, metric];
+    await this.commit();
+    return metric;
+  }
+
+  // ── Session Booking ────────────────────────────────────────────────────────
+  async createSession(clientId: string, payload: { date: string; duration: number; type: "virtual" | "in-person"; notes?: string }) {
+    if (!this.state.sessions) this.state.sessions = [];
+    const session: Session = {
+      id: `session_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+      clientId,
+      date: payload.date,
+      duration: payload.duration,
+      type: payload.type,
+      notes: payload.notes ?? null,
+      createdAt: new Date().toISOString()
+    };
+    this.state.sessions = [...this.state.sessions, session];
+    await this.commit();
+    await this.track("coach_onboarded", this.state.coach.id, { sessionCreated: session.id });
+    return session;
   }
 
 
