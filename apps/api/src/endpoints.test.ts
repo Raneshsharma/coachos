@@ -26,6 +26,30 @@ describe("POST /api/clients", () => {
     expect(res.body.id).toMatch(/^client_/);
   });
 
+  it("creates a new client from the web add-client form payload", async () => {
+    const app = createApp(await DemoStore.create());
+
+    const res = await request(app).post("/api/clients").send({
+      fullName: "Taylor Morgan",
+      email: "taylor@example.com",
+      goal: "Build consistency for the next 12 weeks",
+      status: "trialing",
+      monthlyPriceGbp: 179,
+      nextRenewalDate: ""
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.workspaceId).toBe("ws_uk_1");
+    expect(res.body.status).toBe("trial");
+    expect(res.body.adherenceScore).toBe(60);
+    expect(res.body.currentPlanId).toBeNull();
+    expect(res.body.lastCheckInDate).toBeNull();
+
+    const billing = await request(app).get("/api/billing");
+    const subscription = billing.body.subscriptions.find((item: { clientId: string }) => item.clientId === res.body.id);
+    expect(subscription.amountGbp).toBe(179);
+  });
+
   it("returns 400 for missing required fields", async () => {
     const app = createApp(await DemoStore.create());
 
@@ -54,6 +78,62 @@ describe("POST /api/clients", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.message).toContain("Invalid client payload");
+  });
+});
+
+describe("Feature API coverage", () => {
+  it("returns exercise and recipe library data in the shapes used by the web app", async () => {
+    const app = createApp(await DemoStore.create());
+
+    const exercises = await request(app).get("/api/exercises").query({ bodyPart: "Back" });
+    expect(exercises.status).toBe(200);
+    expect(exercises.body.length).toBeGreaterThan(0);
+    expect(exercises.body.every((item: { bodyPart: string }) => item.bodyPart === "Back")).toBe(true);
+
+    const recipes = await request(app).get("/api/recipes").query({ search: "chicken" });
+    expect(recipes.status).toBe(200);
+    expect(Array.isArray(recipes.body)).toBe(true);
+    expect(recipes.body.some((item: { name: string }) => item.name.toLowerCase().includes("chicken"))).toBe(true);
+
+    const suggested = await request(app).get("/api/recipes").query({ food: "oats" });
+    expect(suggested.status).toBe(200);
+    expect(suggested.body.name).toContain("Oats");
+  });
+
+  it("updates plan blocks through PATCH and returns habit summaries", async () => {
+    const app = createApp(await DemoStore.create());
+
+    const planPatch = await request(app)
+      .patch("/api/plans/plan_1")
+      .send({ workouts: ["Updated workout block"], nutrition: ["Updated nutrition block"] });
+
+    expect(planPatch.status).toBe(200);
+    expect(planPatch.body.latestVersion.workouts).toEqual(["Updated workout block"]);
+    expect(planPatch.body.latestVersion.nutrition).toEqual(["Updated nutrition block"]);
+
+    const habit = await request(app).post("/api/habits").send({
+      clientId: "client_1",
+      title: "Drink water",
+      target: 3,
+      frequency: "daily"
+    });
+    await request(app).post(`/api/habits/${habit.body.id}/complete`).send({ date: new Date().toISOString().slice(0, 10) });
+
+    const summary = await request(app).get("/api/habits/summary").query({ clientId: "client_1" });
+    expect(summary.status).toBe(200);
+    const habitSummary = summary.body.find((item: { habit: { id: string } }) => item.habit.id === habit.body.id);
+    expect(habitSummary.todayDone).toBe(true);
+  });
+
+  it("accepts check-in photo uploads as a safe no-op for now", async () => {
+    const app = createApp(await DemoStore.create());
+
+    const response = await request(app)
+      .post("/api/check-ins/checkin_1/photo")
+      .attach("photo", Buffer.from("fake image"), "photo.jpg");
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
   });
 });
 

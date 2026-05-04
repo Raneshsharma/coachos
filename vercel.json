@@ -3,7 +3,7 @@
   "buildCommand": "npm run build --workspace @coachos/web",
   "outputDirectory": "apps/web/dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://coachos-api.comforttime9.workers.dev/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://coachos-api.arcstudio-coachos.workers.dev/api/$1" }
   ],
   "headers": [
     {

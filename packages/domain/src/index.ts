@@ -45,6 +45,8 @@ export const clientProfileSchema = z.object({
 
 export const clientProfilePatchSchema = z
   .object({
+    fullName: z.string().min(2).optional(),
+    email: z.email().optional(),
     goal: z.string().min(3).optional(),
     status: z.enum(["active", "at_risk", "trial"]).optional(),
     monthlyPriceGbp: z.number().positive().optional(),

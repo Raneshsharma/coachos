@@ -62,6 +62,19 @@ export type ClientNote = z.infer<typeof clientNoteSchema>;
 export type BodyMetric = z.infer<typeof bodyMetricSchema>;
 export type Session = z.infer<typeof sessionSchema>;
 
+const coachOnboardingSchema = z.object({
+  workspaceName: z.string().trim().min(1),
+  heroMessage: z.string().trim().optional().default(""),
+  brandColor: z.string().trim().min(1).default("#123f2d"),
+  accentColor: z.string().trim().min(1).default("#ff8757"),
+  stripeConnected: z.boolean().optional().default(false),
+  coachFirstName: z.string().trim().min(1),
+  coachLastName: z.string().trim().min(1),
+  coachEmail: z.email(),
+  coachGender: z.enum(["male", "female"]).optional().default("male"),
+  coachTypes: z.array(z.string()).optional().default([])
+});
+
 export interface DemoStateRepository {
   load(): Promise<DemoState>;
   save(state: DemoState): Promise<void>;
@@ -70,6 +83,12 @@ export interface DemoStateRepository {
     storage: string;
     stateFilePath: string | null;
   };
+}
+
+function addDaysIsoDate(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 export class InMemoryDemoStateRepository implements DemoStateRepository {
@@ -227,27 +246,49 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
 
   private async ensureSchema(pool: Pool) {
     await pool.query(`
-      create table if not exists coachos_workspace (
+      create extension if not exists "pgcrypto";
+
+      create table if not exists organizations (
         id text primary key,
         name text not null,
         brand_color text not null,
         accent_color text not null,
         hero_message text not null,
         stripe_connected boolean not null,
-        parallel_run_days_left integer not null
+        parallel_run_days_left integer not null,
+        plan text not null default 'demo',
+        status text not null default 'active',
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
       );
 
-      create table if not exists coachos_coach_user (
+      create table if not exists profiles (
         id text primary key,
-        workspace_id text not null references coachos_workspace(id) on delete cascade,
+        organization_id text references organizations(id) on delete cascade,
+        auth_user_id uuid unique,
+        display_name text not null,
+        email text not null,
+        role text not null,
+        status text not null default 'active',
+        created_at timestamptz not null default now()
+      );
+
+      create table if not exists coaches (
+        id text primary key,
+        organization_id text not null references organizations(id) on delete cascade,
+        profile_id text references profiles(id) on delete set null,
         first_name text not null,
         last_name text not null,
-        email text not null
+        email text not null,
+        gender text not null default 'male',
+        timezone text not null default 'UTC',
+        created_at timestamptz not null default now()
       );
 
-      create table if not exists coachos_client_profile (
+      create table if not exists clients (
         id text primary key,
-        workspace_id text not null references coachos_workspace(id) on delete cascade,
+        organization_id text not null references organizations(id) on delete cascade,
+        profile_id text references profiles(id) on delete set null,
         full_name text not null,
         email text not null,
         goal text not null,
@@ -256,34 +297,137 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
         current_plan_id text null,
         monthly_price_gbp numeric not null,
         next_renewal_date text not null,
-        last_checkin_date text null
+        last_checkin_date text null,
+        health_conditions jsonb not null default '[]',
+        daily_water_target integer not null default 3,
+        daily_steps_target integer not null default 10000,
+        supplements jsonb not null default '[]',
+        nutrition_calories integer,
+        nutrition_protein_g integer,
+        nutrition_fat_g integer,
+        nutrition_carbs_g integer,
+        nutrition_coach_note text not null default '',
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
       );
 
-      create table if not exists coachos_program_plan (
+      create table if not exists coach_clients (
+        id text primary key default 'cc_' || gen_random_uuid()::text,
+        coach_id text not null references coaches(id) on delete cascade,
+        client_id text not null references clients(id) on delete cascade,
+        relationship_status text not null default 'active',
+        started_at timestamptz not null default now(),
+        unique (coach_id, client_id)
+      );
+
+      create table if not exists plans (
         id text primary key,
-        client_id text not null references coachos_client_profile(id) on delete cascade,
-        coach_id text not null references coachos_coach_user(id) on delete cascade,
+        client_id text not null references clients(id) on delete cascade,
+        coach_id text not null references coaches(id) on delete cascade,
         title text not null,
-        latest_version jsonb not null
+        latest_version jsonb not null,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
       );
 
-      create table if not exists coachos_checkin (
+      create table if not exists check_ins (
         id text primary key,
-        client_id text not null references coachos_client_profile(id) on delete cascade,
+        client_id text not null references clients(id) on delete cascade,
         submitted_at text not null,
         progress jsonb not null,
-        photo_count integer not null
+        photo_count integer not null,
+        created_at timestamptz not null default now()
       );
 
-      create table if not exists coachos_subscription (
+      create table if not exists subscriptions (
         id text primary key,
-        client_id text not null references coachos_client_profile(id) on delete cascade,
+        client_id text not null references clients(id) on delete cascade,
         status text not null,
         amount_gbp numeric not null,
-        renewal_date text not null
+        renewal_date text not null,
+        updated_at timestamptz not null default now()
       );
 
-      create table if not exists coachos_analytics_event (
+      create table if not exists messages (
+        id text primary key,
+        client_id text not null references clients(id) on delete cascade,
+        coach_id text not null references coaches(id) on delete cascade,
+        sender text not null,
+        content text not null,
+        sent_at text not null,
+        read_at text,
+        created_at timestamptz not null default now()
+      );
+
+      create table if not exists client_notes (
+        id text primary key,
+        client_id text not null references clients(id) on delete cascade,
+        coach_id text references coaches(id) on delete set null,
+        content text not null,
+        created_at text not null,
+        updated_at timestamptz not null default now()
+      );
+
+      create table if not exists body_metrics (
+        id text primary key,
+        client_id text not null references clients(id) on delete cascade,
+        date text not null,
+        weight_kg numeric,
+        body_fat_pct numeric,
+        waist_cm numeric,
+        created_at timestamptz not null default now()
+      );
+
+      create table if not exists sessions (
+        id text primary key,
+        client_id text not null references clients(id) on delete cascade,
+        coach_id text references coaches(id) on delete set null,
+        date text not null,
+        duration integer not null,
+        type text not null,
+        notes text,
+        created_at text not null
+      );
+
+      create table if not exists group_programs (
+        id text primary key,
+        organization_id text not null references organizations(id) on delete cascade,
+        coach_id text not null references coaches(id) on delete cascade,
+        title text not null,
+        description text not null,
+        goal text not null,
+        member_ids jsonb not null default '[]',
+        monthly_price_gbp numeric not null default 0,
+        status text not null,
+        created_at text not null
+      );
+
+      create table if not exists nutrition_swaps (
+        id text primary key,
+        plan_id text not null references plans(id) on delete cascade,
+        original_food jsonb not null,
+        swap_suggestion jsonb not null,
+        applied_at text
+      );
+
+      create table if not exists habits (
+        id text primary key,
+        client_id text not null references clients(id) on delete cascade,
+        title text not null,
+        target integer not null,
+        frequency text not null,
+        created_at text not null
+      );
+
+      create table if not exists habit_completions (
+        id text primary key,
+        habit_id text not null references habits(id) on delete cascade,
+        date text not null,
+        completed boolean not null default true,
+        unique (habit_id, date)
+      );
+
+      create table if not exists analytics_events (
         event_id bigserial primary key,
         name text not null,
         actor_id text not null,
@@ -298,7 +442,7 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
     try {
       await this.ensureSchema(pool);
 
-      const workspaceResult = await pool.query("select * from coachos_workspace limit 1");
+      const workspaceResult = await pool.query("select * from organizations order by created_at asc limit 1");
       if (!workspaceResult.rowCount) {
         const seeded = this.seedFactory();
         await this.save(seeded);
@@ -306,14 +450,25 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
       }
 
       const workspaceRow = workspaceResult.rows[0];
-      const coachRow = (await pool.query("select * from coachos_coach_user limit 1")).rows[0];
-      const clientRows = (await pool.query("select * from coachos_client_profile order by full_name asc")).rows;
-      const planRows = (await pool.query("select * from coachos_program_plan order by id asc")).rows;
-      const checkInRows = (await pool.query("select * from coachos_checkin order by submitted_at desc")).rows;
-      const subscriptionRows = (await pool.query("select * from coachos_subscription order by id asc")).rows;
-      const analyticsRows = (await pool.query("select name, actor_id, occurred_at, metadata from coachos_analytics_event order by event_id asc")).rows;
+      const organizationId = workspaceRow.id;
+      const coachRow = (await pool.query("select * from coaches where organization_id = $1 order by created_at asc limit 1", [organizationId])).rows[0];
+      const clientRows = (await pool.query("select * from clients where organization_id = $1 order by full_name asc", [organizationId])).rows;
+      const clientIds = clientRows.map((row) => row.id);
+      const planRows = (await pool.query("select * from plans where client_id = any($1::text[]) order by id asc", [clientIds])).rows;
+      const checkInRows = (await pool.query("select * from check_ins where client_id = any($1::text[]) order by submitted_at desc", [clientIds])).rows;
+      const subscriptionRows = (await pool.query("select * from subscriptions where client_id = any($1::text[]) order by id asc", [clientIds])).rows;
+      const messageRows = (await pool.query("select * from messages where client_id = any($1::text[]) order by sent_at asc", [clientIds])).rows;
+      const groupProgramRows = (await pool.query("select * from group_programs where organization_id = $1 order by created_at asc", [organizationId])).rows;
+      const habitRows = (await pool.query("select * from habits where client_id = any($1::text[]) order by created_at asc", [clientIds])).rows;
+      const habitIds = habitRows.map((row) => row.id);
+      const habitCompletionRows = (await pool.query("select * from habit_completions where habit_id = any($1::text[]) order by date asc", [habitIds])).rows;
+      const nutritionSwapRows = (await pool.query("select ns.* from nutrition_swaps ns join plans p on p.id = ns.plan_id where p.client_id = any($1::text[]) order by ns.id asc", [clientIds])).rows;
+      const analyticsRows = (await pool.query("select name, actor_id, occurred_at, metadata from analytics_events order by event_id asc")).rows;
+      const clientNoteRows = (await pool.query("select * from client_notes where client_id = any($1::text[]) order by created_at desc", [clientIds])).rows;
+      const bodyMetricRows = (await pool.query("select * from body_metrics where client_id = any($1::text[]) order by date desc", [clientIds])).rows;
+      const sessionRows = (await pool.query("select * from sessions where client_id = any($1::text[]) order by date asc", [clientIds])).rows;
 
-      return demoStateSchema.parse({
+      const baseState = demoStateSchema.parse({
         workspace: {
           id: workspaceRow.id,
           name: workspaceRow.name,
@@ -325,14 +480,15 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
         },
         coach: {
           id: coachRow.id,
-          workspaceId: coachRow.workspace_id,
+          workspaceId: coachRow.organization_id,
           firstName: coachRow.first_name,
           lastName: coachRow.last_name,
-          email: coachRow.email
+          email: coachRow.email,
+          gender: coachRow.gender
         },
         clients: clientRows.map((row) => ({
           id: row.id,
-          workspaceId: row.workspace_id,
+          workspaceId: row.organization_id,
           fullName: row.full_name,
           email: row.email,
           goal: row.goal,
@@ -341,7 +497,16 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
           currentPlanId: row.current_plan_id,
           monthlyPriceGbp: Number(row.monthly_price_gbp),
           nextRenewalDate: row.next_renewal_date,
-          lastCheckInDate: row.last_checkin_date
+          lastCheckInDate: row.last_checkin_date,
+          healthConditions: row.health_conditions ?? [],
+          dailyWaterTarget: row.daily_water_target,
+          dailyStepsTarget: row.daily_steps_target,
+          supplements: row.supplements ?? [],
+          nutritionCalories: row.nutrition_calories,
+          nutritionProteinG: row.nutrition_protein_g,
+          nutritionFatG: row.nutrition_fat_g,
+          nutritionCarbsG: row.nutrition_carbs_g,
+          nutritionCoachNote: row.nutrition_coach_note
         })),
         plans: planRows.map((row) => ({
           id: row.id,
@@ -364,6 +529,47 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
           amountGbp: Number(row.amount_gbp),
           renewalDate: row.renewal_date
         })),
+        messages: messageRows.map((row) => ({
+          id: row.id,
+          clientId: row.client_id,
+          coachId: row.coach_id,
+          sender: row.sender,
+          content: row.content,
+          sentAt: row.sent_at,
+          readAt: row.read_at
+        })),
+        groupPrograms: groupProgramRows.map((row) => ({
+          id: row.id,
+          coachId: row.coach_id,
+          title: row.title,
+          description: row.description,
+          goal: row.goal,
+          memberIds: row.member_ids ?? [],
+          monthlyPriceGbp: Number(row.monthly_price_gbp),
+          status: row.status,
+          createdAt: row.created_at
+        })),
+        nutritionSwaps: nutritionSwapRows.map((row) => ({
+          id: row.id,
+          planId: row.plan_id,
+          originalFood: row.original_food,
+          swapSuggestion: row.swap_suggestion,
+          appliedAt: row.applied_at
+        })),
+        habits: habitRows.map((row) => ({
+          id: row.id,
+          clientId: row.client_id,
+          title: row.title,
+          target: row.target,
+          frequency: row.frequency,
+          createdAt: row.created_at
+        })),
+        habitCompletions: habitCompletionRows.map((row) => ({
+          id: row.id,
+          habitId: row.habit_id,
+          date: row.date,
+          completed: row.completed
+        })),
         analytics: analyticsRows.map((row) => ({
           name: row.name,
           actorId: row.actor_id,
@@ -371,28 +577,70 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
           metadata: row.metadata
         }))
       });
+
+      return {
+        ...baseState,
+        clientNotes: clientNoteRows.map((row) => ({
+          id: row.id,
+          clientId: row.client_id,
+          content: row.content,
+          createdAt: row.created_at
+        })),
+        bodyMetrics: bodyMetricRows.map((row) => ({
+          id: row.id,
+          clientId: row.client_id,
+          date: row.date,
+          weightKg: row.weight_kg == null ? null : Number(row.weight_kg),
+          bodyFatPct: row.body_fat_pct == null ? null : Number(row.body_fat_pct),
+          waistCm: row.waist_cm == null ? null : Number(row.waist_cm)
+        })),
+        sessions: sessionRows.map((row) => ({
+          id: row.id,
+          clientId: row.client_id,
+          date: row.date,
+          duration: row.duration,
+          type: row.type,
+          notes: row.notes,
+          createdAt: row.created_at
+        }))
+      };
     } finally {
       await pool.end();
     }
   }
 
   async save(state: DemoState) {
+    const extendedState = state as ExtendedDemoState;
     const pool = this.createPool();
     try {
       await this.ensureSchema(pool);
       await pool.query("begin");
 
-      await pool.query("delete from coachos_analytics_event");
-      await pool.query("delete from coachos_subscription");
-      await pool.query("delete from coachos_checkin");
-      await pool.query("delete from coachos_program_plan");
-      await pool.query("delete from coachos_client_profile");
-      await pool.query("delete from coachos_coach_user");
-      await pool.query("delete from coachos_workspace");
+      const clientIds = state.clients.map((client) => client.id);
+      const planIds = state.plans.map((plan) => plan.id);
+      const habitIds = state.habits?.map((habit) => habit.id) ?? [];
+
+      await pool.query("delete from nutrition_swaps where plan_id = any($1::text[])", [planIds]);
+      await pool.query("delete from habit_completions where habit_id = any($1::text[])", [habitIds]);
+      await pool.query("delete from habits where client_id = any($1::text[])", [clientIds]);
+      await pool.query("delete from group_programs where organization_id = $1", [state.workspace.id]);
+      await pool.query("delete from sessions where client_id = any($1::text[])", [clientIds]);
+      await pool.query("delete from body_metrics where client_id = any($1::text[])", [clientIds]);
+      await pool.query("delete from client_notes where client_id = any($1::text[])", [clientIds]);
+      await pool.query("delete from messages where client_id = any($1::text[])", [clientIds]);
+      await pool.query("delete from subscriptions where client_id = any($1::text[])", [clientIds]);
+      await pool.query("delete from check_ins where client_id = any($1::text[])", [clientIds]);
+      await pool.query("delete from plans where client_id = any($1::text[])", [clientIds]);
+      await pool.query("delete from coach_clients where coach_id = $1 or client_id = any($2::text[])", [state.coach.id, clientIds]);
+      await pool.query("delete from clients where organization_id = $1", [state.workspace.id]);
+      await pool.query("delete from coaches where organization_id = $1", [state.workspace.id]);
+      await pool.query("delete from profiles where organization_id = $1", [state.workspace.id]);
+      await pool.query("delete from analytics_events");
+      await pool.query("delete from organizations where id = $1", [state.workspace.id]);
 
       await pool.query(
         `
-          insert into coachos_workspace
+          insert into organizations
             (id, name, brand_color, accent_color, hero_message, stripe_connected, parallel_run_days_left)
           values ($1, $2, $3, $4, $5, $6, $7)
         `,
@@ -409,29 +657,61 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
 
       await pool.query(
         `
-          insert into coachos_coach_user
-            (id, workspace_id, first_name, last_name, email)
-          values ($1, $2, $3, $4, $5)
+          insert into profiles
+            (id, organization_id, display_name, email, role, status)
+          values ($1, $2, $3, $4, 'coach', 'active')
+        `,
+        [
+          `profile_${state.coach.id}`,
+          state.workspace.id,
+          `${state.coach.firstName} ${state.coach.lastName}`,
+          state.coach.email
+        ]
+      );
+
+      await pool.query(
+        `
+          insert into coaches
+            (id, organization_id, profile_id, first_name, last_name, email, gender)
+          values ($1, $2, $3, $4, $5, $6, $7)
         `,
         [
           state.coach.id,
           state.coach.workspaceId,
+          `profile_${state.coach.id}`,
           state.coach.firstName,
           state.coach.lastName,
-          state.coach.email
+          state.coach.email,
+          state.coach.gender ?? "male"
         ]
       );
 
       for (const client of state.clients) {
         await pool.query(
           `
-            insert into coachos_client_profile
-              (id, workspace_id, full_name, email, goal, status, adherence_score, current_plan_id, monthly_price_gbp, next_renewal_date, last_checkin_date)
-            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            insert into profiles
+              (id, organization_id, display_name, email, role, status)
+            values ($1, $2, $3, $4, 'client', 'active')
+          `,
+          [`profile_${client.id}`, client.workspaceId, client.fullName, client.email]
+        );
+
+        await pool.query(
+          `
+            insert into clients
+              (
+                id, organization_id, profile_id, full_name, email, goal, status, adherence_score,
+                current_plan_id, monthly_price_gbp, next_renewal_date, last_checkin_date,
+                health_conditions, daily_water_target, daily_steps_target, supplements,
+                nutrition_calories, nutrition_protein_g, nutrition_fat_g, nutrition_carbs_g,
+                nutrition_coach_note
+              )
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16::jsonb, $17, $18, $19, $20, $21)
           `,
           [
             client.id,
             client.workspaceId,
+            `profile_${client.id}`,
             client.fullName,
             client.email,
             client.goal,
@@ -440,15 +720,29 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
             client.currentPlanId,
             client.monthlyPriceGbp,
             client.nextRenewalDate,
-            client.lastCheckInDate
+            client.lastCheckInDate,
+            JSON.stringify(client.healthConditions ?? []),
+            client.dailyWaterTarget ?? 3,
+            client.dailyStepsTarget ?? 10000,
+            JSON.stringify(client.supplements ?? []),
+            client.nutritionCalories,
+            client.nutritionProteinG,
+            client.nutritionFatG,
+            client.nutritionCarbsG,
+            client.nutritionCoachNote ?? ""
           ]
+        );
+
+        await pool.query(
+          "insert into coach_clients (coach_id, client_id) values ($1, $2) on conflict (coach_id, client_id) do nothing",
+          [state.coach.id, client.id]
         );
       }
 
       for (const plan of state.plans) {
         await pool.query(
           `
-            insert into coachos_program_plan
+            insert into plans
               (id, client_id, coach_id, title, latest_version)
             values ($1, $2, $3, $4, $5::jsonb)
           `,
@@ -459,7 +753,7 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
       for (const checkIn of state.checkIns) {
         await pool.query(
           `
-            insert into coachos_checkin
+            insert into check_ins
               (id, client_id, submitted_at, progress, photo_count)
             values ($1, $2, $3, $4::jsonb, $5)
           `,
@@ -470,7 +764,7 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
       for (const subscription of state.subscriptions) {
         await pool.query(
           `
-            insert into coachos_subscription
+            insert into subscriptions
               (id, client_id, status, amount_gbp, renewal_date)
             values ($1, $2, $3, $4, $5)
           `,
@@ -481,11 +775,110 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
       for (const event of state.analytics) {
         await pool.query(
           `
-            insert into coachos_analytics_event
+            insert into analytics_events
               (name, actor_id, occurred_at, metadata)
             values ($1, $2, $3, $4::jsonb)
           `,
           [event.name, event.actorId, event.occurredAt, JSON.stringify(event.metadata)]
+        );
+      }
+
+      for (const message of state.messages ?? []) {
+        await pool.query(
+          `
+            insert into messages
+              (id, client_id, coach_id, sender, content, sent_at, read_at)
+            values ($1, $2, $3, $4, $5, $6, $7)
+          `,
+          [message.id, message.clientId, message.coachId, message.sender, message.content, message.sentAt, message.readAt]
+        );
+      }
+
+      for (const note of extendedState.clientNotes ?? []) {
+        await pool.query(
+          `
+            insert into client_notes
+              (id, client_id, coach_id, content, created_at)
+            values ($1, $2, $3, $4, $5)
+          `,
+          [note.id, note.clientId, state.coach.id, note.content, note.createdAt]
+        );
+      }
+
+      for (const metric of extendedState.bodyMetrics ?? []) {
+        await pool.query(
+          `
+            insert into body_metrics
+              (id, client_id, date, weight_kg, body_fat_pct, waist_cm)
+            values ($1, $2, $3, $4, $5, $6)
+          `,
+          [metric.id, metric.clientId, metric.date, metric.weightKg, metric.bodyFatPct, metric.waistCm]
+        );
+      }
+
+      for (const session of extendedState.sessions ?? []) {
+        await pool.query(
+          `
+            insert into sessions
+              (id, client_id, coach_id, date, duration, type, notes, created_at)
+            values ($1, $2, $3, $4, $5, $6, $7, $8)
+          `,
+          [session.id, session.clientId, state.coach.id, session.date, session.duration, session.type, session.notes, session.createdAt]
+        );
+      }
+
+      for (const program of state.groupPrograms ?? []) {
+        await pool.query(
+          `
+            insert into group_programs
+              (id, organization_id, coach_id, title, description, goal, member_ids, monthly_price_gbp, status, created_at)
+            values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)
+          `,
+          [
+            program.id,
+            state.workspace.id,
+            program.coachId,
+            program.title,
+            program.description,
+            program.goal,
+            JSON.stringify(program.memberIds),
+            program.monthlyPriceGbp,
+            program.status,
+            program.createdAt
+          ]
+        );
+      }
+
+      for (const habit of state.habits ?? []) {
+        await pool.query(
+          `
+            insert into habits
+              (id, client_id, title, target, frequency, created_at)
+            values ($1, $2, $3, $4, $5, $6)
+          `,
+          [habit.id, habit.clientId, habit.title, habit.target, habit.frequency, habit.createdAt]
+        );
+      }
+
+      for (const completion of state.habitCompletions ?? []) {
+        await pool.query(
+          `
+            insert into habit_completions
+              (id, habit_id, date, completed)
+            values ($1, $2, $3, $4)
+          `,
+          [completion.id, completion.habitId, completion.date, completion.completed]
+        );
+      }
+
+      for (const swap of state.nutritionSwaps ?? []) {
+        await pool.query(
+          `
+            insert into nutrition_swaps
+              (id, plan_id, original_food, swap_suggestion, applied_at)
+            values ($1, $2, $3::jsonb, $4::jsonb, $5)
+          `,
+          [swap.id, swap.planId, JSON.stringify(swap.originalFood), JSON.stringify(swap.swapSuggestion), swap.appliedAt]
         );
       }
 
@@ -504,7 +897,7 @@ export class PostgresRelationalDemoStateRepository implements DemoStateRepositor
 
   describe() {
     return {
-      storage: "PostgresRelationalDemoStateRepository",
+      storage: "SupabasePostgresRelationalRepository",
       stateFilePath: null
     };
   }
@@ -566,6 +959,61 @@ export class DemoStore {
     };
     await this.track("coach_onboarded", this.state.coach.id, { updated: true });
     return this.state.workspace;
+  }
+
+  async createCoachWorkspace(payload: unknown) {
+    const parsed = coachOnboardingSchema.safeParse(payload);
+    if (!parsed.success) {
+      return { success: false as const, issues: parsed.error.issues };
+    }
+
+    const timestamp = Date.now();
+    const workspaceId = `ws_${timestamp}`;
+    const coachId = `coach_${timestamp}`;
+    const data = parsed.data;
+
+    this.state = {
+      workspace: {
+        id: workspaceId,
+        name: data.workspaceName,
+        brandColor: data.brandColor,
+        accentColor: data.accentColor,
+        heroMessage: data.heroMessage || "Built for coaches who take their clients' results seriously.",
+        stripeConnected: data.stripeConnected,
+        parallelRunDaysLeft: 14
+      },
+      coach: {
+        id: coachId,
+        workspaceId,
+        firstName: data.coachFirstName,
+        lastName: data.coachLastName,
+        email: data.coachEmail,
+        gender: data.coachGender
+      },
+      clients: [],
+      plans: [],
+      checkIns: [],
+      subscriptions: [],
+      messages: [],
+      analytics: [],
+      groupPrograms: [],
+      nutritionSwaps: [],
+      habits: [],
+      habitCompletions: []
+    };
+
+    await this.track("coach_onboarded", coachId, {
+      workspaceId,
+      coachTypeCount: data.coachTypes.length,
+      freshWorkspace: true
+    });
+
+    return {
+      success: true as const,
+      coachId,
+      workspaceId,
+      session: this.getCoachSession()
+    };
   }
 
   previewImport(rows: unknown[]) {
@@ -656,6 +1104,31 @@ export class DemoStore {
     return approved;
   }
 
+  async updatePlan(planId: string, patch: unknown) {
+    const raw = typeof patch === "object" && patch !== null ? patch as Record<string, unknown> : {};
+    const plan = this.state.plans.find((item) => item.id === planId);
+    if (!plan) {
+      return null;
+    }
+
+    const nextVersion = {
+      ...plan.latestVersion,
+      workouts: Array.isArray(raw.workouts) ? raw.workouts.filter((item): item is string => typeof item === "string") : plan.latestVersion.workouts,
+      nutrition: Array.isArray(raw.nutrition) ? raw.nutrition.filter((item): item is string => typeof item === "string") : plan.latestVersion.nutrition,
+      explanation: Array.isArray(raw.explanation) ? raw.explanation.filter((item): item is string => typeof item === "string") : plan.latestVersion.explanation,
+      updatedAt: new Date().toISOString()
+    };
+    const updated = {
+      ...plan,
+      title: typeof raw.title === "string" && raw.title.trim() ? raw.title : plan.title,
+      latestVersion: nextVersion
+    };
+    this.state.plans = this.state.plans.map((item) => item.id === planId ? updated : item);
+    await this.commit();
+    await this.track("plan_adapted", this.state.coach.id, { planId });
+    return updated;
+  }
+
   async submitCheckIn(payload: unknown) {
     const parsed = checkInSchema.safeParse(payload);
     if (!parsed.success) {
@@ -677,6 +1150,7 @@ export class DemoStore {
 
     return {
       success: true as const,
+      id: parsed.data.id,
       checkIn: parsed.data,
       dashboard: summarizeMorningDashboard(this.state)
     };
@@ -746,7 +1220,17 @@ export class DemoStore {
 
   // ── Client CRUD ─────────────────────────────────────────────────────────────
   async createClient(payload: unknown) {
-    const parsed = clientProfileSchema.omit({ id: true }).safeParse(payload);
+    const raw = typeof payload === "object" && payload !== null ? payload as Record<string, unknown> : {};
+    const normalizedPayload = {
+      ...raw,
+      workspaceId: typeof raw.workspaceId === "string" && raw.workspaceId.trim() ? raw.workspaceId : this.state.workspace.id,
+      status: raw.status === "trialing" ? "trial" : raw.status ?? "trial",
+      adherenceScore: typeof raw.adherenceScore === "number" ? raw.adherenceScore : 60,
+      currentPlanId: raw.currentPlanId ?? null,
+      nextRenewalDate: typeof raw.nextRenewalDate === "string" && raw.nextRenewalDate.trim() ? raw.nextRenewalDate : addDaysIsoDate(30),
+      lastCheckInDate: raw.lastCheckInDate ?? null
+    };
+    const parsed = clientProfileSchema.omit({ id: true }).safeParse(normalizedPayload);
     if (!parsed.success) {
       return { success: false as const, issues: parsed.error.issues };
     }
@@ -756,6 +1240,10 @@ export class DemoStore {
       id: `client_${Date.now()}_${Math.random().toString(36).substring(7)}`
     };
     this.state.clients = [...this.state.clients, client];
+    this.state.subscriptions = [
+      ...this.state.subscriptions,
+      this.adapters.billing.createImportedSubscription(client)
+    ];
     await this.commit();
     await this.track("coach_onboarded", this.state.coach.id, { clientCreated: client.id });
     return { success: true as const, client };
@@ -1139,6 +1627,17 @@ export class DemoStore {
     }).sort((a, b) => b.score - a.score);
 
     return scored[0]?.recipe ?? this.RECIPE_LIBRARY[0];
+  }
+
+  listRecipes(searchTerm?: string) {
+    const search = searchTerm?.trim().toLowerCase();
+    if (!search) return this.RECIPE_LIBRARY;
+
+    return this.RECIPE_LIBRARY.filter((recipe) =>
+      recipe.name.toLowerCase().includes(search) ||
+      recipe.tags.some((tag) => tag.toLowerCase().includes(search)) ||
+      recipe.ingredients.some((ingredient) => ingredient.toLowerCase().includes(search))
+    );
   }
 
   // ── Habit Tracking ─────────────────────────────────────────────────

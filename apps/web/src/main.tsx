@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState, useCallback } from "react";
+﻿import { FormEvent, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import type {
   CheckIn, ClientProfile, ClientProfilePatch, CoachUser,
@@ -10,9 +10,9 @@ import { CompetitorsView } from "./views/CompetitorsView";
 import { ExerciseLibraryView } from "./views/ExerciseLibraryView";
 import { RecipeBrowserView } from "./views/RecipeBrowserView";
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    TYPES
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 type Dashboard = {
   activeClients: number; checkedInToday: number; dueRenewals: number;
   revenueSnapshotGbp: number;
@@ -47,22 +47,34 @@ type HabitSummary = { habit: Habit; streak: number; todayDone: boolean; totalCom
 type Exercise = { id: string; name: string; bodyPart: string; equipment: string; goal: string; difficulty: "beginner"|"intermediate"|"advanced"; instructions: string };
 type Recipe = { id: string; name: string; ingredients: string[]; steps: string[]; calories: number; proteinG: number; carbsG: number; fatG: number; prepTime: number; cookTime: number; tags: string[] };
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    API HELPERS
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const isProd = import.meta.env.PROD;
 const apiBase = isProd ? "/api" : "http://localhost:4000/api";
+const coachIdStorageKey = "coachos_coach_id";
+
+function getStoredCoachId() {
+  try { return localStorage.getItem(coachIdStorageKey); }
+  catch { return null; }
+}
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${apiBase}${path}`, { headers: { "Content-Type": "application/json" }, ...init });
+  const coachId = getStoredCoachId();
+  const separator = path.includes("?") ? "&" : "?";
+  const scopedPath = coachId ? `${path}${separator}coachId=${encodeURIComponent(coachId)}` : path;
+  const res = await fetch(`${apiBase}${scopedPath}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }
+  });
   if (!res.ok) throw new Error(`API error ${res.status} for ${path}`);
   return res.json() as Promise<T>;
 }
 export { fetchJson };
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    TOAST HOOK
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const MAX_VISIBLE_TOASTS = 5;
 const DEFAULT_DURATION = 4000;
 
@@ -104,7 +116,7 @@ function useToast() {
 
     setToasts(prev => {
       if (prev.length >= MAX_VISIBLE_TOASTS) {
-        // Queue it — don't overflow the screen
+        // Queue it â€” don't overflow the screen
         setQueue(q => [...q, toast]);
         return prev;
       }
@@ -131,18 +143,18 @@ function useToast() {
   return { toasts, push, dismiss, success, error, warning, info };
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CSV HELPER
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function csvToRows(csv: string) {
   const [, ...lines] = csv.trim().split("\n");
   return lines.map(l => l.split(",")).filter(p => p.length >= 4)
     .map(([name, email, goal, price]) => ({ name: name.trim(), email: email.trim(), goal: goal.trim(), monthlyPriceGbp: Number(price.trim()) }));
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    SMALL COMPONENTS
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Avatar({ name }: { name: string }) {
   const initials = name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
   return <div className="client-avatar">{initials}</div>;
@@ -262,9 +274,9 @@ function ToastContainer({
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    SIDEBAR
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Sidebar({
   active, onNav, session, atRiskCount, notifications, setNotifications, showNotifications, setShowNotifications
 }: {
@@ -331,25 +343,25 @@ function Sidebar({
 
       <nav className="sidebar-nav">
         <span className="nav-section-label">Overview</span>
-        {nav("dashboard", "◎", "Coach Dashboard", atRiskCount || undefined)}
+        {nav("dashboard", "â—Ž", "Coach Dashboard", atRiskCount || undefined)}
 
         <span className="nav-section-label">Clients</span>
-        {nav("clients", "⊞", "All Clients")}
-        {nav("portal", "⊡", "Client Portal")}
-        {nav("calendar", "▦", "Calendar")}
-        {nav("plans", "✦", "AI Plans")}
-        {nav("habits", "◉", "Habits")}
-        {nav("groups", "⬡", "Group Programs")}
+        {nav("clients", "âŠž", "All Clients")}
+        {nav("portal", "âŠ¡", "Client Portal")}
+        {nav("calendar", "â–¦", "Calendar")}
+        {nav("plans", "âœ¦", "AI Plans")}
+        {nav("habits", "â—‰", "Habits")}
+        {nav("groups", "â¬¡", "Group Programs")}
 
         <span className="nav-section-label">Preview</span>
-        {nav("exercises", "⬢", "Exercise Library")}
-        {nav("recipes", "◈", "Recipe Browser")}
+        {nav("exercises", "â¬¢", "Exercise Library")}
+        {nav("recipes", "â—ˆ", "Recipe Browser")}
 
         <span className="nav-section-label">Business</span>
-        {nav("billing", "£", "Billing & MRR")}
-        {nav("competitors", "⊕", "Competitors")}
-        {nav("migration", "⇄", "Migration")}
-        {nav("settings", "⚙", "Workspace")}
+        {nav("billing", "Â£", "Billing & MRR")}
+        {nav("competitors", "âŠ•", "Competitors")}
+        {nav("migration", "â‡„", "Migration")}
+        {nav("settings", "âš™", "Workspace")}
       </nav>
 
       {session && (
@@ -367,12 +379,12 @@ function Sidebar({
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    VIEWS
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 
-// ── SESSION BOOKING MODAL ──────────────
+// â”€â”€ SESSION BOOKING MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SessionBookingModal({ client, onClose, onSuccess, push }: {
   client: { id: string; fullName: string };
   onClose: () => void;
@@ -401,7 +413,7 @@ function SessionBookingModal({ client, onClose, onSuccess, push }: {
       });
       setSuccess(true);
       setTimeout(() => { onSuccess(); push(`Session booked for ${client.fullName}!`, 'success'); }, 1500);
-    } catch {
+    } catch (error) {
       push('Failed to book session. Try again.', 'error');
     } finally {
       setSending(false);
@@ -479,7 +491,7 @@ function SessionBookingModal({ client, onClose, onSuccess, push }: {
   );
 }
 
-// ── DASHBOARD VIEW ──────────────────────
+// â”€â”€ DASHBOARD VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push, onLogWorkout, onOpenClientNotes }: {
   session: CoachSession;
   onNav: (id: NavId) => void;
@@ -511,6 +523,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         <div>
           <div className="editorial-hero-eyebrow">
             <span className="editorial-hero-date">{dayName}, {dateStr}</span>
+            <span className="editorial-hero-workspace">{workspace.name}</span>
           </div>
           <h1 className="editorial-hero-greeting">Good morning, {session.coach.firstName}.</h1>
           <p className="editorial-hero-message">{workspace.heroMessage}</p>
@@ -573,7 +586,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
             <span className="material-symbols-outlined bento-icon">payments</span>
           </div>
           <div className="bento-label">Monthly Revenue</div>
-          <div className="bento-value">£{mrrGbp.toLocaleString()}</div>
+          <div className="bento-value">Â£{mrrGbp.toLocaleString()}</div>
           <div className="bento-trend">{session.subscriptions.filter(s => s.status === "active").length} active subscriptions</div>
         </div>
         <div className="bento-card">
@@ -673,7 +686,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
               if (!client) return null;
               return (
                 <div key={sub.id} className="upcoming-item upcoming-item--primary">
-                  <div className="upcoming-time">Renewal · {sub.renewalDate}</div>
+                  <div className="upcoming-time">Renewal Â· {sub.renewalDate}</div>
                   <div className="upcoming-title">{client.fullName}</div>
                   <div className="upcoming-subtitle">{client.goal}</div>
                 </div>
@@ -702,7 +715,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                 let insightIcon = "";
                 if (atRisk.length > 0) {
                   const client = clients.find(c => c.id === atRisk[0].clientId);
-                  insight = `${client?.fullName ?? "A client"} is at risk — ${atRisk[0].reasons[0]}. Consider reaching out this week with a tailored check-in.`;
+                  insight = `${client?.fullName ?? "A client"} is at risk â€” ${atRisk[0].reasons[0]}. Consider reaching out this week with a tailored check-in.`;
                   insightIcon = "warning";
                 } else if (lowAdherence.length > 0) {
                   insight = `${lowAdherence[0].fullName}'s adherence is at ${lowAdherence[0].adherenceScore}%. A quick motivational message could help restore consistency.`;
@@ -714,10 +727,10 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                   insight = `${noCheckIn[0].fullName} hasn't checked in for ${daysSince > 99 ? "over a week" : `${daysSince} days`}. Send a friendly reminder to keep them engaged.`;
                   insightIcon = "schedule";
                 } else if (highRevenueClient) {
-                  insight = `${highRevenueClient.fullName} is your highest-value client at £${highRevenue?.amountGbp}/month. Consider offering an upsell or premium session.`;
+                  insight = `${highRevenueClient.fullName} is your highest-value client at Â£${highRevenue?.amountGbp}/month. Consider offering an upsell or premium session.`;
                   insightIcon = "stars";
                 } else {
-                  insight = "All clients are on track. Keep up the great work — consider reaching out proactively this week.";
+                  insight = "All clients are on track. Keep up the great work â€” consider reaching out proactively this week.";
                   insightIcon = "celebration";
                 }
                 return (
@@ -753,9 +766,9 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    ADD CLIENT MODAL
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function AddClientModal({
   onClose,
   onSuccess,
@@ -773,7 +786,7 @@ function AddClientModal({
     goal: "",
     monthlyPriceGbp: "",
     nextRenewalDate: "",
-    status: "trialing" as "active" | "at_risk" | "trialing",
+    status: "trial" as "active" | "at_risk" | "trial",
   });
 
   // Close on Escape
@@ -811,9 +824,8 @@ function AddClientModal({
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${apiBase}/clients`, {
+      const newClient = await fetchJson<ClientProfile>("/clients", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
@@ -824,17 +836,10 @@ function AddClientModal({
         }),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: "Server error" }));
-        push(err.message ?? "Failed to add client.", "error");
-        return;
-      }
-
-      const newClient = await res.json();
       push(`${newClient.fullName} added successfully!`, "success");
       onSuccess();
-    } catch {
-      push("Network error — please check your connection.", "error");
+    } catch (error) {
+      push(error instanceof Error ? error.message : "Network error - please check your connection.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -918,7 +923,7 @@ function AddClientModal({
               <textarea
                 id="ac-goal"
                 className={`form-input form-textarea${errors.goal ? " form-input--error" : ""}`}
-                placeholder="e.g. Lose 5kg body fat, build strength, run a marathon…"
+                placeholder="e.g. Lose 5kg body fat, build strength, run a marathonâ€¦"
                 value={form.goal}
                 onChange={set("goal")}
                 rows={2}
@@ -930,7 +935,7 @@ function AddClientModal({
             <div className="form-field">
               {label("Monthly Price (GBP) *")}
               <div className="input-prefix-wrap">
-                <span className="input-prefix">£</span>
+                <span className="input-prefix">Â£</span>
                 <input
                   id="ac-price"
                   className={`form-input input-prefix-field${errors.monthlyPriceGbp ? " form-input--error" : ""}`}
@@ -982,7 +987,7 @@ function AddClientModal({
               {submitting ? (
                 <>
                   <span className="btn-spinner" />
-                  Adding Client…
+                  Adding Clientâ€¦
                 </>
               ) : (
                 <>
@@ -998,15 +1003,17 @@ function AddClientModal({
   );
 }
 
-// ── CLIENTS VIEW ──────────────────────
+// â”€â”€ CLIENTS VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ClientsView({
   session,
   onOpenClient,
   onAddClient,
+  onNav,
 }: {
   session: CoachSession;
   onOpenClient: (id: string) => void;
   onAddClient?: () => void;
+  onNav: (id: NavId) => void;
 }) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -1048,10 +1055,10 @@ function ClientsView({
       const patch: Record<string, string> = {};
       patch[field] = profileDraft[field];
       await fetchJson(`/clients/${profileClientId}`, { method: 'PATCH', body: JSON.stringify(patch) });
-      // @ts-expect-error — setSession is declared later in the component, visible at runtime via closure
+      // @ts-expect-error â€” setSession is declared later in the component, visible at runtime via closure
       (setSession as any)((s: CoachSession | null) => s ? { ...s, clients: s.clients.map((c: ClientProfile) => c.id === profileClientId ? { ...c, [field]: profileDraft[field] } : c) } : s);
       setProfileEdit(ed => ({ ...ed, [field]: false }));
-      // @ts-expect-error — push is declared later in the component, visible at runtime via closure
+      // @ts-expect-error â€” push is declared later in the component, visible at runtime via closure
       (push as any)(`${field === 'goal' ? 'Goal' : 'Email'} updated`);
     } catch {
       // @ts-expect-error
@@ -1124,12 +1131,11 @@ function ClientsView({
                     style={{ flex: 1, padding: '0.3rem 0.6rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--primary)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', outline: 'none' }}
                   />
                   <button onClick={() => saveProfileField('goal')} disabled={profileSaving} style={{ padding: '0.3rem 0.6rem', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
-                  <button onClick={() => setProfileEdit(ed => ({ ...ed, goal: false }))} style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.75rem', cursor: 'pointer' }}>✕</button>
+                  <button onClick={() => setProfileEdit(ed => ({ ...ed, goal: false }))} style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.75rem', cursor: 'pointer' }}>âœ•</button>
                 </>
               ) : (
                 <>
                   <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--on-surface-variant)', margin: 0 }}>{profileClient.goal || <span style={{ color: 'var(--outline)', fontStyle: 'italic' }}>No goal set</span>}</p>
-                  <button onClick={() => { setProfileDraft(d => ({ ...d, goal: profileClient.goal })); setProfileEdit(ed => ({ ...ed, goal: true })); }} style={{ padding: '0.2rem', border: 'none', background: 'none', color: 'var(--outline)', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center' }} title='Edit goal'><span className='material-symbols-outlined' style={{ fontSize: '0.9rem' }}>edit</span></button>
                 </>
               )}
             </div>
@@ -1145,23 +1151,23 @@ function ClientsView({
                     style={{ padding: '0.2rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--primary)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', outline: 'none', width: '180px' }}
                   />
                   <button onClick={() => saveProfileField('email')} disabled={profileSaving} style={{ padding: '0.2rem 0.5rem', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
-                  <button onClick={() => setProfileEdit(ed => ({ ...ed, email: false }))} style={{ padding: '0.2rem 0.4rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.72rem', cursor: 'pointer' }}>✕</button>
+                  <button onClick={() => setProfileEdit(ed => ({ ...ed, email: false }))} style={{ padding: '0.2rem 0.4rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.72rem', cursor: 'pointer' }}>âœ•</button>
                 </>
               ) : (
-                <button onClick={() => { setProfileDraft(d => ({ ...d, email: profileClient.email })); setProfileEdit(ed => ({ ...ed, email: true })); }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.15rem 0.5rem', border: 'none', background: 'none', color: 'var(--outline)', cursor: 'pointer', borderRadius: '4px', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem' }} title='Edit email'>
-                  {profileClient.email} <span className='material-symbols-outlined' style={{ fontSize: '0.8rem' }}>edit</span>
-                </button>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.15rem 0', color: 'var(--outline)', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem' }}>
+                  {profileClient.email}
+                </span>
               )}
             </div>
           </div>
           <div className="profile-stats">
             <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: profileClient.adherenceScore < 50 ? 'var(--danger)' : profileClient.adherenceScore < 75 ? 'var(--warning)' : 'var(--primary)' }}>{profileClient.adherenceScore}%</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Adherence</div></div>
-            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{latestCi?.progress.weightKg ?? '—'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Weight</div></div>
-            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>£{clientSubscription?.amountGbp ?? '—'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>MRR</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{latestCi?.progress.weightKg ?? 'â€”'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Weight</div></div>
+            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>Â£{clientSubscription?.amountGbp ?? 'â€”'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>MRR</div></div>
           </div>
         </div>
         <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
-          <button onClick={() => setBookingClient({ id: profileClient.id, fullName: profileClient.fullName })} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--r-lg)', border: '1.5px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+          <button onClick={() => onNav("calendar")} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--r-lg)', border: '1.5px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>event</span>
             Book Session
           </button>
@@ -1188,9 +1194,9 @@ function ClientsView({
             <>
               <div className="profile-stats-grid">
                 <div className="profile-stat-card card-glass"><div className="profile-stat-label">Adherence</div><div className="profile-stat-value" style={{ color: profileClient.adherenceScore < 50 ? 'var(--danger)' : profileClient.adherenceScore < 75 ? 'var(--warning)' : 'var(--primary)' }}>{profileClient.adherenceScore}%</div></div>
-                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Weight</div><div className="profile-stat-value">{latestCi?.progress.weightKg != null ? `${latestCi.progress.weightKg} kg` : '—'}</div><div className="profile-stat-sub">{latestCi ? new Date(latestCi.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'No data'}</div></div>
-                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Energy</div><div className="profile-stat-value">{latestCi?.progress.energyScore != null ? `${latestCi.progress.energyScore}/10` : '—'}</div></div>
-                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Steps</div><div className="profile-stat-value">{latestCi?.progress.steps != null ? latestCi.progress.steps.toLocaleString() : '—'}</div></div>
+                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Weight</div><div className="profile-stat-value">{latestCi?.progress.weightKg != null ? `${latestCi.progress.weightKg} kg` : 'â€”'}</div><div className="profile-stat-sub">{latestCi ? new Date(latestCi.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'No data'}</div></div>
+                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Energy</div><div className="profile-stat-value">{latestCi?.progress.energyScore != null ? `${latestCi.progress.energyScore}/10` : 'â€”'}</div></div>
+                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Steps</div><div className="profile-stat-value">{latestCi?.progress.steps != null ? latestCi.progress.steps.toLocaleString() : 'â€”'}</div></div>
               </div>
               <div className="profile-goal-card card-glass" style={{ marginTop: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -1212,7 +1218,7 @@ function ClientsView({
                     </div>
                   </div>
                 ) : (
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: 0 }}>{profileClient.goal || <span style={{ color: 'var(--outline)', fontStyle: 'italic' }}>No goal set — click the pencil icon to add one</span>}</p>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: 0 }}>{profileClient.goal || <span style={{ color: 'var(--outline)', fontStyle: 'italic' }}>No goal set â€” click the pencil icon to add one</span>}</p>
                 )}
               </div>
               {latestCi && (
@@ -1435,11 +1441,11 @@ function ClientsView({
                 return (
                   <div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                      {[{l:'Weight',v:latest?.weightKg!=null?latest.weightKg+' kg':'—',d:wDelta!=null?(wDelta>0?'+':'')+wDelta+' kg':null,dc:wDelta!=null?(wDelta<0?'var(--primary)':'var(--danger)'):undefined},
-                        {l:'Body Fat',v:latest?.bodyFatPct!=null?latest.bodyFatPct+'%':'—',d:null,dc:undefined},
-                        {l:'Waist',v:latest?.waistCm!=null?latest.waistCm+' cm':'—',d:null,dc:undefined},
-                        {l:'Energy',v:latest?.energyScore!=null?latest.energyScore+'/10':'—',d:null,dc:undefined},
-                        {l:'Sleep',v:latest?.sleepRating!=null?latest.sleepRating+'/10':'—',d:null,dc:undefined},
+                      {[{l:'Weight',v:latest?.weightKg!=null?latest.weightKg+' kg':'â€”',d:wDelta!=null?(wDelta>0?'+':'')+wDelta+' kg':null,dc:wDelta!=null?(wDelta<0?'var(--primary)':'var(--danger)'):undefined},
+                        {l:'Body Fat',v:latest?.bodyFatPct!=null?latest.bodyFatPct+'%':'â€”',d:null,dc:undefined},
+                        {l:'Waist',v:latest?.waistCm!=null?latest.waistCm+' cm':'â€”',d:null,dc:undefined},
+                        {l:'Energy',v:latest?.energyScore!=null?latest.energyScore+'/10':'â€”',d:null,dc:undefined},
+                        {l:'Sleep',v:latest?.sleepRating!=null?latest.sleepRating+'/10':'â€”',d:null,dc:undefined},
                         {l:'Records',v:mSorted.length+'',d:null,dc:undefined}].map(m => (
                         <div key={m.l} className="card-glass" style={{ padding: '0.75rem', textAlign: 'center' }}>
                           <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.3rem' }}>{m.l}</div>
@@ -1455,14 +1461,14 @@ function ClientsView({
                           {[...mSorted].reverse().map(m => (
                             <tr key={m.id} style={{ borderBottom: '1px solid var(--surface-container)' }}>
                               <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>{new Date(m.measuredAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.weightKg != null ? m.weightKg+' kg' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.bodyFatPct != null ? m.bodyFatPct+'%' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.waistCm != null ? m.waistCm+' cm' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.hipsCm != null ? m.hipsCm+' cm' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.armCm != null ? m.armCm+' cm' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.thighCm != null ? m.thighCm+' cm' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.energyScore != null ? m.energyScore+'/10' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.sleepRating != null ? m.sleepRating+'/10' : '—'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.weightKg != null ? m.weightKg+' kg' : 'â€”'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.bodyFatPct != null ? m.bodyFatPct+'%' : 'â€”'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.waistCm != null ? m.waistCm+' cm' : 'â€”'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.hipsCm != null ? m.hipsCm+' cm' : 'â€”'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.armCm != null ? m.armCm+' cm' : 'â€”'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.thighCm != null ? m.thighCm+' cm' : 'â€”'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.energyScore != null ? m.energyScore+'/10' : 'â€”'}</td>
+                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.sleepRating != null ? m.sleepRating+'/10' : 'â€”'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1527,9 +1533,9 @@ function ClientsView({
                     <span style={{ padding: '0.25rem 0.75rem', borderRadius: 9999, fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', fontWeight: 600, background: 'var(--primary-light)', color: 'var(--primary)' }}>{subStatusLabel}</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
-                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Monthly Rate</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>£{clientSubscription.amountGbp}</div></div>
-                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Renewal Date</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{clientSubscription.renewalDate || '—'}</div></div>
-                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client Since</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{(profileClient as any).startDate || '—'}</div></div>
+                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Monthly Rate</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Â£{clientSubscription.amountGbp}</div></div>
+                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Renewal Date</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{clientSubscription.renewalDate || 'â€”'}</div></div>
+                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client Since</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{(profileClient as any).startDate || 'â€”'}</div></div>
                   </div>
                 </div>
                 <div className="card-glass" style={{ padding: '1.25rem' }}>
@@ -1538,8 +1544,8 @@ function ClientsView({
                     <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>Recent Payments</h3>
                   </div>
                   <div className="card-glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', marginBottom: '0.5rem', background: 'var(--surface-container-low)' }}>
-                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Monthly subscription</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)' }}>{clientSubscription.renewalDate || '—'}</div></div>
-                    <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary)' }}>£{clientSubscription.amountGbp}.00</div>
+                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Monthly subscription</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)' }}>{clientSubscription.renewalDate || 'â€”'}</div></div>
+                    <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary)' }}>Â£{clientSubscription.amountGbp}.00</div>
                   </div>
                   <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)', textAlign: 'center', marginTop: '0.75rem' }}>Connect Stripe for auto-invoicing and full payment history.</p>
                 </div>
@@ -1611,7 +1617,7 @@ function ClientsView({
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search clients, goals…"
+              placeholder="Search clients, goalsâ€¦"
               style={{
                 padding: "0.5rem 1rem 0.5rem 2.5rem",
                 borderRadius: "9999px",
@@ -1666,7 +1672,7 @@ function ClientsView({
                   </div>
                 </div>
                 <div style={{ fontFamily: "Inter, sans-serif", fontWeight: 700, fontSize: "0.875rem", color: "var(--text-primary)", textAlign: "right" }}>
-                  £{client.monthlyPriceGbp}<span style={{ color: "var(--on-surface-variant)", fontWeight: 400 }}>/mo</span>
+                  Â£{client.monthlyPriceGbp}<span style={{ color: "var(--on-surface-variant)", fontWeight: 400 }}>/mo</span>
                 </div>
               </div>
 
@@ -1728,7 +1734,7 @@ function ClientsView({
           <div style={{ display: "flex", gap: "3rem" }}>
             <div>
               <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>Total Monthly Revenue</div>
-              <div style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em" }}>£{mrr}</div>
+              <div style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em" }}>Â£{mrr}</div>
             </div>
             <div>
               <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>Avg. Adherence</div>
@@ -1750,7 +1756,7 @@ function ClientsView({
   );
 }
 
-// ── PLANS VIEW (AI Chat) ──────────────────────
+// â”€â”€ PLANS VIEW (AI Chat) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type ChatMessage = { id: number; role: "user" | "ai"; text: string };
 
 function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavId) => void }) {
@@ -1815,10 +1821,10 @@ function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavI
     await new Promise(r => setTimeout(r, 1400));
 
     const aiResponses = [
-      "I've analyzed your client roster and identified Marcus as a prime candidate for a progressive overload program. Based on his recent adherence scores, I'd recommend a 4-week mesocycle with incremental load increases of 2.5–5% weekly. Want me to draft the full plan?",
+      "I've analyzed your client roster and identified Marcus as a prime candidate for a progressive overload program. Based on his recent adherence scores, I'd recommend a 4-week mesocycle with incremental load increases of 2.5â€“5% weekly. Want me to draft the full plan?",
       "Great question. For Ava's fat loss goal, I'm seeing consistent results over the past 6 weeks. Her current weekly calorie target of 1,800 kcal is well-calibrated. I can generate a refined meal plan with higher protein density if that aligns with your strategy.",
-      "I've cross-referenced the latest check-in data. 4 of your 7 active clients are showing suboptimal adherence this week — likely due to the holiday period. I'd suggest a targeted re-engagement sequence. Shall I draft personalized check-in templates for each?",
-      "Here's a structured monthly report for Marcus covering Week 1–4 of his transformation program. His body composition has shifted positively: -2.3kg body fat, +1.1kg lean mass. Adherence averaged 84%. Next phase recommendation: introduce deload week.",
+      "I've cross-referenced the latest check-in data. 4 of your 7 active clients are showing suboptimal adherence this week â€” likely due to the holiday period. I'd suggest a targeted re-engagement sequence. Shall I draft personalized check-in templates for each?",
+      "Here's a structured monthly report for Marcus covering Week 1â€“4 of his transformation program. His body composition has shifted positively: -2.3kg body fat, +1.1kg lean mass. Adherence averaged 84%. Next phase recommendation: introduce deload week.",
     ];
 
     const aiMsg: ChatMessage = { id: ++counter.current, role: "ai", text: aiResponses[messages.length % aiResponses.length] };
@@ -1982,7 +1988,7 @@ function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavI
   );
 }
 
-// ── CLIENT PORTAL VIEW ──────────────────────
+// â”€â”€ CLIENT PORTAL VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, onCheckIn, onSaveEdits, onSendMessage, onRefreshProof, onApprove, checkInHistory, onNav, push }: {
   session: CoachSession;
   clientPortal: ClientSession | null;
@@ -2046,25 +2052,25 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
       { slot: "Breakfast", name: "Protein Smoothie Bowl", cal: 340, protein: 30 },
       { slot: "Lunch", name: "Tuna Nicoise Salad", cal: 420, protein: 40 },
       { slot: "Snacks", name: "Rice Cakes & Almond Butter", cal: 180, protein: 5 },
-      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
     ]},
     { name: "Fri", meals: [
-      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
     ]},
     { name: "Sat", meals: [
-      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
     ]},
     { name: "Sun", meals: [
-      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
     ]},
   ]);
   const [savingMeal, setSavingMeal] = useState(false);
@@ -2130,7 +2136,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
     setSavingMeal(true);
     try {
       const nutritionStrings = mealWeek.map(day =>
-        `${day.name}: ${day.meals.filter(m => m.name !== "—").map(m => `${m.slot} — ${m.name} (${m.cal} cal, ${m.protein}g protein)`).join(" | ")}`
+        `${day.name}: ${day.meals.filter(m => m.name !== "â€”").map(m => `${m.slot} â€” ${m.name} (${m.cal} cal, ${m.protein}g protein)`).join(" | ")}`
       );
       await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ nutrition: nutritionStrings }) });
       push("Meal plan saved to client profile!", "success");
@@ -2235,6 +2241,43 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
     };
   }, [clientPortal?.plan]);
 
+  const mealWeekStart = useMemo(() => {
+    const base = new Date();
+    const day = base.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    base.setHours(0, 0, 0, 0);
+    base.setDate(base.getDate() + mondayOffset + mealWeekOffset * 7);
+    return base;
+  }, [mealWeekOffset]);
+
+  const plannerDays = useMemo(() => mealWeek.map((day, index) => {
+    const date = new Date(mealWeekStart);
+    date.setDate(mealWeekStart.getDate() + index);
+    const calCurrent = day.meals.reduce((sum, meal) => sum + (meal.cal || 0), 0);
+    const proteinCurrent = day.meals.reduce((sum, meal) => sum + (meal.protein || 0), 0);
+    return {
+      ...day,
+      date: date.getDate(),
+      dateObj: date,
+      isToday: date.toDateString() === new Date().toDateString(),
+      calTarget: macros?.calories ?? 1800,
+      proteinTarget: macros?.proteinG ?? 150,
+      carbsTarget: macros?.carbsG ?? 210,
+      fatTarget: macros?.fatG ?? 58,
+      calCurrent,
+      proteinCurrent,
+      cheatMeal: null as null | { name: string; cal: number; protein: number }
+    };
+  }), [mealWeek, mealWeekStart, macros]);
+
+  const mealWeekEnd = useMemo(() => {
+    const end = new Date(mealWeekStart);
+    end.setDate(mealWeekStart.getDate() + 6);
+    return end;
+  }, [mealWeekStart]);
+
+  const mealWeekLabel = `${mealWeekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${mealWeekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+
   return (
     <div className="page-view">
       {!clientPortal ? (
@@ -2286,11 +2329,16 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 <div style={{ height: "100%", width: `${clientPortal.client.adherenceScore}%`, background: "var(--primary)", borderRadius: "9999px", transition: "width 0.6s cubic-bezier(0.34,1.56,0.64,1)" }} />
               </div>
               <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", color: "var(--outline)", textAlign: "center", lineHeight: 1.5 }}>
-                {clientPortal.client.adherenceScore >= 85
+                {clientPortal.latestCheckIn
+                  ? clientPortal.client.adherenceScore >= 85
                   ? `${clientPortal.client.fullName.split(" ")[0]} is progressing excellently in all targets.`
                   : clientPortal.client.adherenceScore >= 60
                   ? `${clientPortal.client.fullName.split(" ")[0]} is on track but needs a push on mobility sessions.`
-                  : `${clientPortal.client.fullName.split(" ")[0]} may need a curriculum pivot to maintain momentum.`}
+                  : `${clientPortal.client.fullName.split(" ")[0]} may need a curriculum pivot to maintain momentum.`
+                  : "Baseline onboarding score. It updates after check-ins, habit completions, and coach-entered progress data."}
+              </p>
+              <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.62rem", color: "var(--outline)", textAlign: "center", lineHeight: 1.45, marginTop: "0.35rem" }}>
+                Score source: seeded baseline plus recent check-ins, habits, and progress logs.
               </p>
             </div>
           </div>
@@ -2349,7 +2397,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                           onKeyDown={e => { if (e.key === "Enter") saveProfile({ goal: (document.getElementById("edit-goal") as HTMLInputElement).value }); if (e.key === "Escape") cancelEdit(); }}
                         />
                       ) : (
-                        <div className="portal-goal-text">{(clientPortal.client as any).goal || "Not set — click edit to add"}</div>
+                        <div className="portal-goal-text">{(clientPortal.client as any).goal || "Not set â€” click edit to add"}</div>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
@@ -2478,7 +2526,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         ].map(m => (
                           <div key={m.label} className="portal-macro-chip">
                             <div className="portal-macro-label">{m.label}</div>
-                            <div className="portal-macro-value">{m.value ?? "—"}</div>
+                            <div className="portal-macro-value">{m.value ?? "â€”"}</div>
                             <div className="portal-macro-unit">{m.unit}</div>
                           </div>
                         ))}
@@ -2625,7 +2673,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     <div className="meal-week-nav">
                       <div className="meal-week-label">
                         <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary)" }}>calendar_today</span>
-                        Oct 23 – Oct 29, 2023
+                        {mealWeekLabel}
                       </div>
                       <button className="meal-week-nav-btn" onClick={() => setMealWeekOffset(o => o - 1)}>
                         <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>chevron_left</span>
@@ -2681,71 +2729,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
 
                 <div className="meal-calendar">
                   {/* Helper to render a day column */}
-                  {[
-                    { name: "Mon", date: 23, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 1350,
-                      meals: [
-                        { slot: "Breakfast", name: "Greek Yogurt with Berries", cal: 320, protein: 24, cheat: false },
-                        { slot: "Lunch", name: "Grilled Salmon Salad", cal: 480, protein: 38, cheat: false },
-                        { slot: "Snacks", name: "Almonds & Apple", cal: 210, protein: 6, cheat: false },
-                        { slot: "Dinner", name: "Sesame Tofu Stir-fry", cal: 540, protein: 22, cheat: false },
-                      ],
-                      cheatMeal: { name: "Classic Burger", cal: 850, protein: 28 }
-                    },
-                    { name: "Tue", date: 24, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 1680,
-                      meals: [
-                        { slot: "Breakfast", name: "Oatmeal with Banana", cal: 380, protein: 12, cheat: false },
-                        { slot: "Lunch", name: "Chicken Quinoa Bowl", cal: 520, protein: 42, cheat: false },
-                        { slot: "Snacks", name: "Greek Yogurt", cal: 150, protein: 15, cheat: false },
-                        { slot: "Dinner", name: "Baked Cod & Asparagus", cal: 430, protein: 40, cheat: false },
-                      ],
-                      cheatMeal: null
-                    },
-                    { name: "Wed", date: 25, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 1920,
-                      meals: [
-                        { slot: "Breakfast", name: "Avocado Toast & Eggs", cal: 450, protein: 20, cheat: false },
-                        { slot: "Lunch", name: "Turkey & Hummus Wrap", cal: 490, protein: 35, cheat: false },
-                        { slot: "Snacks", name: "Mixed Nuts & Dates", cal: 280, protein: 8, cheat: false },
-                        { slot: "Dinner", name: "Lean Beef Stir-fry", cal: 580, protein: 45, cheat: false },
-                      ],
-                      cheatMeal: { name: "Margherita Pizza", cal: 900, protein: 32 }
-                    },
-                    { name: "Thu", date: 26, isToday: true, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 1120,
-                      meals: [
-                        { slot: "Breakfast", name: "Protein Smoothie Bowl", cal: 340, protein: 30, cheat: false },
-                        { slot: "Lunch", name: "Tuna Nicoise Salad", cal: 420, protein: 40, cheat: false },
-                        { slot: "Snacks", name: "Rice Cakes & Almond Butter", cal: 180, protein: 5, cheat: false },
-                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
-                      ],
-                      cheatMeal: null
-                    },
-                    { name: "Fri", date: 27, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
-                      meals: [
-                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
-                      ],
-                      cheatMeal: null
-                    },
-                    { name: "Sat", date: 28, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
-                      meals: [
-                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
-                      ],
-                      cheatMeal: null
-                    },
-                    { name: "Sun", date: 29, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
-                      meals: [
-                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
-                      ],
-                      cheatMeal: null
-                    },
-                  ].map((day) => {
+                  {plannerDays.map((day) => {
                     const proteinPct = Math.round((day.proteinTarget / day.proteinTarget) * 100);
                     const carbsPct = Math.round((day.carbsTarget / day.carbsTarget) * 100);
                     const fatPct = Math.round((day.fatTarget / day.fatTarget) * 100);
@@ -2771,7 +2755,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
                             <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.04em" }}>P / C / F</span>
                             <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                              {day.proteinTarget}g · {day.carbsTarget}g · {day.fatTarget}g
+                              {day.proteinTarget}g Â· {day.carbsTarget}g Â· {day.fatTarget}g
                             </span>
                           </div>
                           <div className="meal-macro-mini-bars">
@@ -2791,7 +2775,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         {day.meals.map((meal) => (
                           <div key={meal.slot}>
                             <div className="meal-slot-label">{meal.slot}</div>
-                            {meal.name === "—" ? (
+                            {meal.name === "â€”" ? (
                               <button className="meal-add-btn" title={`Add ${meal.slot}`} onClick={() => setEditingMeal({ day: day.name, slot: meal.slot })}>
                                 <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>add</span>
                               </button>
@@ -2801,7 +2785,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                                   <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>edit</span>
                                 </button>
                                 <div className="meal-item-name">{meal.name}</div>
-                                <div className="meal-item-cal">{meal.cal} kcal · {meal.protein}g P</div>
+                                <div className="meal-item-cal">{meal.cal} kcal Â· {meal.protein}g P</div>
                               </div>
                             )}
                           </div>
@@ -2816,7 +2800,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                                 <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>edit</span>
                               </button>
                               <div className="meal-item-name">{day.cheatMeal.name}</div>
-                              <div className="meal-item-cal meal-item-cal--cheat">{day.cheatMeal.cal} kcal · {day.cheatMeal.protein}g P</div>
+                              <div className="meal-item-cal meal-item-cal--cheat">{day.cheatMeal.cal} kcal Â· {day.cheatMeal.protein}g P</div>
                             </div>
                           </>
                         ) : null}
@@ -2826,16 +2810,26 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 </div>
               </div>
 
-              {/* Meal Architect floating sidebar */}
+              {/* Meal Architect sidebar */}
               {showArchitect ? (
               <div className="meal-architect">
                 <div className="meal-architect-label">Meal Architect</div>
+                <div className="meal-architect-client">
+                  <span className="material-symbols-outlined" style={{ fontSize: "1rem", color: "var(--primary)" }}>person</span>
+                  <div>
+                    <strong>{clientPortal.client.fullName}</strong>
+                    <span>{clientPortal.client.goal}</span>
+                  </div>
+                </div>
+                <p className="meal-architect-note">
+                  Personalized AI workspace for this client's nutrition and workout plan.
+                </p>
                 <div className="meal-architect-actions">
-                  <button className="meal-architect-btn" onClick={() => { push("AI generating personalized meal plan for this week...", "info"); onNav("plans"); }}>
+                  <button className="meal-architect-btn" onClick={() => { push(`Generated a ${mealWeekLabel} meal draft for ${clientPortal.client.fullName}. Edit any meal card before assigning.`, "success"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem", fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                    <span>AI Generate</span>
+                    <span>Generate meals</span>
                   </button>
-                  <button className="meal-architect-btn" onClick={() => { push("Opening Smart Swap — managing nutrition swaps in Habits", "info"); onNav("habits"); }}>
+                  <button className="meal-architect-btn" onClick={() => { push("Select any meal card, then replace it with a macro-matched swap.", "info"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>swap_horiz</span>
                     <span>Smart Swap</span>
                   </button>
@@ -2843,12 +2837,17 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>restaurant_menu</span>
                     <span>Add Meal</span>
                   </button>
-                  <button className="meal-architect-btn" onClick={() => { push("Macro targets saved — 150g protein, 210g carbs, 58g fat per day", "success"); }}>
+                  <button className="meal-architect-btn" onClick={() => { setActiveTab("workout"); push(`Opening workout builder for ${clientPortal.client.fullName}.`, "info"); }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>fitness_center</span>
+                    <span>Build workout</span>
+                  </button>
+                  <button className="meal-architect-btn" onClick={() => { push(`Daily macro targets: ${macros?.proteinG ?? 150}g protein, ${macros?.carbsG ?? 210}g carbs, ${macros?.fatG ?? 58}g fat.`, "success"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>tune</span>
                     <span>Macro Setup</span>
                   </button>
                 </div>
-                <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%", padding: "0 0.5rem" }}>
+                <div className="meal-architect-footer">
+                  <span>Connected to weekly planner</span>
                   <button className="meal-architect-btn" style={{ justifyContent: "center" }} onClick={() => setShowArchitect(false)}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>chevron_left</span>
                   </button>
@@ -3027,7 +3026,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 </div>
                 <div className="workout-bottom-actions">
                   <button className="workout-discard-btn" onClick={() => { setWorkoutExercises([{ id: 1, name: "Jumping Jacks", tag: "Metabolic / Plyometric", sets: "3 Sets of 50", duration: "60 Seconds", advanced: "" }, { id: 2, name: "High Knees", tag: "Agility / Power", sets: "Per Set: 30", duration: "45 Seconds", advanced: "Ankle Weights 1kg" }, { id: 3, name: "Butt Kicks", tag: "Metabolic / Warmup", sets: "Fixed: 40", duration: "30 Seconds", advanced: "" }]); push("Workout draft discarded - reverted to last saved version"); }}>Discard Draft</button>
-                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { setSavingWorkout(true); try { await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ workouts: JSON.stringify(workoutExercises) }) }); await onApprove(clientPortal.plan.id); push("Workout plan saved and published!", "success"); } catch { push("Failed to save workout plan", "error"); } finally { setSavingWorkout(false); } } else { push("No active plan — generate one from AI Plans first", "error"); } }}>Save &amp; Publish</button>
+                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { setSavingWorkout(true); try { await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ workouts: JSON.stringify(workoutExercises) }) }); await onApprove(clientPortal.plan.id); push("Workout plan saved and published!", "success"); } catch { push("Failed to save workout plan", "error"); } finally { setSavingWorkout(false); } } else { push("No active plan â€” generate one from AI Plans first", "error"); } }}>Save &amp; Publish</button>
                 </div>
               </div>
             </div>
@@ -3052,7 +3051,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 }
               </div>
               <form className="message-input-row" onSubmit={handleSendMessage}>
-                <input value={msgDraft} onChange={e => setMsgDraft(e.target.value)} placeholder="Type a message…" />
+                <input value={msgDraft} onChange={e => setMsgDraft(e.target.value)} placeholder="Type a messageâ€¦" />
                 <button type="submit">Send</button>
               </form>
             </div>
@@ -3085,7 +3084,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                       <div className="stat-card__value" style={{ fontSize: "1.6rem", color: "var(--primary)" }}>
                         {(() => {
                           const deltas = checkInHistory.filter(c => c.weightDelta != null);
-                          if (deltas.length < 2) return "—";
+                          if (deltas.length < 2) return "â€”";
                           const net = deltas[deltas.length - 1].weightDelta! + deltas[0].weightDelta!;
                           return `${net > 0 ? "+" : ""}${net.toFixed(1)}kg`;
                         })()}
@@ -3117,7 +3116,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                             <div className="trend-bar-track">
                               <div className="trend-bar-fill trend-bar-fill--weight" style={{ height: hasWeight ? `${Math.max(8, pct)}%` : "8%", opacity: hasWeight ? 1 : 0.3 }} />
                             </div>
-                            <span className="trend-bar-label">{checkIn.progress.weightKg != null ? `${checkIn.progress.weightKg}` : "—"}</span>
+                            <span className="trend-bar-label">{checkIn.progress.weightKg != null ? `${checkIn.progress.weightKg}` : "â€”"}</span>
                             <span className="trend-bar-date">{new Date(checkIn.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
                           </div>
                         );
@@ -3228,7 +3227,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
   );
 }
 
-// ── BILLING VIEW ──────────────────────
+// â”€â”€ BILLING VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function BillingView({ session, onToggleBilling }: {
   session: CoachSession;
   onToggleBilling: (clientId: string, status: "active"|"past_due"|"cancelled") => Promise<void>;
@@ -3250,11 +3249,11 @@ function BillingView({ session, onToggleBilling }: {
       <div className="stat-grid" style={{ marginBottom: "2rem" }}>
         <div className="stat-card stat-card--accent card-glass">
           <div className="stat-card__label">Monthly Recurring Revenue</div>
-          <div className="stat-card__value">£{mrrGbp}</div>
+          <div className="stat-card__value">Â£{mrrGbp}</div>
         </div>
         <div className="stat-card card-glass" style={{ borderLeft: "3px solid var(--primary)" }}>
           <div className="stat-card__label">Est. VAT Collected (20%)</div>
-          <div className="stat-card__value">£{totalTaxGbp.toFixed(2)}</div>
+          <div className="stat-card__value">Â£{totalTaxGbp.toFixed(2)}</div>
         </div>
         <div className="stat-card stat-card--danger card-glass">
           <div className="stat-card__label">Past Due</div>
@@ -3269,7 +3268,7 @@ function BillingView({ session, onToggleBilling }: {
       <div className="panel card-glass">
         <div className="section-header inline-spread">
           <h2>Client Subscriptions & Invoices</h2>
-          <button className="secondary sm" onClick={() => downloadBulkTaxReport(subs, session.clients, session.workspace)}>📥 Bulk Download Tax Report</button>
+          <button className="secondary sm" onClick={() => downloadBulkTaxReport(subs, session.clients, session.workspace)}>ðŸ“¥ Bulk Download Tax Report</button>
         </div>
         <div className="stack compact">
           {subs.map(sub => {
@@ -3287,14 +3286,14 @@ function BillingView({ session, onToggleBilling }: {
                 </div>
                 <div className="inline" style={{ gap: "1.5rem" }}>
                   <div style={{ textAlign: "right", display: "flex", flexDirection: "column" }}>
-                    <span style={{ fontWeight: 700, color: "var(--on-surface)" }}>£{sub.amountGbp.toFixed(2)}/mo</span>
-                    <span className="muted text-xs">Net: £{subNet.toFixed(2)} + VAT: £{subVat.toFixed(2)}</span>
+                    <span style={{ fontWeight: 700, color: "var(--on-surface)" }}>Â£{sub.amountGbp.toFixed(2)}/mo</span>
+                    <span className="muted text-xs">Net: Â£{subNet.toFixed(2)} + VAT: Â£{subVat.toFixed(2)}</span>
                   </div>
                   <span className={`pill ${sub.status === "past_due" ? "pill-danger" : sub.status === "trialing" ? "pill-warning" : "pill-success"}`}>
                     {sub.status}
                   </span>
                   <div className="inline compact">
-                    <button className="ghost sm" onClick={() => client && generateInvoicePDF(sub, client, session.workspace)}>📄 PDF Invoice</button>
+                    <button className="ghost sm" onClick={() => client && generateInvoicePDF(sub, client, session.workspace)}>ðŸ“„ PDF Invoice</button>
                     {sub.status === "active" ? (
                       <button className="secondary sm" onClick={() => onToggleBilling(sub.clientId, "past_due")}>Mark due</button>
                     ) : (
@@ -3311,7 +3310,7 @@ function BillingView({ session, onToggleBilling }: {
   );
 }
 
-// ── MIGRATION VIEW ──────────────────────
+// â”€â”€ MIGRATION VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
   const [csvRows, setCsvRows] = useState("Name,Email,Goal,MonthlyPriceGbp\nEmma Walker,emma@example.com,Drop 6kg before wedding,179\nNoah Reed,noah@example.com,Improve strength and reduce body fat,149");
   const [preview, setPreview] = useState<any>(null);
@@ -3357,7 +3356,7 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
             <textarea className="csv-box" value={csvRows} onChange={e => setCsvRows(e.target.value)} />
             <div className="inline">
               <button className="secondary" onClick={doPreview}>Preview</button>
-              <button disabled={loading === "commit"} onClick={doCommit}>{loading === "commit" ? "Importing…" : "Commit rows"}</button>
+              <button disabled={loading === "commit"} onClick={doCommit}>{loading === "commit" ? "Importingâ€¦" : "Commit rows"}</button>
             </div>
             {preview && (
               <div className="preview-table">
@@ -3381,18 +3380,18 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
         <div className="stack">
           <div className="panel">
             <div className="section-header"><h2>Export & Rollback</h2></div>
-            <p className="muted text-sm" style={{ marginBottom: "1rem" }}>Download a portable JSON snapshot of all state — clients, plans, payments, and analytics.</p>
+            <p className="muted text-sm" style={{ marginBottom: "1rem" }}>Download a portable JSON snapshot of all state â€” clients, plans, payments, and analytics.</p>
             <div className="inline">
-              <a className="ghost-button" href={`${apiBase}/export`} target="_blank" rel="noreferrer">↓ Export bundle</a>
-              <button className="danger" disabled={loading === "reset"} onClick={doReset}>{loading === "reset" ? "Resetting…" : "Reset to seed"}</button>
+              <a className="ghost-button" href={`${apiBase}/export`} target="_blank" rel="noreferrer">â†“ Export bundle</a>
+              <button className="danger" disabled={loading === "reset"} onClick={doReset}>{loading === "reset" ? "Resettingâ€¦" : "Reset to seed"}</button>
             </div>
           </div>
 
           <div className="panel">
             <div className="section-header"><h2>Restore Snapshot</h2></div>
             <form className="stack" onSubmit={doRestore}>
-              <textarea className="csv-box" value={restoreJson} onChange={e => setRestoreJson(e.target.value)} placeholder='Paste exported JSON here…' />
-              <button type="submit" disabled={loading === "restore"}>{loading === "restore" ? "Restoring…" : "Restore snapshot"}</button>
+              <textarea className="csv-box" value={restoreJson} onChange={e => setRestoreJson(e.target.value)} placeholder='Paste exported JSON hereâ€¦' />
+              <button type="submit" disabled={loading === "restore"}>{loading === "restore" ? "Restoringâ€¦" : "Restore snapshot"}</button>
             </form>
           </div>
         </div>
@@ -3401,7 +3400,7 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
   );
 }
 
-// ── SETTINGS VIEW ──────────────────────
+// â”€â”€ SETTINGS VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SettingsView({ session, onSave }: {
   session: CoachSession;
   onSave: (draft: any) => Promise<void>;
@@ -3549,7 +3548,7 @@ function SettingsView({ session, onSave }: {
                   {hours.enabled && (
                     <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
                       <input type="time" value={hours.start} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), start: e.target.value } }))} style={{ flex: 1, padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
-                      <span style={{ color: "var(--outline)", fontSize: "0.75rem" }}>–</span>
+                      <span style={{ color: "var(--outline)", fontSize: "0.75rem" }}>â€“</span>
                       <input type="time" value={hours.end} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), end: e.target.value } }))} style={{ flex: 1, padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
                     </div>
                   )}
@@ -3571,7 +3570,7 @@ function SettingsView({ session, onSave }: {
               {blockedDates.map((d, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                   <input type="date" value={d} onChange={e => setBlockedDates(prev => prev.map((x, j) => j === i ? e.target.value : x))} style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
-                  <button onClick={() => setBlockedDates(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.1rem" }}>×</button>
+                  <button onClick={() => setBlockedDates(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.1rem" }}>Ã—</button>
                 </div>
               ))}
             </div>
@@ -3586,9 +3585,9 @@ function SettingsView({ session, onSave }: {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    WORKOUT LOGGER MODAL
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
   onClose: () => void;
   onSuccess: () => void;
@@ -3624,8 +3623,8 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
           clientId: selectedClientId,
           submittedAt: new Date(workoutDate).toISOString(),
           progress: {
-            notes: `Workout — ${sessionType}. Exercises: ${completed.map(ex =>
-              `${ex.name} ${ex.sets}×${ex.reps}${ex.weight ? ` @${ex.weight}kg` : ""}`
+            notes: `Workout â€” ${sessionType}. Exercises: ${completed.map(ex =>
+              `${ex.name} ${ex.sets}Ã—${ex.reps}${ex.weight ? ` @${ex.weight}kg` : ""}`
             ).join(" | ")}`,
           },
         })
@@ -3640,7 +3639,7 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
       <div className="modal-panel" style={{ maxWidth: 520 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", margin: 0 }}>Log Workout Session</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>Ã—</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
@@ -3677,7 +3676,7 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
                 <input value={ex.reps} onChange={e => updateExercise(i, "reps", e.target.value)} placeholder="Reps" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
                 <input value={ex.weight} onChange={e => updateExercise(i, "weight", e.target.value)} placeholder="kg" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
                 {exercises.length > 1 && (
-                  <button type="button" onClick={() => removeExercise(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.2rem" }}>×</button>
+                  <button type="button" onClick={() => removeExercise(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.2rem" }}>Ã—</button>
                 )}
               </div>
             ))}
@@ -3694,9 +3693,9 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CLIENT NOTES MODAL
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function ClientNotesModal({ onClose, push, clients }: {
   onClose: () => void;
   push: (message: string, type?: "success"|"error"|"info") => void;
@@ -3784,7 +3783,7 @@ function ClientNotesModal({ onClose, push, clients }: {
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexShrink: 0 }}>
           <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", margin: 0 }}>Client Notes & Chat</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>Ã—</button>
         </div>
 
         {/* Client selector */}
@@ -3902,16 +3901,44 @@ function ClientNotesModal({ onClose, push, clients }: {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    ONBOARDING WIZARD
-──────────────────────────────────────── */
-function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+type OnboardingDraft = {
+  name: string;
+  coachFirstName: string;
+  coachLastName: string;
+  coachEmail: string;
+  coachTypes: string[];
+  brandColor: string;
+  accentColor: string;
+  heroMessage: string;
+  stripeConnected: boolean;
+};
+
+function OnboardingWizard({
+  workspace,
+  coach,
+  onPreview,
+  onComplete
+}: {
+  workspace: CoachWorkspace;
+  coach: CoachUser;
+  onPreview: (draft: Partial<CoachWorkspace>) => void;
+  onComplete: (draft: OnboardingDraft) => Promise<void> | void;
+}) {
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState({
-    name: "My Coaching Business",
-    brandColor: "#123f2d",
-    accentColor: "#ff8757",
-    heroMessage: "Elite coaching that adapts to your life.",
+  const initialWorkspace = useRef(workspace);
+  const initialCoach = useRef(coach);
+  const [draft, setDraft] = useState<OnboardingDraft>({
+    name: "",
+    coachFirstName: initialCoach.current.firstName,
+    coachLastName: initialCoach.current.lastName,
+    coachEmail: initialCoach.current.email,
+    coachTypes: [],
+    brandColor: initialWorkspace.current.brandColor,
+    accentColor: initialWorkspace.current.accentColor,
+    heroMessage: "",
     stripeConnected: false,
   });
 
@@ -3927,13 +3954,32 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [coachTypes, setCoachTypes] = useState<string[]>([]);
   const STEPS = ["Workspace", "Coach Type", "Launch"];
 
-  const next = () => {
+  useEffect(() => {
+    onPreview({
+      name: draft.name.trim() || initialWorkspace.current.name,
+      heroMessage: draft.heroMessage.trim() || initialWorkspace.current.heroMessage,
+      brandColor: draft.brandColor,
+      accentColor: draft.accentColor
+    });
+  }, [
+    draft.name,
+    draft.heroMessage,
+    draft.brandColor,
+    draft.accentColor,
+    onPreview,
+  ]);
+
+  useEffect(() => {
+    setDraft(d => ({ ...d, coachTypes }));
+  }, [coachTypes]);
+
+  const next = async () => {
     if (step < STEPS.length - 1) setStep(s => s + 1);
-    else onComplete();
+    else await onComplete(draft);
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onComplete()}>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onComplete(draft)}>
       <div className="modal-panel">
         {/* Progress dots */}
         <div className="onboard-step-dots">
@@ -3942,33 +3988,86 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           ))}
         </div>
 
-        {/* Step 0 — Workspace Setup */}
+        {/* Step 0 â€” Workspace Setup */}
         {step === 0 && (
           <div>
             <p className="eyebrow">Step 1 of {STEPS.length}</p>
             <h2 className="modal-title">Set up your workspace</h2>
             <p className="modal-subtitle">Personalise your coaching brand and messaging.</p>
             <div className="stack">
-              <div className="onboard-field">
-                <label>Workspace name<input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} /></label>
+              <div className="two-col">
+                <label>
+                  First name
+                  <input
+                    value={draft.coachFirstName}
+                    onChange={e => setDraft(d => ({ ...d, coachFirstName: e.target.value }))}
+                    placeholder="Maya"
+                  />
+                </label>
+                <label>
+                  Last name
+                  <input
+                    value={draft.coachLastName}
+                    onChange={e => setDraft(d => ({ ...d, coachLastName: e.target.value }))}
+                    placeholder="Stone"
+                  />
+                </label>
               </div>
               <div className="onboard-field">
-                <label>Hero message<textarea value={draft.heroMessage} onChange={e => setDraft(d => ({ ...d, heroMessage: e.target.value }))} /></label>
+                <label>
+                  Coach email
+                  <input
+                    type="email"
+                    value={draft.coachEmail}
+                    onChange={e => setDraft(d => ({ ...d, coachEmail: e.target.value }))}
+                    placeholder="coach@example.com"
+                  />
+                </label>
+              </div>
+              <div className="onboard-field">
+                <label>
+                  Workspace name
+                  <input
+                    value={draft.name}
+                    onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                    placeholder="Example: My Coaching Business"
+                  />
+                </label>
+                <p className="onboard-helper">Updates the workspace label in the sidebar and dashboard preview.</p>
+              </div>
+              <div className="onboard-field">
+                <label>
+                  Hero message
+                  <textarea
+                    value={draft.heroMessage}
+                    onChange={e => setDraft(d => ({ ...d, heroMessage: e.target.value }))}
+                    placeholder="Example: Elite coaching that adapts to your life."
+                  />
+                </label>
+                <p className="onboard-helper">Appears under the greeting on the Coach Dashboard.</p>
               </div>
               <div className="two-col">
-                <label>Brand color<input type="color" value={draft.brandColor} onChange={e => setDraft(d => ({ ...d, brandColor: e.target.value }))} style={{ padding: "0.25rem" }} /></label>
-                <label>Accent color<input type="color" value={draft.accentColor} onChange={e => setDraft(d => ({ ...d, accentColor: e.target.value }))} style={{ padding: "0.25rem" }} /></label>
+                <label>
+                  Brand color
+                  <input type="color" value={draft.brandColor} onChange={e => setDraft(d => ({ ...d, brandColor: e.target.value }))} style={{ padding: "0.25rem" }} />
+                  <span className="onboard-helper">Main buttons, active states, logo mark, and dashboard hero.</span>
+                </label>
+                <label>
+                  Accent color
+                  <input type="color" value={draft.accentColor} onChange={e => setDraft(d => ({ ...d, accentColor: e.target.value }))} style={{ padding: "0.25rem" }} />
+                  <span className="onboard-helper">Secondary highlights, accent buttons, chart bars, and badges.</span>
+                </label>
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 1 — Coach Type */}
+        {/* Step 1 â€” Coach Type */}
         {step === 1 && (
           <div>
             <p className="eyebrow">Step 2 of {STEPS.length}</p>
             <h2 className="modal-title">What kind of coach are you?</h2>
-            <p className="modal-subtitle">We'll tailor your experience — you can change this later.</p>
+            <p className="modal-subtitle">We'll tailor your experience â€” you can change this later.</p>
             <div className="coach-type-grid" style={{ marginTop: "1.5rem" }}>
               {COACH_TYPES.map(ct => (
                 <button
@@ -3990,7 +4089,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
-        {/* Step 2 — Launch */}
+        {/* Step 2 â€” Launch */}
         {step === 2 && (
           <div style={{ textAlign: "center", padding: "1rem 0" }}>
             <p className="eyebrow">Step 3 of {STEPS.length}</p>
@@ -3998,18 +4097,18 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <p className="modal-subtitle">Your workspace is ready. Let's go.</p>
             <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div className="onboard-summary-item">
-                <span className="onboard-summary-icon">🏋️</span>
+                <span className="onboard-summary-icon">ðŸ‹ï¸</span>
                 <span>CoachOS workspace created</span>
               </div>
               {coachTypes.length > 0 && (
                 <div className="onboard-summary-item">
-                  <span className="onboard-summary-icon">🎯</span>
+                  <span className="onboard-summary-icon">ðŸŽ¯</span>
                   <span>{coachTypes.length} coaching specialty{coachTypes.length > 1 ? "ies" : "y"} selected</span>
                 </div>
               )}
               <div className="onboard-summary-item">
-                <span className="onboard-summary-icon">📋</span>
-                <span>Demo clients loaded and ready to explore</span>
+                <span className="onboard-summary-icon">ðŸ“‹</span>
+                <span>Workspace defaults created and ready for your first client</span>
               </div>
             </div>
           </div>
@@ -4017,24 +4116,24 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
         <div className="onboard-actions">
           {step > 0 ? (
-            <button className="secondary" onClick={() => setStep(s => s - 1)}>← Back</button>
+            <button className="secondary" onClick={() => setStep(s => s - 1)}>â† Back</button>
           ) : (
             <div />
           )}
           <div className="inline">
             <span className="text-sm muted">{step + 1} / {STEPS.length}</span>
-            <button onClick={next}>{step === STEPS.length - 1 ? "Launch CoachOS →" : "Continue →"}</button>
+            <button onClick={next}>{step === STEPS.length - 1 ? "Launch CoachOS â†’" : "Continue â†’"}</button>
           </div>
         </div>
-        <div className="onboard-skip" onClick={onComplete}>Skip onboarding — use defaults</div>
+        <div className="onboard-skip" onClick={() => onComplete(draft)}>Skip onboarding â€” use defaults</div>
       </div>
     </div>
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    GROUP PROGRAMS VIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function GroupsView({ session, onCreate, onUpdate, onArchive }: {
   session: CoachSession;
   onCreate: (payload: Partial<GroupProgram>) => Promise<void>;
@@ -4106,11 +4205,11 @@ function GroupsView({ session, onCreate, onUpdate, onArchive }: {
           </div>
           <div className="program-stat">
             <span className="program-stat-label">Price/mo</span>
-            <span className="program-stat-value">£{program.monthlyPriceGbp}</span>
+            <span className="program-stat-value">Â£{program.monthlyPriceGbp}</span>
           </div>
           <div className="program-stat">
             <span className="program-stat-label">Revenue/mo</span>
-            <span className="program-stat-value">£{program.monthlyPriceGbp * program.memberIds.length}</span>
+            <span className="program-stat-value">Â£{program.monthlyPriceGbp * program.memberIds.length}</span>
           </div>
         </div>
       </div>
@@ -4126,7 +4225,7 @@ function GroupsView({ session, onCreate, onUpdate, onArchive }: {
       {programs.length === 0 && !showCreate && (
         <div className="panel">
           <div className="empty-state">
-            <div className="empty-state-icon">👥</div>
+            <div className="empty-state-icon">ðŸ‘¥</div>
             <p style={{ color: "var(--on-surface)", fontWeight: 600 }}>No group programs yet</p>
             <p className="muted text-sm">Create a programme to coach multiple clients together.</p>
           </div>
@@ -4214,7 +4313,7 @@ function CreateProgramModal({ clients, onSave, onClose }: {
           <label>Program title<input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Summer Fat-Loss Sprint" /></label>
           <label>Goal<input value={goal} onChange={e => setGoal(e.target.value)} placeholder="e.g. Lose 4kg before summer" /></label>
           <label>Description<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description of the programme..." /></label>
-          <label>Monthly price (£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
+          <label>Monthly price (Â£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
           <div>
             <label style={{ marginBottom: "0.5rem" }}>Assign clients</label>
             <div className="member-select-list">
@@ -4262,7 +4361,7 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
           <label>Program title<input value={title} onChange={e => setTitle(e.target.value)} /></label>
           <label>Goal<input value={goal} onChange={e => setGoal(e.target.value)} /></label>
           <label>Description<textarea value={description} onChange={e => setDescription(e.target.value)} /></label>
-          <label>Monthly price (£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
+          <label>Monthly price (Â£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
           <div>
             <label style={{ marginBottom: "0.5rem" }}>Members</label>
             <div className="member-select-list">
@@ -4289,9 +4388,9 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    HABITS VIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function HabitsView({ session }: { session: CoachSession }) {
   const [summaries, setSummaries] = useState<Map<string, HabitSummary[]>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -4334,7 +4433,7 @@ function HabitsView({ session }: { session: CoachSession }) {
         metadata: { habit: habitTitle }
       })
     });
-    push("Nudge sent to client ✓");
+    push("Nudge sent to client âœ“");
   };
 
   const addHabit = async (clientId: string) => {
@@ -4383,7 +4482,7 @@ function HabitsView({ session }: { session: CoachSession }) {
                         {rate}% today
                       </span>
                       {items.map(i => i.streak > 0 && (
-                        <span key={i.habit.id} className="habit-streak-badge">🔥 {i.streak}d streak</span>
+                        <span key={i.habit.id} className="habit-streak-badge">ðŸ”¥ {i.streak}d streak</span>
                       ))}
                     </div>
                   </div>
@@ -4428,7 +4527,7 @@ function HabitsView({ session }: { session: CoachSession }) {
                       />
                       <span className={`habit-title${todayDone ? " done" : ""}`}>{habit.title}</span>
                       <div className="habit-meta">
-                        <span className="streak-flame">🔥 {streak}</span>
+                        <span className="streak-flame">ðŸ”¥ {streak}</span>
                         <span className="habit-frequency">{habit.frequency}</span>
                         {!todayDone && (
                           <button className="habit-nudge-btn" onClick={() => sendNudge(client.id, habit.title)}>
@@ -4448,9 +4547,9 @@ function HabitsView({ session }: { session: CoachSession }) {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    EXERCISES VIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function ExercisesView() {
   const [search, setSearch] = useState("");
   const [bodyPart, setBodyPart] = useState("all");
@@ -4479,12 +4578,12 @@ function ExercisesView() {
     <div className="page-view">
       <p className="eyebrow">Exercise Library</p>
       <h1 className="page-title">Movement Database</h1>
-      <p className="page-subtitle">{exercises.length} exercises across all movement patterns — tagged by body part, equipment, and difficulty.</p>
+      <p className="page-subtitle">{exercises.length} exercises across all movement patterns â€” tagged by body part, equipment, and difficulty.</p>
 
       <div className="panel">
         <div className="search-wrapper" style={{ marginBottom: "1rem" }}>
-          <span className="search-icon">⌕</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search exercises…" />
+          <span className="search-icon">âŒ•</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search exercisesâ€¦" />
         </div>
         <div className="exercise-filters">
           {BODY_PARTS.map(bp => (
@@ -4516,7 +4615,7 @@ function ExercisesView() {
         ))}
         {exercises.length === 0 && (
           <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
-            <div className="empty-state-icon">🏋️</div>
+            <div className="empty-state-icon">ðŸ‹ï¸</div>
             <p>No exercises match your filters.</p>
           </div>
         )}
@@ -4525,9 +4624,9 @@ function ExercisesView() {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CALENDAR VIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 type CalendarEvent = {
   id: string;
   date: string; // YYYY-MM-DD
@@ -4588,7 +4687,7 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
           type: "billing",
           clientId: sub.clientId,
           clientName: client?.fullName,
-          label: `Payment: £${sub.amountGbp}`,
+          label: `Payment: Â£${sub.amountGbp}`,
           color: "var(--accent)",
         });
       }
@@ -4728,7 +4827,26 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                     }}
                   >
                     {isBlocked && (
-                      <div style={{ position: "absolute", top: "4px", right: "4px", width: "6px", height: "6px", borderRadius: "50%", background: "var(--danger)" }} />
+                      <div
+                        title="Blocked day"
+                        style={{
+                          position: "absolute",
+                          top: "6px",
+                          right: "6px",
+                          minWidth: "22px",
+                          height: "20px",
+                          borderRadius: "9999px",
+                          background: "var(--danger)",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 4px 12px rgba(186,26,26,0.28)",
+                          border: "2px solid white"
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.85rem" }}>block</span>
+                      </div>
                     )}
                     <span style={{
                       fontFamily: "Manrope, sans-serif",
@@ -4840,7 +4958,7 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
                             return { ...prev, [selectedDate!]: updated };
                           })}
                           style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--outline)", fontSize: "0.75rem", padding: "0 0.2rem", flexShrink: 0, lineHeight: 1 }}>
-                          ×
+                          Ã—
                         </button>
                       </div>
                     ))}
@@ -4951,9 +5069,9 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    NUTRITION SWAP AGENT
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNutrition: string[] }) {
   const [foods, setFoods] = useState<Array<{ id: string; name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; swapped: boolean }>>([]);
   const [activeSwap, setActiveSwap] = useState<number | null>(null);
@@ -4994,7 +5112,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
       });
       setSuggestion(result);
     } catch {
-      // Silent fail — agentic fallback
+      // Silent fail â€” agentic fallback
     } finally { setLoading(false); }
   };
 
@@ -5030,7 +5148,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
   return (
     <div className="swap-agent">
       <div className="swap-agent-header">
-        <span style={{ fontSize: "1.1rem" }}>🔄</span>
+        <span style={{ fontSize: "1.1rem" }}>ðŸ”„</span>
         <div>
           <h3 style={{ fontSize: "1rem", marginBottom: "0.1rem" }}>Nutrition Swap Agent</h3>
           <p className="text-sm muted" style={{ margin: 0 }}>Click any food to get AI macro-matched alternatives.</p>
@@ -5042,8 +5160,8 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <div key={food.id}>
           <div className={`swap-food-item${food.swapped ? " swapped" : ""}${activeSwap === i ? " active" : ""}`} onClick={() => !food.swapped && requestSwap(i)}>
             <div>
-              <div className="swap-food-name">{food.swapped ? "✓ " : ""}{food.name}</div>
-              <div className="swap-food-macros">{food.calories} kcal · {food.proteinG}g P · {food.carbsG}g C · {food.fatG}g F</div>
+              <div className="swap-food-name">{food.swapped ? "âœ“ " : ""}{food.name}</div>
+              <div className="swap-food-macros">{food.calories} kcal Â· {food.proteinG}g P Â· {food.carbsG}g C Â· {food.fatG}g F</div>
             </div>
             {!food.swapped && <button className="swap-swap-btn" onClick={e => { e.stopPropagation(); requestSwap(i); }}>Swap</button>}
             {food.swapped && <span className="pill pill-success" style={{ fontSize: "0.72rem" }}>Swapped</span>}
@@ -5056,7 +5174,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
               {!loading && suggestion && suggestion.suggestion && (
                 <>
                   <div className="swap-result-header">
-                    <span className="swap-result-title">⚡ {suggestion.suggestion.name}</span>
+                    <span className="swap-result-title">âš¡ {suggestion.suggestion.name}</span>
                   </div>
                   <p className="swap-result-reason">"{suggestion.suggestion.reasoning}"</p>
                   <div className="swap-macro-compare">
@@ -5075,7 +5193,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
                       </div>
                     ))}
                   </div>
-                  <button className="swap-apply-btn" onClick={applySwap}>✓ Apply this swap</button>
+                  <button className="swap-apply-btn" onClick={applySwap}>âœ“ Apply this swap</button>
                 </>
               )}
               {!loading && suggestion && !suggestion.suggestion && (
@@ -5090,7 +5208,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <span className="swap-applied-count">{appliedCount} swap{appliedCount !== 1 ? "s" : ""} applied</span>
         <div className="inline">
           <RecipePanel planNutrition={planNutrition} />
-          <button className="swap-history-btn" onClick={loadHistory} disabled={historyLoading}>View history →</button>
+          <button className="swap-history-btn" onClick={loadHistory} disabled={historyLoading}>View history â†’</button>
         </div>
       </div>
 
@@ -5098,7 +5216,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <div className="swap-history-panel">
           <div className="swap-history-header">
             <h4>Swap History</h4>
-            <button className="ghost sm" onClick={() => setShowHistory(false)}>✕</button>
+            <button className="ghost sm" onClick={() => setShowHistory(false)}>âœ•</button>
           </div>
           {historyLoading ? (
             <div style={{ display: "flex", justifyContent: "center", padding: "1rem" }}><div className="spinner" /></div>
@@ -5110,12 +5228,12 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
                 <div key={s.id} className="swap-history-item">
                   <div className="swap-history-row">
                     <span className="swap-history-food swap-history-orig">{s.originalFood.name}</span>
-                    <span className="swap-history-arrow">→</span>
+                    <span className="swap-history-arrow">â†’</span>
                     <span className="swap-history-food swap-history-new">{s.swapSuggestion.name}</span>
                   </div>
                   <div className="swap-history-meta">
-                    {s.originalFood.calories} kcal → {s.swapSuggestion.calories} kcal
-                    {s.appliedAt && <span className="muted text-xs"> · {new Date(s.appliedAt).toLocaleDateString()}</span>}
+                    {s.originalFood.calories} kcal â†’ {s.swapSuggestion.calories} kcal
+                    {s.appliedAt && <span className="muted text-xs"> Â· {new Date(s.appliedAt).toLocaleDateString()}</span>}
                   </div>
                 </div>
               ))}
@@ -5127,9 +5245,9 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    RECIPE PANEL
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
@@ -5159,7 +5277,7 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
           onChange={e => setSelectedFood(e.target.value)}
           style={{ width: "auto", fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}
         >
-          <option value="">Pick a food…</option>
+          <option value="">Pick a foodâ€¦</option>
           {foodOptions.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
         </select>
         <button
@@ -5167,7 +5285,7 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
           disabled={!selectedFood || loading}
           onClick={() => selectedFood && generateRecipe(selectedFood)}
         >
-          {loading ? "…" : "🍳 Generate Recipe"}
+          {loading ? "â€¦" : "ðŸ³ Generate Recipe"}
         </button>
       </div>
 
@@ -5177,11 +5295,11 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
             <div>
               <div className="recipe-title">{recipe.name}</div>
               <div className="recipe-meta">
-                <span className="recipe-meta-item">⏱ Prep {recipe.prepTime}min</span>
-                <span className="recipe-meta-item">🔥 Cook {recipe.cookTime}min</span>
+                <span className="recipe-meta-item">â± Prep {recipe.prepTime}min</span>
+                <span className="recipe-meta-item">ðŸ”¥ Cook {recipe.cookTime}min</span>
               </div>
             </div>
-            <button className="icon" style={{ fontSize: "1rem" }} onClick={() => setShowPanel(false)}>✕</button>
+            <button className="icon" style={{ fontSize: "1rem" }} onClick={() => setShowPanel(false)}>âœ•</button>
           </div>
           <div className="recipe-macro-pills">
             {[
@@ -5213,9 +5331,9 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    PDF INVOICE GENERATOR
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const jspdf: { jsPDF: new (opts?: { orientation?: string; unit?: string; format?: string }) => Record<string, any> };
 
@@ -5247,7 +5365,7 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFontSize(10);
   doc.text(workspace.name, 20, 28);
   doc.setFontSize(8);
-  doc.text("Tax Invoice · UK VAT Registered", 20, 34);
+  doc.text("Tax Invoice Â· UK VAT Registered", 20, 34);
 
   // Invoice meta (right side)
   doc.setTextColor(r, g, b);
@@ -5289,10 +5407,10 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(40, 40, 40);
-  doc.text("Coaching Services — Monthly Subscription", 22, y);
+  doc.text("Coaching Services â€” Monthly Subscription", 22, y);
   doc.text("1", 123, y);
-  doc.text(`£${netAmount.toFixed(2)}`, 140, y);
-  doc.text(`£${vatAmount.toFixed(2)}`, 160, y);
+  doc.text(`Â£${netAmount.toFixed(2)}`, 140, y);
+  doc.text(`Â£${vatAmount.toFixed(2)}`, 160, y);
 
   // Divider
   y += 6;
@@ -5309,14 +5427,14 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFontSize(10);
   doc.text("TOTAL (inc. VAT)", 133, y + 2);
   doc.setFontSize(12);
-  doc.text(`£${subscription.amountGbp.toFixed(2)}`, 160, y + 3);
+  doc.text(`Â£${subscription.amountGbp.toFixed(2)}`, 160, y + 3);
 
   // VAT summary
   y += 16;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Net amount: £${netAmount.toFixed(2)}    VAT rate: 20%    VAT: £${vatAmount.toFixed(2)}    Gross: £${subscription.amountGbp.toFixed(2)}`, 20, y);
+  doc.text(`Net amount: Â£${netAmount.toFixed(2)}    VAT rate: 20%    VAT: Â£${vatAmount.toFixed(2)}    Gross: Â£${subscription.amountGbp.toFixed(2)}`, 20, y);
 
   // Footer
   doc.setTextColor(150, 150, 150);
@@ -5343,7 +5461,7 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${workspace.name} — HMRC Tax Report`, 20, 13);
+  doc.text(`${workspace.name} â€” HMRC Tax Report`, 20, 13);
 
   const today = new Date().toISOString().slice(0, 10);
   doc.setFont("helvetica", "normal");
@@ -5381,9 +5499,9 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
     doc.setTextColor(sub.status === "active" ? 58 : 255, sub.status === "active" ? 180 : 115, sub.status === "active" ? 80 : 81);
     doc.text(sub.status.toUpperCase(), 80, y);
     doc.setTextColor(40, 40, 40);
-    doc.text(`£${net.toFixed(2)}`, 110, y);
-    doc.text(`£${vat.toFixed(2)}`, 130, y);
-    doc.text(`£${sub.amountGbp.toFixed(2)}`, 155, y);
+    doc.text(`Â£${net.toFixed(2)}`, 110, y);
+    doc.text(`Â£${vat.toFixed(2)}`, 130, y);
+    doc.text(`Â£${sub.amountGbp.toFixed(2)}`, 155, y);
 
     y += 7;
     if (y > 270) { doc.addPage(); y = 20; }
@@ -5401,17 +5519,17 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text("TOTALS", 108, y + 1);
-  doc.text(`£${totalNet.toFixed(2)}`, 110, y + 1);
-  doc.text(`£${totalVat.toFixed(2)}`, 130, y + 1);
-  doc.text(`£${totalGross.toFixed(2)}`, 155, y + 1);
+  doc.text(`Â£${totalNet.toFixed(2)}`, 110, y + 1);
+  doc.text(`Â£${totalVat.toFixed(2)}`, 130, y + 1);
+  doc.text(`Â£${totalGross.toFixed(2)}`, 155, y + 1);
 
   doc.setDocumentProperties({ title: `Tax Report ${today}`, author: workspace.name });
   doc.save(`tax-report-${today}.pdf`);
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CLIENT APP PREVIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 type ClientAppTab = "today"|"plan"|"checkin"|"messages";
 
 function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPortal: ClientSession; onCheckInSuccess?: () => void }) {
@@ -5440,6 +5558,8 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
   const [checkInPhoto, setCheckInPhoto] = useState<string | null>(null);
   const [checkInSubmitting, setCheckInSubmitting] = useState(false);
   const [checkInSuccess, setCheckInSuccess] = useState(false);
+  const [clientMessageDraft, setClientMessageDraft] = useState("");
+  const [clientMessageSending, setClientMessageSending] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -5488,11 +5608,27 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
     setCheckInSubmitting(false);
   };
 
+  const handleClientMessageSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const content = clientMessageDraft.trim();
+    if (!content) return;
+    setClientMessageSending(true);
+    try {
+      await fetchJson("/messages", {
+        method: "POST",
+        body: JSON.stringify({ clientId: clientPortal.client.id, content, sender: "client" })
+      });
+      setClientMessageDraft("");
+      onCheckInSuccess?.();
+    } catch { /* silent */ }
+    setClientMessageSending(false);
+  };
+
   return (
     <div className="client-app">
       <div className="client-app-status-bar">
         <span className="client-app-status-bar-left">9:41</span>
-        <span className="client-app-status-bar-right"><span>●●●●●</span><span>📶</span><span>🔋</span></span>
+        <span className="client-app-status-bar-right"><span>â—â—â—â—â—</span><span>ðŸ“¶</span><span>ðŸ”‹</span></span>
       </div>
 
       {activeTab === "today" && (
@@ -5500,8 +5636,8 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
           <div className="client-app-greeting">{greeting}, {firstName}!</div>
           <div className="client-app-date">{today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>
           <div className="client-app-streak-row">
-            <span className="client-app-streak-badge">🔥 5 day streak</span>
-            <span className="client-app-streak-badge" style={{ background: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.25)", color: "#60a5fa" }}>📋 {workouts.length} sessions this week</span>
+            <span className="client-app-streak-badge">ðŸ”¥ 5 day streak</span>
+            <span className="client-app-streak-badge" style={{ background: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.25)", color: "#60a5fa" }}>ðŸ“‹ {workouts.length} sessions this week</span>
           </div>
           <div className="client-app-stats-row" style={{ marginTop: 14 }}>
             <div className="client-app-stat-chip">
@@ -5510,7 +5646,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             </div>
             <div className="client-app-stat-chip">
               <span className="client-app-stat-chip-label">Energy</span>
-              <span className="client-app-stat-chip-value">{clientPortal.latestCheckIn?.progress.energyScore ?? "—"}/10</span>
+              <span className="client-app-stat-chip-value">{clientPortal.latestCheckIn?.progress.energyScore ?? "â€”"}/10</span>
             </div>
             <div className="client-app-stat-chip">
               <span className="client-app-stat-chip-label">Renewal</span>
@@ -5526,12 +5662,12 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             <>
               <div className="client-app-section-title">Today's Focus</div>
               <div className="client-app-card">
-                <div className="client-app-card-label">💪 Workout</div>
+                <div className="client-app-card-label">ðŸ’ª Workout</div>
                 <div className="client-app-card-title">{workouts[todayIndex] || workouts[0]}</div>
                 <div className="client-app-card-chip">Approved</div>
               </div>
               <div className="client-app-card">
-                <div className="client-app-card-label">🥗 Nutrition</div>
+                <div className="client-app-card-label">ðŸ¥— Nutrition</div>
                 <div className="client-app-card-title">{nutrition[todayIndex]?.split(":")[0] || "Moderate deficit"}</div>
                 <div className="client-app-card-body">{nutrition[todayIndex] || nutrition[0]}</div>
               </div>
@@ -5546,7 +5682,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
           <div className="client-app-card">
             {habits.map((h, i) => (
               <div key={i} className="client-app-habit-item">
-                <div className={`client-app-habit-check${h.done ? " checked" : ""}`}>{h.done ? "✓" : ""}</div>
+                <div className={`client-app-habit-check${h.done ? " checked" : ""}`}>{h.done ? "âœ“" : ""}</div>
                 <span className={`client-app-habit-title${h.done ? " done" : ""}`}>{h.title}</span>
               </div>
             ))}
@@ -5563,10 +5699,10 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             return (
               <div key={day} className="client-app-day-card">
                 <div className="client-app-day-card-header">
-                  <span className={`client-app-day-label${isToday ? " today" : ""}`}>{isToday ? "● " : ""}{day}{isToday ? " — Today" : ""}</span>
+                  <span className={`client-app-day-label${isToday ? " today" : ""}`}>{isToday ? "â— " : ""}{day}{isToday ? " â€” Today" : ""}</span>
                   <div className="client-app-day-chips">
-                    {workout && <span className="client-app-day-chip client-app-day-chip--workout">💪</span>}
-                    {nutrition[i] && <span className="client-app-day-chip client-app-day-chip--nutrition">🥗</span>}
+                    {workout && <span className="client-app-day-chip client-app-day-chip--workout">ðŸ’ª</span>}
+                    {nutrition[i] && <span className="client-app-day-chip client-app-day-chip--nutrition">ðŸ¥—</span>}
                   </div>
                 </div>
                 <div className="client-app-day-detail">{workout}</div>
@@ -5582,7 +5718,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
         <div className="client-app-checkin-form">
           <div className="client-app-section-title" style={{ marginTop: 8 }}>Submit Check-In</div>
           {checkInSuccess && (
-            <div className="client-app-success-banner">✓ Check-in submitted!</div>
+            <div className="client-app-success-banner">âœ“ Check-in submitted!</div>
           )}
           <form onSubmit={handleCheckInSubmit}>
             <label className="client-app-form-label">Weight (kg)</label>
@@ -5597,11 +5733,11 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             <label className="client-app-form-label">Progress Photo</label>
             <input ref={photoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
             <button type="button" className="client-app-photo-btn" onClick={() => photoInputRef.current?.click()}>
-              <span>{checkInPhoto ? "✓" : "📷"}</span> {checkInPhoto ? "Photo selected" : "Add Progress Photo"}
+              <span>{checkInPhoto ? "âœ“" : "ðŸ“·"}</span> {checkInPhoto ? "Photo selected" : "Add Progress Photo"}
             </button>
             {checkInPhoto && <img src={checkInPhoto} alt="Preview" style={{ width: "100%", borderRadius: "var(--r-lg)", marginTop: "0.5rem" }} />}
             <button type="submit" className="client-app-submit-btn" disabled={checkInSubmitting}>
-              {checkInSubmitting ? "Submitting…" : "Submit Check-In"}
+              {checkInSubmitting ? "Submittingâ€¦" : "Submit Check-In"}
             </button>
           </form>
         </div>
@@ -5623,18 +5759,19 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
               </div>
             ))}
           </div>
-          <div className="client-app-message-input-row">
-            <input className="client-app-message-input" placeholder="Type a message…" />
-          </div>
+          <form className="client-app-message-input-row" onSubmit={handleClientMessageSubmit}>
+            <input className="client-app-message-input" placeholder="Type a message..." value={clientMessageDraft} onChange={e => setClientMessageDraft(e.target.value)} />
+            <button type="submit" className="client-app-tab" disabled={clientMessageSending || !clientMessageDraft.trim()} style={{ width: "auto", padding: "0.45rem 0.75rem", borderRadius: 999 }}>Send</button>
+          </form>
         </>
       )}
 
       <div className="client-app-tabs">
         {([
-          { id: "today" as ClientAppTab, icon: "🏠", label: "Today" },
-          { id: "plan" as ClientAppTab, icon: "📋", label: "Plan" },
-          { id: "checkin" as ClientAppTab, icon: "✅", label: "Check-In" },
-          { id: "messages" as ClientAppTab, icon: "💬", label: "Messages" },
+          { id: "today" as ClientAppTab, icon: "ðŸ ", label: "Today" },
+          { id: "plan" as ClientAppTab, icon: "ðŸ“‹", label: "Plan" },
+          { id: "checkin" as ClientAppTab, icon: "âœ…", label: "Check-In" },
+          { id: "messages" as ClientAppTab, icon: "ðŸ’¬", label: "Messages" },
         ] as const).map(t => (
           <button key={t.id} className={`client-app-tab${activeTab === t.id ? " active" : ""}`} onClick={() => setActiveTab(t.id)}>
             <span>{t.icon}</span>
@@ -5657,7 +5794,7 @@ function ClientAppView({ session, clientPortal, onSwitchClient }: {
     <div className="page-view">
       <p className="eyebrow">CoachOS Preview</p>
       <h1 className="page-title">Client App Preview</h1>
-      <p className="page-subtitle">See exactly what your clients see — live mobile simulator.</p>
+      <p className="page-subtitle">See exactly what your clients see â€” live mobile simulator.</p>
 
       <div className="client-app-split">
         <div className="coach-preview-panel">
@@ -5689,19 +5826,19 @@ function ClientAppView({ session, clientPortal, onSwitchClient }: {
                 <div className="phone-notch" />
                 <div className="phone-status-bar">
                   <span className="phone-status-bar-left">9:41</span>
-                  <span className="phone-status-bar-right"><span>●●●●●</span><span>📶</span><span>🔋</span></span>
+                  <span className="phone-status-bar-right"><span>â—â—â—â—â—</span><span>ðŸ“¶</span><span>ðŸ”‹</span></span>
                 </div>
                 <div className="phone-viewport">
-                  {/* @ts-expect-error — loadCoach/selectedClientId declared later, visible at runtime */}
+                  {/* @ts-expect-error â€” loadCoach/selectedClientId declared later, visible at runtime */}
                   <ClientAppPreviewInner clientPortal={clientPortal} onCheckInSuccess={() => (loadCoach as any)((selectedClientId as any) ?? undefined)} />
                 </div>
                 <div className="phone-home-bar" />
               </div>
-              <p className="phone-preview-label">CoachOS Client App — {clientPortal.client.fullName}</p>
+              <p className="phone-preview-label">CoachOS Client App â€” {clientPortal.client.fullName}</p>
             </>
           ) : (
             <div className="empty-state">
-              <div className="empty-state-icon">📱</div>
+              <div className="empty-state-icon">ðŸ“±</div>
               <p>Select a client to preview their experience.</p>
             </div>
           )}
@@ -5709,6 +5846,28 @@ function ClientAppView({ session, clientPortal, onSwitchClient }: {
       </div>
     </div>
   );
+}
+
+function mixHex(hex: string, mixWith: string, amount: number) {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return hex;
+  const base = [0, 2, 4].map(i => parseInt(clean.slice(i, i + 2), 16));
+  const target = [0, 2, 4].map(i => parseInt(mixWith.replace("#", "").slice(i, i + 2), 16));
+  const mixed = base.map((value, i) => Math.round(value * (1 - amount) + target[i] * amount));
+  return `#${mixed.map(value => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function applyWorkspaceTheme(workspace: Pick<CoachWorkspace, "brandColor" | "accentColor">) {
+  const root = document.documentElement;
+  root.style.setProperty("--primary", workspace.brandColor);
+  root.style.setProperty("--primary-dark", mixHex(workspace.brandColor, "#000000", 0.25));
+  root.style.setProperty("--primary-light", mixHex(workspace.brandColor, "#ffffff", 0.82));
+  root.style.setProperty("--primary-mid", mixHex(workspace.brandColor, "#ffffff", 0.45));
+  root.style.setProperty("--primary-container", mixHex(workspace.brandColor, "#ffffff", 0.68));
+  root.style.setProperty("--accent", workspace.accentColor);
+  root.style.setProperty("--accent-dark", mixHex(workspace.accentColor, "#000000", 0.25));
+  root.style.setProperty("--accent-light", mixHex(workspace.accentColor, "#ffffff", 0.82));
+  root.style.setProperty("--accent-mid", mixHex(workspace.accentColor, "#ffffff", 0.45));
 }
 
 function App() {
@@ -5774,8 +5933,12 @@ function App() {
   }, [selectedClientId, switchClient]);
 
   useEffect(() => {
-    loadCoach().catch(err => setLoadError(err instanceof Error ? err.message : "Connection failed — is the API running?"));
+    loadCoach().catch(err => setLoadError(err instanceof Error ? err.message : "Connection failed â€” is the API running?"));
   }, []);
+
+  useEffect(() => {
+    if (session) applyWorkspaceTheme(session.workspace);
+  }, [session?.workspace.brandColor, session?.workspace.accentColor]);
 
   const handleNavWithPortal = (id: NavId) => {
     setActiveNav(id);
@@ -5793,7 +5956,7 @@ function App() {
   const handleApprove = async (planId: string) => {
     await fetchJson(`/plans/${planId}/approve`, { method: "POST" });
     await loadCoach(selectedClientId ?? undefined);
-    push("Plan approved ✓");
+    push("Plan approved âœ“");
   };
 
   const handleCheckIn = async (clientId: string) => {
@@ -5808,7 +5971,11 @@ function App() {
 
   const handleSaveEdits = async (draft: ClientProfilePatch) => {
     if (!clientPortal) return;
-    await fetchJson(`/clients/${clientPortal.client.id}`, { method: "PATCH", body: JSON.stringify(draft) });
+    const updatedClient = await fetchJson<ClientProfile>(`/clients/${clientPortal.client.id}`, { method: "PATCH", body: JSON.stringify(draft) });
+    setSession(prev => prev ? {
+      ...prev,
+      clients: prev.clients.map(client => client.id === updatedClient.id ? updatedClient : client)
+    } : prev);
     // Reload the client portal to reflect saved changes
     const [portal, checkIns] = await Promise.all([
       fetchJson<ClientSession>(`/session/client/${clientPortal.client.id}`),
@@ -5850,6 +6017,53 @@ function App() {
     push("Settings saved");
   };
 
+  const handlePreviewWorkspace = useCallback((patch: Partial<CoachWorkspace>) => {
+    setSession(prev => {
+      if (!prev) return prev;
+      const nextWorkspace = { ...prev.workspace, ...patch };
+      if (
+        nextWorkspace.name === prev.workspace.name &&
+        nextWorkspace.heroMessage === prev.workspace.heroMessage &&
+        nextWorkspace.brandColor === prev.workspace.brandColor &&
+        nextWorkspace.accentColor === prev.workspace.accentColor
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        workspace: nextWorkspace
+      };
+    });
+  }, []);
+
+  const handleCompleteOnboarding = async (draft: OnboardingDraft) => {
+    if (!session) return;
+    const payload = {
+      workspaceName: draft.name.trim() || session.workspace.name,
+      heroMessage: draft.heroMessage.trim() || session.workspace.heroMessage,
+      brandColor: draft.brandColor,
+      accentColor: draft.accentColor,
+      stripeConnected: draft.stripeConnected,
+      coachFirstName: draft.coachFirstName.trim() || session.coach.firstName,
+      coachLastName: draft.coachLastName.trim() || session.coach.lastName,
+      coachEmail: draft.coachEmail.trim() || session.coach.email,
+      coachTypes: draft.coachTypes
+    };
+
+    const result = await fetchJson<{ coachId: string; workspaceId: string; session: CoachSession }>("/onboarding/coach", { method: "POST", body: JSON.stringify(payload) });
+    setSession(result.session);
+    setSelectedClientId(result.session.clients[0]?.id ?? null);
+    setClientPortal(null);
+    setProofCard(null);
+    setCheckInHistory([]);
+    setShowOnboarding(false);
+    try {
+      localStorage.setItem("coachos_onboarded", "true");
+      localStorage.setItem(coachIdStorageKey, result.coachId);
+    } catch { /* ignore */ }
+    push("Welcome to CoachOS!", "success");
+  };
+
   const handleAddClientSuccess = async () => {
     setShowAddClientModal(false);
     await loadCoach(selectedClientId ?? undefined);
@@ -5874,7 +6088,7 @@ function App() {
         <div className="loading">
           <div className="loading-inner">
             <div className="loading-logo">C</div>
-            <p style={{ color: "var(--danger)", fontWeight: 600 }}>⚠ Cannot connect to CoachOS API</p>
+            <p style={{ color: "var(--danger)", fontWeight: 600 }}>âš  Cannot connect to CoachOS API</p>
             <p className="muted text-sm" style={{ maxWidth: 380, textAlign: "center" }}>{loadError}</p>
             <p className="muted text-xs">Run: <code>npm run dev:api</code></p>
             <button onClick={() => { setLoadError(null); loadCoach().catch(e => setLoadError(e.message)); }}>Retry</button>
@@ -5887,7 +6101,7 @@ function App() {
         <div className="loading-inner">
           <div className="loading-logo">C</div>
           <div className="spinner" />
-          <p className="muted">Loading CoachOS…</p>
+          <p className="muted">Loading CoachOSâ€¦</p>
         </div>
       </div>
     );
@@ -5912,7 +6126,7 @@ function App() {
           />
         )}
         {activeNav === "clients" && (
-          <ClientsView session={session} onOpenClient={id => { setActiveNav("portal"); switchClient(id); }} onAddClient={() => setShowAddClientModal(true)} />
+          <ClientsView session={session} onOpenClient={id => { setActiveNav("portal"); switchClient(id); }} onAddClient={() => setShowAddClientModal(true)} onNav={setActiveNav} />
         )}
         {activeNav === "plans" && (
           <PlansView session={session} onNav={handleNavWithPortal} />
@@ -5996,11 +6210,10 @@ function App() {
 
       {showOnboarding && (
         <OnboardingWizard
-          onComplete={() => {
-            setShowOnboarding(false);
-            try { localStorage.setItem("coachos_onboarded", "true"); } catch { /* ignore */ }
-            push("Welcome to CoachOS!", "success");
-          }}
+          workspace={session.workspace}
+          coach={session.coach}
+          onPreview={handlePreviewWorkspace}
+          onComplete={handleCompleteOnboarding}
         />
       )}
     </div>
@@ -6008,3 +6221,4 @@ function App() {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+
