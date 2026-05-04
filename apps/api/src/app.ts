@@ -171,6 +171,15 @@ export function createApp(store: DemoStore) {
     res.json(await store.updateWorkspace(req.body));
   });
 
+  app.post("/api/onboarding/coach", async (req, res) => {
+    const result = await store.createCoachWorkspace(req.body);
+    if (!result.success) {
+      res.status(400).json({ message: "Invalid coach onboarding payload.", issues: result.issues });
+      return;
+    }
+    res.status(201).json(result);
+  });
+
   app.post("/api/import/preview", (req, res) => {
     const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
     res.json(store.previewImport(rows));
@@ -217,6 +226,15 @@ export function createApp(store: DemoStore) {
     res.json(plan);
   });
 
+  app.patch("/api/plans/:planId", async (req, res) => {
+    const plan = await store.updatePlan(req.params.planId, req.body);
+    if (!plan) {
+      res.status(404).json({ message: "Plan not found." });
+      return;
+    }
+    res.json(plan);
+  });
+
   app.post("/api/check-ins", async (req, res) => {
     const result = await store.submitCheckIn(req.body);
     if (!result.success) {
@@ -224,6 +242,10 @@ export function createApp(store: DemoStore) {
       return;
     }
     res.json(result);
+  });
+
+  app.post("/api/check-ins/:checkInId/photo", (_req, res) => {
+    res.json({ ok: true });
   });
 
   app.get("/api/dashboard/morning", async (_req, res) => {
@@ -327,7 +349,8 @@ export function createApp(store: DemoStore) {
   // ── Recipe Library ───────────────────────
   app.get("/api/recipes", (req, res) => {
     const food = typeof req.query.food === "string" ? req.query.food : undefined;
-    res.json(store.suggestRecipe(food));
+    const search = typeof req.query.search === "string" ? req.query.search : undefined;
+    res.json(food ? store.suggestRecipe(food) : store.listRecipes(search));
   });
 
   // ── Habit Tracking ────────────────────────

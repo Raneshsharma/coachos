@@ -4,6 +4,36 @@ import { createApp } from "./app";
 import { DemoStore } from "./store";
 
 describe("CoachOS API", () => {
+  it("creates a fresh coach workspace during onboarding", async () => {
+    const app = createApp(await DemoStore.create());
+
+    const response = await request(app)
+      .post("/api/onboarding/coach")
+      .send({
+        workspaceName: "Arc Strength Lab",
+        heroMessage: "Coaching that adapts around real life.",
+        brandColor: "#1f6f68",
+        accentColor: "#f2a541",
+        stripeConnected: false,
+        coachFirstName: "Maya",
+        coachLastName: "Stone",
+        coachEmail: "maya@example.com",
+        coachTypes: ["strength", "nutrition"]
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.coachId).toBeTruthy();
+    expect(response.body.workspaceId).toBeTruthy();
+    expect(response.body.session.workspace.name).toBe("Arc Strength Lab");
+    expect(response.body.session.coach.email).toBe("maya@example.com");
+    expect(response.body.session.clients).toEqual([]);
+
+    const sessionResponse = await request(app).get("/api/session/coach");
+    expect(sessionResponse.body.coach.email).toBe("maya@example.com");
+    expect(sessionResponse.body.workspace.name).toBe("Arc Strength Lab");
+    expect(sessionResponse.body.clients).toEqual([]);
+  });
+
   it("imports clients and reflects them in the coach session", async () => {
     const app = createApp(await DemoStore.create());
 
@@ -97,6 +127,8 @@ describe("CoachOS API", () => {
     const updated = await request(app)
       .patch("/api/clients/client_1")
       .send({
+        fullName: "Ava Taylor",
+        email: "ava-updated@example.com",
         goal: "Cut 5kg while keeping squat strength",
         status: "at_risk",
         monthlyPriceGbp: 219,
@@ -104,8 +136,15 @@ describe("CoachOS API", () => {
       });
 
     expect(updated.status).toBe(200);
+    expect(updated.body.fullName).toBe("Ava Taylor");
+    expect(updated.body.email).toBe("ava-updated@example.com");
     expect(updated.body.goal).toContain("squat strength");
     expect(updated.body.monthlyPriceGbp).toBe(219);
+
+    const session = await request(app).get("/api/session/coach");
+    const sessionClient = session.body.clients.find((item: { id: string }) => item.id === "client_1");
+    expect(sessionClient.fullName).toBe("Ava Taylor");
+    expect(sessionClient.goal).toContain("squat strength");
 
     const billing = await request(app).get("/api/billing");
     const subscription = billing.body.subscriptions.find((item: { clientId: string }) => item.clientId === "client_1");

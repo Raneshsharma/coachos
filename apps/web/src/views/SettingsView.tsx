@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 type CoachSession = { workspace: any; coach: any; clients: any[]; plans: any[]; subscriptions: any[]; dashboard: any };
 type DayKey = "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday";
@@ -7,6 +7,14 @@ export function SettingsView({ session, onSave }: {
   session: CoachSession;
   onSave: (draft: any) => Promise<void>;
 }) {
+  const readStored = <T,>(key: string, fallback: T): T => {
+    try {
+      const stored = localStorage.getItem(key);
+      return stored ? { ...fallback, ...JSON.parse(stored) } : fallback;
+    } catch {
+      return fallback;
+    }
+  };
   const [draft, setDraft] = useState({
     name: session.workspace.name,
     brandColor: session.workspace.brandColor,
@@ -15,16 +23,16 @@ export function SettingsView({ session, onSave }: {
     stripeConnected: session.workspace.stripeConnected,
     coachGender: (session.coach as any).gender ?? "male",
   });
-  const [notifPrefs, setNotifPrefs] = useState({
+  const [notifPrefs, setNotifPrefs] = useState(() => readStored("coachos_notification_preferences", {
     enabled: true,
     clientCheckIn: true,
     sessionReminder: true,
     paymentReceived: true,
     newClientRequest: false,
     emailEnabled: true,
-  });
+  }));
   const [savingNotif, setSavingNotif] = useState(false);
-  const [availHours, setAvailHours] = useState<Record<DayKey, {enabled:boolean;start:string;end:string}>>({
+  const [availHours, setAvailHours] = useState<Record<DayKey, {enabled:boolean;start:string;end:string}>>(() => readStored("coachos_availability_hours", {
     monday: { enabled: true, start: "09:00", end: "17:00" },
     tuesday: { enabled: true, start: "09:00", end: "17:00" },
     wednesday: { enabled: true, start: "09:00", end: "17:00" },
@@ -32,9 +40,26 @@ export function SettingsView({ session, onSave }: {
     friday: { enabled: true, start: "09:00", end: "17:00" },
     saturday: { enabled: false, start: "10:00", end: "14:00" },
     sunday: { enabled: false, start: "10:00", end: "14:00" },
+  }));
+  const [blockedDates, setBlockedDates] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("coachos_blocked_dates") ?? "[]"); }
+    catch { return []; }
   });
-  const [blockedDates, setBlockedDates] = useState<string[]>([]);
   const [savingAvail, setSavingAvail] = useState(false);
+  const [notifSaved, setNotifSaved] = useState(false);
+  const [availSaved, setAvailSaved] = useState(false);
+
+  useEffect(() => {
+    if (!notifSaved) return;
+    const timer = setTimeout(() => setNotifSaved(false), 2000);
+    return () => clearTimeout(timer);
+  }, [notifSaved]);
+
+  useEffect(() => {
+    if (!availSaved) return;
+    const timer = setTimeout(() => setAvailSaved(false), 2000);
+    return () => clearTimeout(timer);
+  }, [availSaved]);
 
   const notifTypes = [
     { key: "clientCheckIn", label: "Client Check-in", desc: "When a client submits a check-in" },
@@ -143,13 +168,19 @@ export function SettingsView({ session, onSave }: {
 
           <div style={{ marginTop: "1rem" }}>
             <button
-              onClick={async () => { setSavingNotif(true); await new Promise(r => setTimeout(r, 400)); setSavingNotif(false); }}
+              onClick={async () => {
+                setSavingNotif(true);
+                localStorage.setItem("coachos_notification_preferences", JSON.stringify(notifPrefs));
+                setSavingNotif(false);
+                setNotifSaved(true);
+              }}
               disabled={savingNotif}
               className="btn-primary"
               style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "none", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, cursor: savingNotif ? "not-allowed" : "pointer" }}
             >
               {savingNotif ? "Saving..." : "Save Preferences"}
             </button>
+            {notifSaved && <span className="text-sm muted" style={{ marginLeft: "0.75rem" }}>Saved</span>}
           </div>
         </div>
       </div>
@@ -209,13 +240,20 @@ export function SettingsView({ session, onSave }: {
           </div>
 
           <button
-            onClick={async () => { setSavingAvail(true); await new Promise(r => setTimeout(r, 400)); setSavingAvail(false); }}
+            onClick={async () => {
+              setSavingAvail(true);
+              localStorage.setItem("coachos_availability_hours", JSON.stringify(availHours));
+              localStorage.setItem("coachos_blocked_dates", JSON.stringify(blockedDates.filter(Boolean)));
+              setSavingAvail(false);
+              setAvailSaved(true);
+            }}
             disabled={savingAvail}
             className="btn-primary"
             style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "none", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, cursor: savingAvail ? "not-allowed" : "pointer" }}
           >
             {savingAvail ? "Saving..." : "Save Availability"}
           </button>
+          {availSaved && <span className="text-sm muted" style={{ marginLeft: "0.75rem" }}>Saved</span>}
         </div>
       </div>
     </div>
