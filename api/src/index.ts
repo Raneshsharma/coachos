@@ -1,10 +1,10 @@
 /**
- * Cloudflare Workers API — backed by Supabase PostgreSQL.
+ * Cloudflare Workers API — backed by getSupabase() PostgreSQL.
  * All routes mirror the original in-memory API so the frontend is unchanged.
  */
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { getSupabase } from "./supabase";
+import { getSupabase } from "./getSupabase()";
 
 // ── Domain types ───────────────────────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ interface CoachUser {
 // ── DB → API shape helpers ────────────────────────────────────────────────────
 
 function mapClient(row: Record<string, unknown>): ClientProfile {
-  // Normalize Supabase status values to match frontend domain types
+  // Normalize getSupabase() status values to match frontend domain types
   const rawStatus = row.status as string;
   const status = (rawStatus === "trialing" ? "trial" : rawStatus) as ClientProfile["status"];
   return {
@@ -156,7 +156,7 @@ function mapSubscription(row: Record<string, unknown>): PaymentSubscription {
 // ── Store operations ─────────────────────────────────────────────────────────
 
 async function getWorkspace(): Promise<CoachWorkspace | null> {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("workspaces")
     .select("*")
     .eq("id", "ws_1")
@@ -173,7 +173,7 @@ async function getWorkspace(): Promise<CoachWorkspace | null> {
 }
 
 async function getCoach(): Promise<CoachUser | null> {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("coaches")
     .select("*")
     .eq("id", "coach_1")
@@ -247,7 +247,7 @@ async function createClient(body: {
     .join("")
     .toUpperCase();
 
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("clients")
     .insert({
       workspace_id: "ws_1",
@@ -295,14 +295,14 @@ async function generatePlan(clientId: string) {
   const client = await getClient(clientId);
   if (!client) return null;
 
-  const { data: existing } = await supabase
+  const { data: existing } = await getSupabase()
     .from("plans")
     .select("*")
     .eq("client_id", clientId)
     .maybeSingle();
 
   if (existing) {
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from("plans")
       .update({
         status: "draft",
@@ -316,7 +316,7 @@ async function generatePlan(clientId: string) {
     return data ? mapPlan(data) : null;
   }
 
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("plans")
     .insert({
       client_id: clientId,
@@ -332,7 +332,7 @@ async function generatePlan(clientId: string) {
 }
 
 async function approvePlan(id: string) {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("plans")
     .update({ status: "approved" })
     .eq("id", id)
@@ -349,7 +349,7 @@ async function listCheckIns(opts: { clientId?: string } = {}) {
 }
 
 async function submitCheckIn(body: { clientId: string; submittedAt?: string; progress: CheckIn["progress"] }) {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("check_ins")
     .insert({
       client_id: body.clientId,
@@ -366,13 +366,13 @@ async function submitCheckIn(body: { clientId: string; submittedAt?: string; pro
 
   // Recalculate adherence score
   if (data) {
-    const { data: allCheckIns } = await supabase
+    const { data: allCheckIns } = await getSupabase()
       .from("check_ins")
       .select("id")
       .eq("client_id", body.clientId);
     const count = (allCheckIns ?? []).length;
     const newScore = Math.min(100, Math.round((count / 14) * 100));
-    await supabase
+    await getSupabase()
       .from("clients")
       .update({ adherence_score: newScore })
       .eq("id", body.clientId);
@@ -382,7 +382,7 @@ async function submitCheckIn(body: { clientId: string; submittedAt?: string; pro
 }
 
 async function getMessages(clientId: string) {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("messages")
     .select("*")
     .eq("client_id", clientId)
@@ -465,14 +465,14 @@ async function getAnalytics() {
 
 async function getRuntimeInfo() {
   return {
-    storage: "supabase",
-    supabaseUrl: process.env.SUPABASE_URL ?? "not configured",
-    services: { planGeneration: "supabase", billing: "supabase" },
+    storage: "getSupabase()",
+    getSupabase()Url: process.env.getSupabase()_URL ?? "not configured",
+    services: { planGeneration: "getSupabase()", billing: "getSupabase()" },
   };
 }
 
 async function updateWorkspace(body: Partial<CoachWorkspace>) {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("workspaces")
     .update({
       name: body.name,
@@ -510,7 +510,7 @@ async function listHabits(clientId?: string) {
 }
 
 async function createHabit(body: { clientId: string; title: string; target: number; frequency: string }) {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("habits")
     .insert({ client_id: body.clientId, title: body.title, target: body.target, frequency: body.frequency })
     .select()
@@ -527,7 +527,7 @@ async function createHabit(body: { clientId: string; title: string; target: numb
 }
 
 async function toggleHabitCompletion(habitId: string, date: string) {
-  const { data: existing } = await supabase
+  const { data: existing } = await getSupabase()
     .from("habit_completions")
     .select("*")
     .eq("habit_id", habitId)
@@ -539,7 +539,7 @@ async function toggleHabitCompletion(habitId: string, date: string) {
     return { completion: { habitId, completed: false, date } };
   }
 
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("habit_completions")
     .insert({ habit_id: habitId, date, completed: true })
     .select()
@@ -553,7 +553,7 @@ async function createBookedSession(body: {
 }) {
   const coach = await getCoach();
   if (!coach) return null;
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("booked_sessions")
     .insert({
       client_id: body.clientId,
@@ -642,7 +642,7 @@ async function updateGroupProgram(programId: string, patch: {
   if (patch.monthlyPriceGbp !== undefined) updates.monthly_price_gbp = patch.monthlyPriceGbp;
   if (patch.memberIds !== undefined) updates.member_ids = patch.memberIds;
   if (Object.keys(updates).length === 0) return null;
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("group_programs")
     .update(updates)
     .eq("id", programId)
@@ -681,7 +681,7 @@ async function listExercises(opts: { search?: string; bodyPart?: string; equipme
 
 async function suggestRecipe(food?: string) {
   if (food) {
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from("recipes")
       .select("*")
       .ilike("name", `%${food}%`)
@@ -705,7 +705,7 @@ async function suggestRecipe(food?: string) {
 }
 
 async function listGroupPrograms() {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("group_programs")
     .select("*")
     .eq("archived", false)
@@ -714,7 +714,7 @@ async function listGroupPrograms() {
 }
 
 async function createGroupProgram(body: Record<string, unknown>) {
-  const { data } = await supabase
+  const { data } = await getSupabase()
     .from("group_programs")
     .insert({ ...body, workspace_id: "ws_1" })
     .select()
@@ -799,7 +799,7 @@ app.use("/*", cors({
   allowHeaders: ["Content-Type"],
 }));
 
-app.get("/api/health", (c) => c.json({ ok: true, service: "coachos-api", db: "supabase" }));
+app.get("/api/health", (c) => c.json({ ok: true, service: "coachos-api", db: "getSupabase()" }));
 
 app.get("/api/runtime", async (c) => c.json(await getRuntimeInfo()));
 
@@ -888,7 +888,7 @@ app.patch("/api/plans/:planId", async (c) => {
   if (patch.workouts !== undefined) updates.workouts = patch.workouts;
   if (patch.nutrition !== undefined) updates.nutrition = patch.nutrition;
   if (patch.explanation !== undefined) updates.explanation = patch.explanation;
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("plans")
     .update(updates)
     .eq("id", planId)
@@ -932,7 +932,7 @@ app.post("/api/messages", async (c) => {
   if (!clientId?.trim() || !content?.trim()) return c.json({ message: "clientId and content are required." }, 400);
   const coach = await getCoach();
   if (!coach) return c.json({ message: "Coach not found." }, 404);
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("messages")
     .insert({ coach_id: coach.id, client_id: clientId, content: content.trim(), sender: "coach", sent_at: new Date().toISOString() })
     .select()
@@ -942,7 +942,7 @@ app.post("/api/messages", async (c) => {
 });
 
 app.get("/api/clients/:clientId/notes", async (c) => {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("client_notes")
     .select("*")
     .eq("client_id", c.req.param("clientId"))
@@ -956,7 +956,7 @@ app.post("/api/clients/:clientId/notes", async (c) => {
   if (!content?.trim()) return c.json({ message: "Content is required." }, 400);
   const coach = await getCoach();
   if (!coach) return c.json({ message: "Coach not found." }, 404);
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("client_notes")
     .insert({ coach_id: coach.id, client_id: c.req.param("clientId"), content: content.trim() })
     .select()
@@ -968,7 +968,7 @@ app.post("/api/clients/:clientId/notes", async (c) => {
 app.patch("/api/notes/:noteId", async (c) => {
   const { content } = await c.req.json();
   if (!content?.trim()) return c.json({ message: "Content is required." }, 400);
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("client_notes")
     .update({ content: content.trim(), updated_at: new Date().toISOString() })
     .eq("id", c.req.param("noteId"))
@@ -986,7 +986,7 @@ app.delete("/api/notes/:noteId", async (c) => {
 });
 
 app.delete("/api/clients/:clientId/notes/:noteId", async (c) => {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("client_notes")
     .delete()
     .eq("id", c.req.param("noteId"))
@@ -996,7 +996,7 @@ app.delete("/api/clients/:clientId/notes/:noteId", async (c) => {
 });
 
 app.get("/api/clients/:clientId/metrics", async (c) => {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("body_metrics")
     .select("*")
     .eq("client_id", c.req.param("clientId"))
@@ -1014,7 +1014,7 @@ app.get("/api/clients/:clientId/metrics", async (c) => {
 
 app.post("/api/clients/:clientId/metrics", async (c) => {
   const body = await c.req.json();
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("body_metrics")
     .insert({
       client_id: c.req.param("clientId"),
@@ -1061,7 +1061,7 @@ app.patch("/api/coach/profile", async (c) => {
   const body = await c.req.json();
   const coach = await getCoach();
   if (!coach) return c.json({ message: "Coach not found." }, 404);
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("coaches")
     .update({
       full_name: body.fullName ?? coach.fullName,
@@ -1079,7 +1079,7 @@ app.patch("/api/coach/profile", async (c) => {
 });
 
 app.post("/api/admin/state/reset", async (c) =>
-  c.json({ ok: true, message: "Reset not implemented — use Supabase dashboard." })
+  c.json({ ok: true, message: "Reset not implemented — use getSupabase() dashboard." })
 );
 
 app.get("/api/group-programs", async (c) => c.json(await listGroupPrograms()));
@@ -1102,7 +1102,7 @@ app.patch("/api/group-programs/:programId", async (c) => {
 });
 
 app.delete("/api/group-programs/:programId", async (c) => {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("group_programs")
     .update({ archived: true })
     .eq("id", c.req.param("programId"));
@@ -1137,7 +1137,7 @@ app.get("/api/proof-cards/:clientId", async (c) => {
 });
 
 app.get("/api/clients/:clientId/photos", async (c) => {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from("check_ins")
     .select("id, client_id, submitted_at, photo_url")
     .eq("client_id", c.req.param("clientId"))
@@ -1192,3 +1192,4 @@ app.post("/api/nutrition/swap", async (c) => c.json(await suggestNutritionSwap(a
 app.post("/api/nutrition/swap/apply", async (c) => c.json({ success: true, swap: {} }));
 
 export default { fetch: app.fetch };
+
