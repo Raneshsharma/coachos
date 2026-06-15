@@ -17,6 +17,7 @@ interface CheckIn {
     energyScore?: number;
     steps?: number;
     waistCm?: number;
+    bodyFatPct?: number;
     adherenceScore?: number;
     notes?: string;
   };
@@ -142,6 +143,7 @@ function mapCheckIn(row: Record<string, unknown>): CheckIn {
       energyScore: pg?.energyScore as number | undefined,
       steps: pg?.steps as number | undefined,
       waistCm: pg?.waistCm as number | undefined,
+      bodyFatPct: pg?.bodyFatPct as number | undefined,
       adherenceScore: pg?.adherenceScore as number | undefined,
       notes: pg?.notes as string | undefined,
     },
@@ -367,6 +369,7 @@ async function submitCheckIn(body: { clientId: string; submittedAt?: string; pro
     energyScore: body.progress.energyScore,
     steps: body.progress.steps,
     waistCm: body.progress.waistCm,
+    bodyFatPct: (body.progress as any).bodyFatPct,
     adherenceScore: body.progress.adherenceScore,
     notes: body.progress.notes,
   };

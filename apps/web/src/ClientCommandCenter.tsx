@@ -76,9 +76,9 @@ export function ClientCommandCenter({
 
   const [editMedical, setEditMedical] = useState(false);
   const [medicalDraft, setMedicalDraft] = useState({
-    healthConditions: [] as string[],
-    allergies: [] as string[],
-    supplements: [] as string[],
+    healthConditions: "" as string,
+    allergies: "" as string,
+    supplements: "" as string,
     dailyWaterTarget: 2.5,
     dailyStepsTarget: 8000,
   });
@@ -139,19 +139,20 @@ export function ClientCommandCenter({
           }
         }
         const cAny = c as Record<string, unknown>;
-        const hc = (cAny.healthConditions as string[]) ?? [];
+        const hc = (cAny.healthConditions as any[]) ?? [];
+        const hcLabels = hc.map((h: any) => typeof h === "string" ? h : (h?.label ?? "")).filter(Boolean);
         const supp = (cAny.supplements as string[]) ?? [];
         const allg = (cAny.allergies as string[]) ?? [];
         const water = (cAny.dailyWaterTarget as number) ?? 2.5;
         const steps = (cAny.dailyStepsTarget as number) ?? 8000;
         setMedicalDraft({
-          healthConditions: hc,
-          allergies: allg,
-          supplements: supp,
+          healthConditions: hcLabels.join(", "),
+          allergies: allg.join(", "),
+          supplements: supp.join(", "),
           dailyWaterTarget: water,
           dailyStepsTarget: steps,
         });
-        const mac = cAny.macros as Record<string, number> ?? { calories: 0, proteinG: 0, fatG: 0, carbsG: 0, fiberG: 0, sugarG: 0, sodiumMg: 0 };
+        const mac = cAny.macros as Record<string, number> ?? { calories: c.nutritionCalories ?? 0, proteinG: c.nutritionProteinG ?? 0, fatG: c.nutritionFatG ?? 0, carbsG: c.nutritionCarbsG ?? 0, fiberG: 0, sugarG: 0, sodiumMg: 0 };
         setMacroDraft({
           calories: mac.calories ?? 0,
           proteinG: mac.proteinG ?? 0,
@@ -189,14 +190,20 @@ export function ClientCommandCenter({
   })();
 
   const saveMeals = async () => {
-    if (!plan) return;
     setSavingMeals(true);
     try {
-      await fetchJson(`/plans/${plan.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ nutritionMeals: meals, weekMeals }),
-      });
-      push("Meal plan saved", "success");
+      let planId = plan?.id;
+      if (!planId) {
+        const gen = await fetchJson<any>("/plans/generate", { method: "POST", body: JSON.stringify({ clientId }) });
+        planId = gen?.id;
+        setPlan(gen);
+      }
+      if (planId) {
+        await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify({ nutritionMeals: meals, weekMeals }) });
+        push("Meal plan saved", "success");
+      } else {
+        push("Could not save — generate a plan first", "error");
+      }
     } catch {
       push("Failed to save meals", "error");
     } finally {
@@ -205,14 +212,20 @@ export function ClientCommandCenter({
   };
 
   const saveWorkouts = async () => {
-    if (!plan) return;
     setSavingWorkouts(true);
     try {
-      await fetchJson(`/plans/${plan.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ workoutExercises: workouts, weekWorkouts }),
-      });
-      push("Workout plan saved", "success");
+      let planId = plan?.id;
+      if (!planId) {
+        const gen = await fetchJson<any>("/plans/generate", { method: "POST", body: JSON.stringify({ clientId }) });
+        planId = gen?.id;
+        setPlan(gen);
+      }
+      if (planId) {
+        await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify({ workoutExercises: workouts, weekWorkouts }) });
+        push("Workout plan saved", "success");
+      } else {
+        push("Could not save — generate a plan first", "error");
+      }
     } catch {
       push("Failed to save workouts", "error");
     } finally {
@@ -223,9 +236,19 @@ export function ClientCommandCenter({
   const handleSaveMedical = async () => {
     setSavingMedical(true);
     try {
+      const payload = {
+        healthConditions: medicalDraft.healthConditions
+          .split(",").map((s: string) => ({ label: s.trim(), note: "" })).filter((h: any) => h.label),
+        allergies: medicalDraft.allergies
+          .split(",").map((s: string) => s.trim()).filter(Boolean),
+        supplements: medicalDraft.supplements
+          .split(",").map((s: string) => s.trim()).filter(Boolean),
+        dailyWaterTarget: medicalDraft.dailyWaterTarget,
+        dailyStepsTarget: medicalDraft.dailyStepsTarget,
+      };
       await fetchJson(`/clients/${clientId}`, {
         method: "PATCH",
-        body: JSON.stringify(medicalDraft),
+        body: JSON.stringify(payload),
       });
       setEditMedical(false);
       push("Medical info updated", "success");
@@ -241,7 +264,12 @@ export function ClientCommandCenter({
     try {
       await fetchJson(`/clients/${clientId}`, {
         method: "PATCH",
-        body: JSON.stringify({ macros: macroDraft }),
+        body: JSON.stringify({
+          nutritionCalories: Number(macroDraft.calories),
+          nutritionProteinG: Number(macroDraft.proteinG),
+          nutritionFatG: Number(macroDraft.fatG),
+          nutritionCarbsG: Number(macroDraft.carbsG),
+        }),
       });
       setEditMacros(false);
       push("Macros updated", "success");
@@ -476,15 +504,9 @@ export function ClientCommandCenter({
                 </label>
                 <input
                   className="input"
-                  value={medicalDraft.healthConditions.join(", ")}
+                  value={medicalDraft.healthConditions}
                   onChange={(e) =>
-                    setMedicalDraft((d) => ({
-                      ...d,
-                      healthConditions: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    }))
+                    setMedicalDraft((d) => ({ ...d, healthConditions: e.target.value }))
                   }
                   placeholder="e.g. Hypothyroidism, Knee injury"
                   style={{ fontSize: "0.8rem", padding: "0.5rem 0.75rem" }}
@@ -496,15 +518,9 @@ export function ClientCommandCenter({
                 </label>
                 <input
                   className="input"
-                  value={medicalDraft.allergies.join(", ")}
+                  value={medicalDraft.allergies}
                   onChange={(e) =>
-                    setMedicalDraft((d) => ({
-                      ...d,
-                      allergies: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    }))
+                    setMedicalDraft((d) => ({ ...d, allergies: e.target.value }))
                   }
                   placeholder="e.g. Lactose, Gluten"
                   style={{ fontSize: "0.8rem", padding: "0.5rem 0.75rem" }}
@@ -516,15 +532,9 @@ export function ClientCommandCenter({
                 </label>
                 <input
                   className="input"
-                  value={medicalDraft.supplements.join(", ")}
+                  value={medicalDraft.supplements}
                   onChange={(e) =>
-                    setMedicalDraft((d) => ({
-                      ...d,
-                      supplements: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    }))
+                    setMedicalDraft((d) => ({ ...d, supplements: e.target.value }))
                   }
                   placeholder="e.g. Vitamin D3, Whey Protein"
                   style={{ fontSize: "0.8rem", padding: "0.5rem 0.75rem" }}
@@ -575,32 +585,24 @@ export function ClientCommandCenter({
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", flex: 1 }}>
-              {medicalDraft.healthConditions.length > 0 && (
+              {medicalDraft.healthConditions.trim() && (
                 <div>
                   <div style={{ ...fn700, marginBottom: "0.3rem" }}>Health Conditions</div>
-                  {medicalDraft.healthConditions.map((c, i) => (
-                    <span
-                      key={i}
-                      className="badge badge-danger"
-                      style={{ marginRight: "0.3rem", marginBottom: "0.2rem", fontSize: "0.65rem" }}
-                    >
-                      {c}
-                    </span>
-                  ))}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                    {medicalDraft.healthConditions.split(",").map((c, i) => (
+                      <span key={i} className="badge badge-danger" style={{ fontSize: "0.65rem" }}>{c.trim()}</span>
+                    ))}
+                  </div>
                 </div>
               )}
-              {medicalDraft.allergies.length > 0 && (
+              {medicalDraft.allergies.trim() && (
                 <div>
                   <div style={{ ...fn700, marginBottom: "0.3rem" }}>Allergies</div>
-                  {medicalDraft.allergies.map((a, i) => (
-                    <span
-                      key={i}
-                      className="badge badge-warning"
-                      style={{ marginRight: "0.3rem", marginBottom: "0.2rem", fontSize: "0.65rem" }}
-                    >
-                      {a}
-                    </span>
-                  ))}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                    {medicalDraft.allergies.split(",").map((a, i) => (
+                      <span key={i} className="badge badge-warning" style={{ fontSize: "0.65rem" }}>{a.trim()}</span>
+                    ))}
+                  </div>
                 </div>
               )}
               <div>
@@ -638,23 +640,19 @@ export function ClientCommandCenter({
                   </span>
                 </div>
               </div>
-              {medicalDraft.supplements.length > 0 && (
+              {medicalDraft.supplements.trim() && (
                 <div>
                   <div style={{ ...fn700, marginBottom: "0.3rem" }}>Supplements</div>
-                  {medicalDraft.supplements.map((s, i) => (
-                    <span
-                      key={i}
-                      className="badge badge-info"
-                      style={{ marginRight: "0.3rem", marginBottom: "0.2rem", fontSize: "0.65rem" }}
-                    >
-                      {s}
-                    </span>
-                  ))}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                    {medicalDraft.supplements.split(",").map((s, i) => (
+                      <span key={i} className="badge badge-info" style={{ fontSize: "0.65rem" }}>{s.trim()}</span>
+                    ))}
+                  </div>
                 </div>
               )}
-              {!medicalDraft.healthConditions.length &&
-                !medicalDraft.allergies.length &&
-                !medicalDraft.supplements.length && (
+              {!medicalDraft.healthConditions.trim() &&
+                !medicalDraft.allergies.trim() &&
+                !medicalDraft.supplements.trim() && (
                   <p
                     style={{
                       fontFamily: "Inter, sans-serif",
@@ -934,7 +932,21 @@ export function ClientCommandCenter({
                 disabled={savingMeals}
                 style={{ width: "100%" }}
               >
-                {savingMeals ? "Saving..." : "Save Today"}
+                {savingMeals ? "Saving..." : "Save Meals"}
+              </button>
+
+              <button
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  const name = client?.fullName?.split(" ")[0] ?? "client";
+                  const prompt = `Create a meal plan for today for ${name} with ${macroDraft.calories} calories, ${macroDraft.proteinG}g protein, ${macroDraft.fatG}g fat, and ${macroDraft.carbsG}g carbs. Include quantified ingredients and macros per meal.`;
+                  navigator.clipboard.writeText(prompt);
+                  push("Meal plan prompt copied! Open AI Coach to generate.", "info");
+                }}
+                style={{ width: "100%", fontSize: "0.72rem" }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>auto_awesome</span>
+                🤖 AI Plan Meal
               </button>
             </>
           ) : null}
@@ -1150,7 +1162,21 @@ export function ClientCommandCenter({
                 disabled={savingWorkouts}
                 style={{ width: "100%" }}
               >
-                {savingWorkouts ? "Saving..." : "Save Today"}
+                {savingWorkouts ? "Saving..." : "Save Workouts"}
+              </button>
+
+              <button
+                className="btn-ghost btn-sm"
+                onClick={() => {
+                  const name = client?.fullName?.split(" ")[0] ?? "client";
+                  const prompt = `Create a workout plan for ${name}. Include exercises with sets, reps, and rest periods. Consider any medical conditions they have.`;
+                  navigator.clipboard.writeText(prompt);
+                  push("Workout prompt copied! Open AI Coach to generate.", "info");
+                }}
+                style={{ width: "100%", fontSize: "0.72rem" }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>auto_awesome</span>
+                🤖 AI Plan Workout
               </button>
             </>
           ) : null}
