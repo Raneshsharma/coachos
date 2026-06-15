@@ -396,63 +396,72 @@ export function ClientCommandCenter({
 
   return (
     <div className="page-view">
-      {/* HEADER BAR */}
-      <div className="card" style={{ marginBottom: "1.25rem", padding: "1rem 1.5rem" }}>
-        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between", gap: "0.75rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <button
-              className="btn-ghost btn-sm"
-              onClick={onBack}
-              style={{ border: "none", padding: "0.4rem 0.75rem" }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: "1.1rem" }}>arrow_back</span>
-              Back
+      {/* HEADER BAR — RICH CLIENT CARD */}
+      <div className="card" style={{ marginBottom: "1.25rem", padding: "1.5rem", background: "linear-gradient(135deg, var(--bg-card) 0%, rgba(99,102,241,0.05) 100%)", border: "1px solid var(--border)", borderRadius: "var(--r-xl)" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", justifyContent: "space-between" }}>
+          {/* Left: Avatar + Identity */}
+          <div style={{ display: "flex", gap: "1rem", alignItems: "center", flex: "1 1 300px" }}>
+            <button className="btn-ghost btn-sm" onClick={onBack} style={{ border: "none", padding: "0.3rem", flexShrink: 0 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: "1.2rem" }}>arrow_back</span>
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <div
-                style={{
-                  width: "42px",
-                  height: "42px",
-                  borderRadius: "var(--r-md)",
-                  background: "linear-gradient(135deg, var(--success-light) 0%, var(--primary-light) 100%)",
-                  display: "grid",
-                  placeItems: "center",
-                  fontFamily: "Manrope, sans-serif",
-                  fontWeight: 800,
-                  fontSize: "0.85rem",
-                  color: "var(--primary-dark)",
-                }}
-              >
-                {initials(client.fullName)}
+            <div style={{ width: "56px", height: "56px", borderRadius: "var(--r-lg)", background: `linear-gradient(135deg, ${client.status === 'at_risk' ? 'var(--danger-light)' : client.status === 'trial' ? 'var(--warning-light)' : 'var(--primary-light)'} 0%, ${client.status === 'at_risk' ? 'var(--danger-text)' : client.status === 'trial' ? 'var(--warning-text)' : 'var(--primary-dark)'} 100%)`, display: "grid", placeItems: "center", fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1rem", color: "white", flexShrink: 0 }}>
+              {initials(client.fullName)}
+            </div>
+            <div>
+              <h1 style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1.35rem", color: "var(--text-primary)", letterSpacing: "-0.02em", margin: "0 0 0.25rem 0" }}>{client.fullName}</h1>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.35rem" }}>
+                <span className={`badge ${statusBadgeClass}`} style={{ fontSize: "0.65rem" }}>{statusLabel}</span>
+                <span className="badge badge-accent" style={{ fontSize: "0.65rem" }}>
+                  {plan ? plan.title ?? "No Plan" : "No Plan"}
+                </span>
               </div>
-              <div>
-                <h1
-                  style={{
-                    fontFamily: "Manrope, sans-serif",
-                    fontWeight: 800,
-                    fontSize: "1.2rem",
-                    color: "var(--text-primary)",
-                    letterSpacing: "-0.02em",
-                    margin: 0,
-                  }}
-                >
-                  {client.fullName}
-                </h1>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.1rem" }}>
-                  <span className={`badge ${statusBadgeClass}`} style={{ fontSize: "0.65rem" }}>
-                    {statusLabel}
-                  </span>
-                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)" }}>
-                    Adh:{" "}
-                    <span style={{ fontWeight: 700, color: adhColor }}>{client.adherenceScore}%</span>
-                  </span>
-                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)" }}>
-                    £{client.monthlyPriceGbp}
-                    <span style={{ color: "var(--text-muted)" }}>/mo</span>
-                  </span>
-                </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", fontFamily: "var(--font-body)", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>mail</span>
+                  {client.email}
+                </span>
               </div>
             </div>
+          </div>
+
+          {/* Right: Stats Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, auto)", gap: "1rem 1.5rem", flex: "0 1 auto" }}>
+            {[
+              { label: "Adherence", value: `${client.adherenceScore}%`, color: adhColor, icon: "trending_up" },
+              { label: "MRR", value: `£${client.monthlyPriceGbp}`, color: "var(--text-primary)", icon: "payments", sub: "/mo" },
+              { label: "Goal", value: (client.goal ?? "—").length > 25 ? (client.goal ?? "—").substring(0, 25) + "…" : (client.goal ?? "—"), color: "var(--text-primary)", icon: "flag" },
+              { label: "Renews", value: client.nextRenewalDate ?? "—", color: "var(--text-primary)", icon: "calendar_today" },
+            ].map((stat, i) => (
+              <div key={i} style={{ textAlign: "center", minWidth: "80px" }}>
+                <div style={{ fontFamily: "var(--font-body)", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.2rem" }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "0.7rem", verticalAlign: "middle", marginRight: "0.15rem" }}>{stat.icon}</span>
+                  {stat.label}
+                </div>
+                <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1rem", color: stat.color, lineHeight: 1.2 }}>
+                  {stat.value}
+                  {stat.sub && <span style={{ fontSize: "0.65rem", fontWeight: 500, color: "var(--text-muted)" }}>{stat.sub}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom detail row */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
+          <button className="btn-primary btn-sm" onClick={() => { push(`Open Calendar to book session for ${client.fullName}`, "info"); }}>
+            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>event</span>
+            Book Session
+          </button>
+          <button className="btn-ghost btn-sm" onClick={() => { navigator.clipboard.writeText(client.email); push("Email copied", "info"); }}>
+            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>content_copy</span>
+            Copy Email
+          </button>
+          <div style={{ flex: 1 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: "0.65rem", fontWeight: 600, color: "var(--outline)" }}>Last check-in:</span>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: "0.72rem", color: "var(--text-primary)", fontWeight: 600 }}>
+              {latestCi ? new Date(latestCi.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }) : "Never"}
+            </span>
           </div>
         </div>
       </div>
