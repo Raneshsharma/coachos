@@ -1238,31 +1238,37 @@ app.post("/api/ai/coach", async (c) => {
   const systemPrompt = `You are CoachOS AI, an elite health and fitness coaching assistant. Here is the full client data:\n\n${JSON.stringify(context, null, 2)}\n\nBased on this data, provide personalized, actionable coaching advice. Consider the client's medical conditions, nutrition needs, workout history, goals, and check-in progress. Be specific and reference the actual data values. Keep responses concise and practical.`;
 
   try {
-    const response = await fetch("https://api.bytez.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${getEnv("BYTEZ_API_KEY") ?? ""}`,
-      },
-      body: JSON.stringify({
-        model: "deepseek-v3-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: body.prompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-      }),
-    });
+    const apiKey = getEnv("BYTEZ_API_KEY");
+    const providers = [
+      { url: "https://api.bytez.com/v1/chat/completions", key: apiKey, model: "deepseek-v3-pro" },
+      { url: "https://api.deepseek.com/v1/chat/completions", key: apiKey, model: "deepseek-chat" },
+      { url: "https://openrouter.ai/api/v1/chat/completions", key: apiKey, model: "deepseek/deepseek-chat" },
+    ];
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => "Unknown error");
-      return c.json({ message: `Bytez API error: ${errText}` }, 502);
+    let aiContent = "";
+
+    for (const provider of providers) {
+      if (!provider.key) continue;
+      try {
+        const response = await fetch(provider.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${provider.key}` },
+          body: JSON.stringify({ model: provider.model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: body.prompt }], temperature: 0.7, max_tokens: 800 }),
+        });
+        if (response.ok) {
+          const data = await response.json() as Record<string, unknown>;
+          aiContent = (data as any)?.choices?.[0]?.message?.content ?? "";
+          if (aiContent) break;
+        }
+      } catch { /* try next provider */ }
     }
 
-    const data = await response.json() as Record<string, unknown>;
-    const content = (data as any)?.choices?.[0]?.message?.content ?? "";
-    return c.json({ content });
+    if (!aiContent) {
+      const conditions = client.healthConditions?.length ? client.healthConditions.map((h: any) => h.label).join(", ") : "none reported";
+      aiContent = `Based on ${client.fullName}'s profile:\n\n• Goal: ${client.goal}\n• Status: ${client.status}, Adherence: ${client.adherenceScore}%\n• Medical conditions: ${conditions}\n• Current macros: ${client.nutritionCalories ?? 'not set'} cal, ${client.nutritionProteinG ?? 'not set'}g protein\n• Water target: ${client.dailyWaterTarget}L, Steps: ${client.dailyStepsTarget}\n\nRegarding "${body.prompt}":\n\nI recommend reviewing the current plan against their medical conditions and adherence data. Consider adjusting macros based on their goal of "${client.goal}". For specific AI-powered recommendations, please configure a valid DeepSeek or Bytez API key.\n\n[AI fallback — real AI requires valid API key]`;
+    }
+
+    return c.json({ content: aiContent });
   } catch (err) {
     return c.json({ message: `AI request failed: ${err instanceof Error ? err.message : String(err)}` }, 500);
   }
