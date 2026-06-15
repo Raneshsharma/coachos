@@ -16,6 +16,8 @@ interface CheckIn {
     weightKg?: number;
     energyScore?: number;
     steps?: number;
+    waistCm?: number;
+    adherenceScore?: number;
     notes?: string;
   };
 }
@@ -75,9 +77,11 @@ interface CoachWorkspace {
 
 interface CoachUser {
   id: string;
-  fullName: string;
+  workspaceId: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  avatarInitials: string;
+  gender: "male" | "female";
 }
 
 // ── DB → API shape helpers ────────────────────────────────────────────────────
@@ -1064,8 +1068,8 @@ app.patch("/api/coach/profile", async (c) => {
   const { data, error } = await getSupabase()
     .from("coaches")
     .update({
-      full_name: body.fullName ?? coach.fullName,
-      avatar_initials: body.avatarInitials ?? coach.avatarInitials,
+      full_name: body.fullName ?? `${coach.firstName} ${coach.lastName}`,
+      avatar_initials: body.avatarInitials ?? `${coach.firstName[0]}${coach.lastName[0] || ''}`,
     })
     .eq("id", coach.id)
     .select()
