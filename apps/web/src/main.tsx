@@ -10,9 +10,9 @@ import { CompetitorsView } from "./views/CompetitorsView";
 import { ExerciseLibraryView } from "./views/ExerciseLibraryView";
 import { RecipeBrowserView } from "./views/RecipeBrowserView";
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    TYPES
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 type Dashboard = {
   activeClients: number; checkedInToday: number; dueRenewals: number;
   revenueSnapshotGbp: number;
@@ -46,10 +46,11 @@ type Habit = { id: string; clientId: string; title: string; target: number; freq
 type HabitSummary = { habit: Habit; streak: number; todayDone: boolean; totalCompletions: number };
 type Exercise = { id: string; name: string; bodyPart: string; equipment: string; goal: string; difficulty: "beginner"|"intermediate"|"advanced"; instructions: string };
 type Recipe = { id: string; name: string; ingredients: string[]; steps: string[]; calories: number; proteinG: number; carbsG: number; fatG: number; prepTime: number; cookTime: number; tags: string[] };
+type BookedSession = { id: string; clientId: string; clientName: string; sessionType: 'virtual' | 'in_person'; date: string; time: string; duration: number; notes: string; status: 'upcoming' | 'completed' | 'cancelled'; sessionNotes: string; completedAt: string | null; createdAt: string };
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    API HELPERS
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const isProd = import.meta.env.PROD;
 const apiBase = isProd ? "/api" : "http://localhost:4000/api";
 
@@ -60,9 +61,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export { fetchJson };
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    TOAST HOOK
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const MAX_VISIBLE_TOASTS = 5;
 const DEFAULT_DURATION = 4000;
 
@@ -104,7 +105,7 @@ function useToast() {
 
     setToasts(prev => {
       if (prev.length >= MAX_VISIBLE_TOASTS) {
-        // Queue it — don't overflow the screen
+        // Queue it â€” don't overflow the screen
         setQueue(q => [...q, toast]);
         return prev;
       }
@@ -131,18 +132,18 @@ function useToast() {
   return { toasts, push, dismiss, success, error, warning, info };
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CSV HELPER
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function csvToRows(csv: string) {
   const [, ...lines] = csv.trim().split("\n");
   return lines.map(l => l.split(",")).filter(p => p.length >= 4)
     .map(([name, email, goal, price]) => ({ name: name.trim(), email: email.trim(), goal: goal.trim(), monthlyPriceGbp: Number(price.trim()) }));
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    SMALL COMPONENTS
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Avatar({ name }: { name: string }) {
   const initials = name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
   return <div className="client-avatar">{initials}</div>;
@@ -262,9 +263,9 @@ function ToastContainer({
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    SIDEBAR
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Sidebar({
   active, onNav, session, atRiskCount, notifications, setNotifications, showNotifications, setShowNotifications
 }: {
@@ -330,21 +331,21 @@ function Sidebar({
       )}
 
       <nav className="sidebar-nav">
-        {nav("dashboard", "◉", "Dashboard", atRiskCount || undefined)}
+        {nav("dashboard", "â—‰", "Dashboard", atRiskCount || undefined)}
 
         <span className="nav-section-label">Core</span>
-        {nav("clients", "⊞", "All Clients")}
-        {nav("plans", "✦", "AI Plans")}
-        {nav("calendar", "▦", "Calendar")}
-        {nav("habits", "◈", "Habits")}
+        {nav("clients", "âŠž", "All Clients")}
+        {nav("plans", "âœ¦", "AI Plans")}
+        {nav("calendar", "â–¦", "Calendar")}
+        {nav("habits", "â—ˆ", "Habits")}
 
         <span className="nav-section-label">Tools</span>
-        {nav("exercises", "⬢", "Exercise Library")}
-        {nav("recipes", "⬡", "Recipe Browser")}
+        {nav("exercises", "â¬¢", "Exercise Library")}
+        {nav("recipes", "â¬¡", "Recipe Browser")}
 
         <span className="nav-section-label">Business</span>
-        {nav("billing", "£", "Billing & MRR")}
-        {nav("settings", "⚙", "Workspace")}
+        {nav("billing", "Â£", "Billing & MRR")}
+        {nav("settings", "âš™", "Workspace")}
       </nav>
 
       {session && (
@@ -362,16 +363,17 @@ function Sidebar({
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    VIEWS
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 
-// ── SESSION BOOKING MODAL ──────────────
-function SessionBookingModal({ client, onClose, onSuccess, push }: {
+// â”€â”€ SESSION BOOKING MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push }: {
   client: { id: string; fullName: string };
   onClose: () => void;
   onSuccess: () => void;
+  onBookSession?: (session: BookedSession) => void;
   push: (msg: string, type?: string) => void;
 }) {
   const [sessionType, setSessionType] = useState<'virtual' | 'in_person'>('virtual');
@@ -394,6 +396,22 @@ function SessionBookingModal({ client, onClose, onSuccess, push }: {
         method: 'POST',
         body: JSON.stringify({ sessionType, date, time, duration: Number(duration), notes }),
       });
+      if (onBookSession) {
+        onBookSession({
+          id: `bs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          clientId: client.id,
+          clientName: client.fullName,
+          sessionType,
+          date,
+          time,
+          duration: Number(duration),
+          notes,
+          status: 'upcoming',
+          sessionNotes: '',
+          completedAt: null,
+          createdAt: new Date().toISOString(),
+        });
+      }
       setSuccess(true);
       setTimeout(() => { onSuccess(); push(`Session booked for ${client.fullName}!`, 'success'); }, 1500);
     } catch {
@@ -474,7 +492,7 @@ function SessionBookingModal({ client, onClose, onSuccess, push }: {
   );
 }
 
-// ── DASHBOARD VIEW ──────────────────────
+// â”€â”€ DASHBOARD VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push, onLogWorkout, onOpenClientNotes, onAddClient }: {
   session: CoachSession;
   onNav: (id: NavId) => void;
@@ -546,7 +564,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
           severity = risk.severity;
         } else if (c.status === "trial" && !c.lastCheckInDate) {
           priority = 60;
-          reason = "Trial ending soon — no check-in yet";
+          reason = "Trial ending soon â€” no check-in yet";
           action = "Follow up";
           severity = "medium";
         } else if (c.adherenceScore < 50) {
@@ -580,7 +598,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
 
   return (
     <div className="page-view">
-      {/* ── GREETING BANNER ───────────────── */}
+      {/* â”€â”€ GREETING BANNER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="dash-greeting">
         <div className="dash-greeting-left">
           <h1>Good morning, {session.coach.firstName}.</h1>
@@ -594,7 +612,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </div>
       </div>
 
-      {/* ── TODAY'S SESSIONS + STATS ROW ──── */}
+      {/* â”€â”€ TODAY'S SESSIONS + STATS ROW â”€â”€â”€â”€ */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "2rem", marginBottom: "2rem", alignItems: "start" }}>
         <div className="card">
           <div className="flex items-center justify-between mb-md">
@@ -633,7 +651,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
             </div>
             <div className="stat-chip">
               <span className="stat-chip-label">MRR</span>
-              <span className="stat-chip-value">£{mrrGbp.toLocaleString()}</span>
+              <span className="stat-chip-value">Â£{mrrGbp.toLocaleString()}</span>
             </div>
             <div className="stat-chip">
               <span className="stat-chip-label">At-Risk</span>
@@ -647,12 +665,12 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </div>
       </div>
 
-      {/* ── WHO NEEDS ATTENTION ────────────── */}
+      {/* â”€â”€ WHO NEEDS ATTENTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {attentionClients.length > 0 && (
         <div style={{ marginBottom: "2rem" }}>
           <div className="flex items-center justify-between mb-md">
             <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0 }}>Who Needs Attention</h2>
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-muted)" }}>{attentionClients.length} client{attentionClients.length !== 1 ? "s" : ""} · scroll →</span>
+            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-muted)" }}>{attentionClients.length} client{attentionClients.length !== 1 ? "s" : ""} Â· scroll â†’</span>
           </div>
           <div className="h-scroll">
             {attentionClients.map(c => {
@@ -688,7 +706,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </div>
       )}
 
-      {/* ── QUICK ACTIONS ──────────────────── */}
+      {/* â”€â”€ QUICK ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex items-center gap-md flex-wrap mb-xl">
         <button className="quick-action" onClick={onAddClient}>
           <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>person_add</span>
@@ -712,7 +730,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </button>
       </div>
 
-      {/* ── ALL CLIENTS TABLE ──────────────── */}
+      {/* â”€â”€ ALL CLIENTS TABLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="card">
         <div className="flex items-center justify-between mb-md">
           <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0 }}>All Clients</h2>
@@ -741,7 +759,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                   : "Never";
                 const renewal = c.nextRenewalDate
                   ? new Date(c.nextRenewalDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                  : "—";
+                  : "â€”";
                 const sub = session.subscriptions.find(s => s.clientId === c.id);
                 return (
                   <tr key={c.id} style={{ cursor: "pointer" }} onClick={() => { onNav("clients"); }}>
@@ -755,7 +773,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                     </td>
                     <td>
                       <span style={{ color: statusColor(c.status), fontWeight: 600 }}>{statusLabel(c.status)}</span>
-                      {risk && <span style={{ marginLeft: "0.35rem", fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--danger)", fontWeight: 700 }}>•</span>}
+                      {risk && <span style={{ marginLeft: "0.35rem", fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--danger)", fontWeight: 700 }}>â€¢</span>}
                     </td>
                     <td>
                       <div className="flex items-center gap-sm">
@@ -771,7 +789,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                     </td>
                     <td style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem" }}>
                       {renewal}
-                      {sub && <span style={{ marginLeft: "0.25rem", color: "var(--text-muted)", fontSize: "0.7rem" }}>£{sub.amountGbp}</span>}
+                      {sub && <span style={{ marginLeft: "0.25rem", color: "var(--text-muted)", fontSize: "0.7rem" }}>Â£{sub.amountGbp}</span>}
                     </td>
                     <td>
                       <button className="btn-icon btn-xs" onClick={(e) => { e.stopPropagation(); onSimulateCheckIn(c.id); }} title="Send nudge" style={{ background: "none" }}>
@@ -784,7 +802,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
               {clients.length > 15 && (
                 <tr>
                   <td colSpan={6} style={{ textAlign: "center", padding: "0.75rem", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                    +{clients.length - 15} more clients — <button onClick={() => onNav("clients")} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontWeight: 700, fontFamily: "Inter, sans-serif", fontSize: "0.8rem", padding: 0 }}>view all</button>
+                    +{clients.length - 15} more clients â€” <button onClick={() => onNav("clients")} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontWeight: 700, fontFamily: "Inter, sans-serif", fontSize: "0.8rem", padding: 0 }}>view all</button>
                   </td>
                 </tr>
               )}
@@ -796,9 +814,9 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    ADD CLIENT MODAL
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function AddClientModal({
   onClose,
   onSuccess,
@@ -877,7 +895,7 @@ function AddClientModal({
       push(`${newClient.fullName} added successfully!`, "success");
       onSuccess();
     } catch {
-      push("Network error — please check your connection.", "error");
+      push("Network error â€” please check your connection.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -961,7 +979,7 @@ function AddClientModal({
               <textarea
                 id="ac-goal"
                 className={`form-input form-textarea${errors.goal ? " form-input--error" : ""}`}
-                placeholder="e.g. Lose 5kg body fat, build strength, run a marathon…"
+                placeholder="e.g. Lose 5kg body fat, build strength, run a marathonâ€¦"
                 value={form.goal}
                 onChange={set("goal")}
                 rows={2}
@@ -973,7 +991,7 @@ function AddClientModal({
             <div className="form-field">
               {label("Monthly Price (GBP) *")}
               <div className="input-prefix-wrap">
-                <span className="input-prefix">£</span>
+                <span className="input-prefix">Â£</span>
                 <input
                   id="ac-price"
                   className={`form-input input-prefix-field${errors.monthlyPriceGbp ? " form-input--error" : ""}`}
@@ -1025,7 +1043,7 @@ function AddClientModal({
               {submitting ? (
                 <>
                   <span className="btn-spinner" />
-                  Adding Client…
+                  Adding Clientâ€¦
                 </>
               ) : (
                 <>
@@ -1041,15 +1059,20 @@ function AddClientModal({
   );
 }
 
-// ── CLIENTS VIEW ──────────────────────
+
+// â”€â”€ CLIENTS VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ClientsView({
   session,
   onOpenClient,
   onAddClient,
+  onStartSession,
+  onBookSession,
 }: {
   session: CoachSession;
   onOpenClient: (id: string) => void;
   onAddClient?: () => void;
+  onStartSession?: (client: { id: string; fullName: string }) => void;
+  onBookSession?: (session: BookedSession) => void;
 }) {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -1069,558 +1092,506 @@ function ClientsView({
   }, [session.clients, filterStatus, search]);
 
   const activeClients = session.clients.filter(c => c.status === "active").length;
-    const avgAdherence = session.clients.length
+  const avgAdherence = session.clients.length
     ? Math.round(session.clients.reduce((s, c) => s + c.adherenceScore, 0) / session.clients.length)
     : 0;
   const mrr = session.subscriptions
     .filter(s => s.status === "active")
     .reduce((s, sub) => s + sub.amountGbp, 0);
 
-  // Profile tab state
   const [profileClientId, setProfileClientId] = useState<string | null>(null);
   const profileClient = profileClientId ? session.clients.find(c => c.id === profileClientId) ?? null : null;
-  const [profileEdit, setProfileEdit] = useState({ goal: false, email: false });
-  const [profileDraft, setProfileDraft] = useState({ goal: '', email: '' });
+  const [profileEdit, setProfileEdit] = useState({ goal: false });
+  const [profileDraft, setProfileDraft] = useState({ goal: '' });
   const [profileSaving, setProfileSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview'|'notes'|'workouts'|'nutrition'|'progress'|'payments'>('overview');
 
-  const saveProfileField = async (field: 'goal' | 'email') => {
-    if (!profileClientId) return;
-    setProfileSaving(true);
-    try {
-      const patch: Record<string, string> = {};
-      patch[field] = profileDraft[field];
-      await fetchJson(`/clients/${profileClientId}`, { method: 'PATCH', body: JSON.stringify(patch) });
-      // @ts-expect-error — setSession is declared later in the component, visible at runtime via closure
-      (setSession as any)((s: CoachSession | null) => s ? { ...s, clients: s.clients.map((c: ClientProfile) => c.id === profileClientId ? { ...c, [field]: profileDraft[field] } : c) } : s);
-      setProfileEdit(ed => ({ ...ed, [field]: false }));
-      // @ts-expect-error — push is declared later in the component, visible at runtime via closure
-      (push as any)(`${field === 'goal' ? 'Goal' : 'Email'} updated`);
-    } catch {
-      // @ts-expect-error
-      (push as any)('Failed to update', 'error');
-    } finally {
-      setProfileSaving(false);
-    }
-  };
-
-  const [bookingClient, setBookingClient] = useState<{ id: string; fullName: string } | null>(null);
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [newNote, setNewNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
-  const [metrics, setMetrics] = useState<BodyMetric[]>([]);
-  const [metricDraft, setMetricDraft] = useState({ weightKg: '', bodyFatPct: '', waistCm: '', hipsCm: '', armCm: '', thighCm: '', energyScore: '', sleepRating: '' });
-  const [savingMetric, setSavingMetric] = useState(false);
-  const [availablePlans, setAvailablePlans] = useState<ProgramPlan[]>([]);
-  const [showWorkoutPicker, setShowWorkoutPicker] = useState(false);
-  const [showNutritionPicker, setShowNutritionPicker] = useState(false);
-  const [assigning, setAssigning] = useState(false);
 
-  // Load notes and metrics when profile opens
+  const [metrics, setMetrics] = useState<BodyMetric[]>([]);
+  const [savingMetric, setSavingMetric] = useState(false);
+
+  const [bookingClient, setBookingClient] = useState<{ id: string; fullName: string } | null>(null);
+
   useEffect(() => {
     if (profileClientId) {
       fetchJson<ClientNote[]>(`/clients/${profileClientId}/notes`).then(setNotes).catch(() => setNotes([]));
       fetchJson<BodyMetric[]>(`/clients/${profileClientId}/metrics`).then(setMetrics).catch(() => setMetrics([]));
-      fetchJson<ProgramPlan[]>(`/plans`).then(setAvailablePlans).catch(() => {});
     }
   }, [profileClientId]);
 
-  const sortedCheckIns = profileClient ? [...(profileClient as any).checkIns ?? []].sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()) : [];
+  const sortedCheckIns = profileClient ? [...((profileClient as any).checkIns ?? [])].sort((a: any, b: any) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()) : [];
   const latestCi = sortedCheckIns[0] ?? null;
   const clientPlan = profileClient ? (profileClient as any).plan ?? null : null;
-  const clientSubscription = profileClient ? (profileClient as any).subscription ?? null : null;
-  const subStatusLabel = clientSubscription?.status === 'past_due' ? 'Past Due' : clientSubscription?.status === 'trialing' ? 'Trialing' : clientSubscription?.status === 'cancelled' ? 'Cancelled' : 'Active';
-  const statusBg = profileClient?.status === 'at_risk' ? 'var(--danger-light)' : profileClient?.status === 'trial' ? 'var(--warning-light)' : 'var(--primary-light)';
-  const statusColor = profileClient?.status === 'at_risk' ? 'var(--danger-text)' : profileClient?.status === 'trial' ? 'var(--warning-text)' : 'var(--primary-dark)';
+  const clientSubscription = session.subscriptions.find(s => s.clientId === profileClientId)
+    ?? (profileClient ? (profileClient as any).subscription ?? null : null);
+
   const initials = profileClient ? profileClient.fullName.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase() : '';
-  const statusLabel = filterStatus === "all" ? "active high-performers"
-    : filterStatus === "active" ? "active clients"
-    : filterStatus === "at_risk" ? "at-risk clients"
-    : "trial clients";
+  const statusLabel = profileClient?.status === 'at_risk' ? 'At Risk' : profileClient?.status === 'trial' ? 'Trial' : 'Active';
+  const statusBadgeClass = profileClient?.status === 'at_risk' ? 'badge-danger' : profileClient?.status === 'trial' ? 'badge-warning' : 'badge-success';
+  const adherenceColor = (profileClient?.adherenceScore ?? 0) < 50 ? 'var(--danger)'
+    : (profileClient?.adherenceScore ?? 0) < 75 ? 'var(--warning)' : 'var(--primary)';
+  const avatarBg = profileClient?.status === 'at_risk' ? 'var(--danger-light)'
+    : profileClient?.status === 'trial' ? 'var(--warning-light)' : 'var(--primary-light)';
+  const avatarColor = profileClient?.status === 'at_risk' ? 'var(--danger-text)'
+    : profileClient?.status === 'trial' ? 'var(--warning-text)' : 'var(--primary-dark)';
+  const lastCheckInDate = profileClient?.lastCheckInDate
+    ? new Date(profileClient.lastCheckInDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    : 'Never';
+
+  const saveGoal = async () => {
+    if (!profileClientId) return;
+    setProfileSaving(true);
+    try {
+      await fetchJson(`/clients/${profileClientId}`, { method: 'PATCH', body: JSON.stringify({ goal: profileDraft.goal }) });
+      setProfileEdit({ goal: false });
+    } catch { /* silent */ } finally {
+      setProfileSaving(false);
+    }
+  };
 
   if (profileClient) {
     return (
       <div className="page-view">
         <button className="profile-back-btn" onClick={() => setProfileClientId(null)}>
           <span className="material-symbols-outlined">arrow_back</span>
-          Back to Client Roster
+          Back to Clients
         </button>
+
+        {/* â”€â”€ HEADER â”€â”€ */}
         <div className="profile-header">
           <div className="profile-avatar-wrap">
-            <div className="profile-avatar" style={{ background: statusBg, color: statusColor }}>{initials}</div>
+            <div className="profile-avatar" style={{ background: avatarBg, color: avatarColor }}>{initials}</div>
             {profileClient.status === 'at_risk' && (
-              <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: 'var(--danger)', border: '2px solid var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: '0.55rem', color: 'white', fontWeight: 800 }}>!</span>
+              <div className="profile-avatar-badge" style={{ background: 'var(--danger)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '0.7rem', color: 'white' }}>priority_high</span>
               </div>
             )}
           </div>
-          <div className="profile-info">
-            <h2 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: 'var(--text-primary)', margin: '0 0 0.25rem 0', letterSpacing: '-0.02em' }}>{profileClient.fullName}</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              {profileEdit.goal ? (
-                <>
-                  <input
-                    autoFocus
-                    value={profileDraft.goal}
-                    onChange={e => setProfileDraft(d => ({ ...d, goal: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') saveProfileField('goal'); if (e.key === 'Escape') setProfileEdit(ed => ({ ...ed, goal: false })); }}
-                    style={{ flex: 1, padding: '0.3rem 0.6rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--primary)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', outline: 'none' }}
-                  />
-                  <button onClick={() => saveProfileField('goal')} disabled={profileSaving} style={{ padding: '0.3rem 0.6rem', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
-                  <button onClick={() => setProfileEdit(ed => ({ ...ed, goal: false }))} style={{ padding: '0.3rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.75rem', cursor: 'pointer' }}>✕</button>
-                </>
-              ) : (
-                <>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--on-surface-variant)', margin: 0 }}>{profileClient.goal || <span style={{ color: 'var(--outline)', fontStyle: 'italic' }}>No goal set</span>}</p>
-                  <button onClick={() => { setProfileDraft(d => ({ ...d, goal: profileClient.goal })); setProfileEdit(ed => ({ ...ed, goal: true })); }} style={{ padding: '0.2rem', border: 'none', background: 'none', color: 'var(--outline)', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center' }} title='Edit goal'><span className='material-symbols-outlined' style={{ fontSize: '0.9rem' }}>edit</span></button>
-                </>
-              )}
+          <div className="profile-identity">
+            <div className="profile-name-row">
+              <h1 className="profile-name">{profileClient.fullName}</h1>
+              <span className={`profile-status-badge ${statusBadgeClass}`}
+                style={statusBadgeClass === 'badge-warning' ? { background: 'var(--warning-light)', color: 'var(--warning-text)' }
+                  : statusBadgeClass === 'badge-danger' ? { background: 'var(--danger-light)', color: 'var(--danger-text)' }
+                  : { background: 'var(--success-light)', color: 'var(--success-text)' }}>
+                {statusLabel}
+              </span>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span className={`badge-${profileClient.status === 'at_risk' ? 'danger' : profileClient.status === 'trial' ? 'warning' : 'success'}`}>{profileClient.status === 'at_risk' ? 'At Risk' : profileClient.status === 'trial' ? 'Trial' : 'Active'}</span>
-              {profileEdit.email ? (
-                <>
-                  <input
-                    autoFocus
-                    value={profileDraft.email}
-                    onChange={e => setProfileDraft(d => ({ ...d, email: e.target.value }))}
-                    onKeyDown={e => { if (e.key === 'Enter') saveProfileField('email'); if (e.key === 'Escape') setProfileEdit(ed => ({ ...ed, email: false })); }}
-                    style={{ padding: '0.2rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--primary)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', outline: 'none', width: '180px' }}
-                  />
-                  <button onClick={() => saveProfileField('email')} disabled={profileSaving} style={{ padding: '0.2rem 0.5rem', borderRadius: 'var(--r-sm)', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
-                  <button onClick={() => setProfileEdit(ed => ({ ...ed, email: false }))} style={{ padding: '0.2rem 0.4rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.72rem', cursor: 'pointer' }}>✕</button>
-                </>
-              ) : (
-                <button onClick={() => { setProfileDraft(d => ({ ...d, email: profileClient.email })); setProfileEdit(ed => ({ ...ed, email: true })); }} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', padding: '0.15rem 0.5rem', border: 'none', background: 'none', color: 'var(--outline)', cursor: 'pointer', borderRadius: '4px', fontFamily: 'Inter, sans-serif', fontSize: '0.72rem' }} title='Edit email'>
-                  {profileClient.email} <span className='material-symbols-outlined' style={{ fontSize: '0.8rem' }}>edit</span>
-                </button>
-              )}
+            <div className="profile-meta-row">
+              <span className="profile-meta-item">
+                <span className="material-symbols-outlined" style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>mail</span>
+                {profileClient.email}
+              </span>
             </div>
           </div>
-          <div className="profile-stats">
-            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: profileClient.adherenceScore < 50 ? 'var(--danger)' : profileClient.adherenceScore < 75 ? 'var(--warning)' : 'var(--primary)' }}>{profileClient.adherenceScore}%</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Adherence</div></div>
-            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>{latestCi?.progress.weightKg ?? '—'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Weight</div></div>
-            <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)' }}>£{clientSubscription?.amountGbp ?? '—'}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>MRR</div></div>
+          <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: adherenceColor, lineHeight: 1 }}>{profileClient.adherenceScore}%</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Adherence</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: 'var(--text-primary)', lineHeight: 1 }}>Â£{clientSubscription?.amountGbp ?? profileClient.monthlyPriceGbp}</div>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>MRR</div>
+            </div>
           </div>
-        </div>
-        <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
-          <button onClick={() => setBookingClient({ id: profileClient.id, fullName: profileClient.fullName })} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--r-lg)', border: '1.5px solid var(--primary)', background: 'var(--primary-light)', color: 'var(--primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>event</span>
-            Book Session
-          </button>
         </div>
 
-        <div className="profile-tabs">
-          {(['overview', 'notes', 'workouts', 'nutrition', 'progress', 'payments'] as const).map(tab => (
-            <button key={tab} className={`profile-tab${activeTab === tab ? ' active' : ''}`} onClick={() => setActiveTab(tab)}>
-              <span className="material-symbols-outlined">{
-                tab === 'overview' ? 'info' :
-                tab === 'notes' ? 'edit_note' :
-                tab === 'workouts' ? 'fitness_center' :
-                tab === 'nutrition' ? 'restaurant' :
-                tab === 'progress' ? 'show_chart' :
-                'credit_card'
-              }</span>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+        {/* â”€â”€ GOAL SECTION â”€â”€ */}
+        <div className="card mb-lg">
+          <div className="flex items-center justify-between mb-md">
+            <div className="profile-section-header">
+              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>track_changes</span>
+              <div>
+                <h3 className="profile-section-title">Goal Progress</h3>
+                {profileClient.nextRenewalDate ? (
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', display: 'block' }}>
+                    Set since {new Date(profileClient.nextRenewalDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <button className="btn-ghost btn-xs" onClick={() => { setProfileDraft({ goal: profileClient.goal }); setProfileEdit({ goal: true }); }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>edit</span>
+              Edit
             </button>
-          ))}
-        </div>
+          </div>
+          {profileEdit.goal ? (
+            <div className="flex-col" style={{ gap: '0.5rem' }}>
+              <textarea
+                autoFocus
+                className="input"
+                value={profileDraft.goal}
+                onChange={e => setProfileDraft(d => ({ ...d, goal: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Escape') setProfileEdit({ goal: false }); }}
+                rows={2}
+                style={{ resize: 'vertical', minHeight: '60px' }}
+              />
+              <div className="flex items-center gap-sm">
+                <button className="btn-primary btn-sm" onClick={saveGoal} disabled={profileSaving}>
+                  {profileSaving ? 'Saving...' : 'Save'}
+                </button>
+                <button className="btn-ghost btn-sm" onClick={() => setProfileEdit({ goal: false })}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                {profileClient.goal ? (
+                  <span className="badge badge-accent" style={{ fontSize: '0.72rem', padding: '0.25rem 0.85rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '0.85rem', marginRight: '0.2rem' }}>flag</span>
+                    {profileClient.goal}
+                  </span>
+                ) : (
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--outline)', fontStyle: 'italic' }}>No goal set — click Edit to add one</span>
+                )}
+              </div>
 
-        <div className="profile-content">
-          {activeTab === 'overview' && (
-            <>
-              <div className="profile-stats-grid">
-                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Adherence</div><div className="profile-stat-value" style={{ color: profileClient.adherenceScore < 50 ? 'var(--danger)' : profileClient.adherenceScore < 75 ? 'var(--warning)' : 'var(--primary)' }}>{profileClient.adherenceScore}%</div></div>
-                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Weight</div><div className="profile-stat-value">{latestCi?.progress.weightKg != null ? `${latestCi.progress.weightKg} kg` : '—'}</div><div className="profile-stat-sub">{latestCi ? new Date(latestCi.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'No data'}</div></div>
-                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Energy</div><div className="profile-stat-value">{latestCi?.progress.energyScore != null ? `${latestCi.progress.energyScore}/10` : '—'}</div></div>
-                <div className="profile-stat-card card-glass"><div className="profile-stat-label">Steps</div><div className="profile-stat-value">{latestCi?.progress.steps != null ? latestCi.progress.steps.toLocaleString() : '—'}</div></div>
-              </div>
-              <div className="profile-goal-card card-glass" style={{ marginTop: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>Primary Goal</h3>
-                  <button onClick={() => { setProfileDraft(d => ({ ...d, goal: profileClient.goal })); setProfileEdit(ed => ({ ...ed, goal: true })); }} style={{ padding: '0.2rem', border: 'none', background: 'none', color: 'var(--outline)', cursor: 'pointer', borderRadius: '4px', display: 'flex', alignItems: 'center' }} title='Edit goal'><span className='material-symbols-outlined' style={{ fontSize: '0.9rem' }}>edit</span></button>
-                </div>
-                {profileEdit.goal ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    <textarea
-                      autoFocus
-                      value={profileDraft.goal}
-                      onChange={e => setProfileDraft(d => ({ ...d, goal: e.target.value }))}
-                      rows={2}
-                      style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--primary)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', outline: 'none', resize: 'vertical', width: '100%', boxSizing: 'border-box', lineHeight: 1.6 }}
-                    />
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button onClick={() => saveProfileField('goal')} disabled={profileSaving} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--r-md)', border: 'none', background: 'var(--primary)', color: 'white', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>Save</button>
-                      <button onClick={() => setProfileEdit(ed => ({ ...ed, goal: false }))} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--outline)', fontSize: '0.8rem', cursor: 'pointer' }}>Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: 0 }}>{profileClient.goal || <span style={{ color: 'var(--outline)', fontStyle: 'italic' }}>No goal set — click the pencil icon to add one</span>}</p>
-                )}
-              </div>
-              {latestCi && (
-                <div style={{ marginTop: '1.25rem' }}>
-                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Latest Check-in</h3>
-                  <div className="card-glass" style={{ padding: '1rem' }}>
-                    <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{new Date(latestCi.submittedAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
-                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      {latestCi.progress.weightKg != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>monitor_weight</span>{latestCi.progress.weightKg} kg</span>}
-                      {latestCi.progress.energyScore != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>bolt</span>{latestCi.progress.energyScore}/10</span>}
-                      {latestCi.progress.steps != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>directions_walk</span>{latestCi.progress.steps.toLocaleString()}</span>}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-          {activeTab === 'notes' && (
-            <>
-              <div className="card-glass" style={{ padding: '1rem', marginBottom: '1rem' }}>
-                <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Add Note</h3>
-                <textarea
-                  value={newNote}
-                  onChange={e => setNewNote(e.target.value)}
-                  placeholder="Session observations, client mood, progress notes..."
-                  rows={3}
-                  style={{ width: '100%', padding: '0.6rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', outline: 'none', resize: 'vertical', boxSizing: 'border-box', marginBottom: '0.75rem' }}
-                />
-                <button
-                  onClick={async () => {
-                    if (!newNote.trim()) return;
-                    setNoteSaving(true);
-                    try {
-                      const created = await fetchJson<ClientNote>(`/clients/${profileClientId}/notes`, {
-                        method: 'POST',
-                        body: JSON.stringify({ content: newNote.trim() }),
-                      });
-                      setNotes(prev => [created, ...prev]);
-                      setNewNote('');
-                    } catch { /* silent */ } finally { setNoteSaving(false); }
-                  }}
-                  disabled={noteSaving || !newNote.trim()}
-                  style={{ padding: '0.5rem 1rem', borderRadius: 'var(--r-md)', border: 'none', background: newNote.trim() && !noteSaving ? 'var(--primary)' : 'var(--surface-container)', color: newNote.trim() && !noteSaving ? 'white' : 'var(--outline)', fontFamily: 'Manrope, sans-serif', fontSize: '0.8rem', fontWeight: 700, cursor: newNote.trim() && !noteSaving ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>{noteSaving ? 'progress_activity' : 'add'}</span>
-                  {noteSaving ? 'Saving...' : 'Add Note'}
-                </button>
-              </div>
-              {notes.length === 0 ? (
-                <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>note_add</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No coach notes yet.</p></div>
-              ) : (
-                <>
-                  {notes.map(note => (
-                    <div key={note.id} className="card-glass" style={{ marginBottom: '0.75rem', padding: '1rem', position: 'relative' }}>
-                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.88rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: '0 0 0.4rem 0' }}>{note.content}</p>
-                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--outline)', margin: 0 }}>{new Date(note.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                      <button
-                        onClick={async () => {
-                          if (!confirm('Delete this note?')) return;
-                          try {
-                            await fetchJson(`/clients/${profileClientId}/notes/${note.id}`, { method: 'DELETE' });
-                            setNotes(prev => prev.filter(n => n.id !== note.id));
-                          } catch { /* silent */ }
-                        }}
-                        style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--outline)', padding: '0.25rem', display: 'grid', placeItems: 'center' }}
-                      >
-                        <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>delete</span>
-                      </button>
-                    </div>
-                  ))}
-                </>
-              )}
-            </>
-          )}
-          {activeTab === 'workouts' && (
-            sortedCheckIns.length === 0 && !clientPlan
-              ? <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>fitness_center</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No workout history yet.</p></div>
-              : <>
-                {clientPlan && (clientPlan as any).latestVersion?.workouts?.length > 0 && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Current Programme</h3>
-                    {(clientPlan as any).latestVersion.workouts.map((w: string, i: number) => (
-                      <div key={i} className="card-glass" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0.75rem', marginBottom: '0.5rem', borderLeft: `3px solid ${i === 0 ? 'var(--primary)' : 'var(--surface-container)'}` }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: i === 0 ? 'var(--primary)' : 'var(--outline)', flexShrink: 0 }}>fitness_center</span>
-                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface)' }}>{w}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {sortedCheckIns.length > 0 && (
-                  <div>
-                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Session Log ({sortedCheckIns.length})</h3>
-                    {sortedCheckIns.map((ci, i) => (
-                      <div key={ci.id} className="card-glass" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>Session #{sortedCheckIns.length - i}</div>
-                          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)' }}>{new Date(ci.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</div>
-                        </div>
-                        {ci.progress.energyScore != null && <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: ci.progress.energyScore <= 4 ? 'var(--danger)' : ci.progress.energyScore <= 6 ? 'var(--warning)' : 'var(--primary)' }}>{ci.progress.energyScore}/10</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Energy</div></div>}
-                        {ci.progress.adherenceScore != null && <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: ci.progress.adherenceScore >= 75 ? 'var(--primary)' : ci.progress.adherenceScore >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{ci.progress.adherenceScore}%</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Adherence</div></div>}
-                        {ci.progress.steps != null && <div style={{ textAlign: 'center' }}><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--on-surface)' }}>{ci.progress.steps.toLocaleString()}</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.62rem', color: 'var(--outline)', textTransform: 'uppercase' }}>Steps</div></div>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-          )}
-          {activeTab === 'nutrition' && (
-            <>
-              <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {clientPlan && (clientPlan as any).latestVersion?.nutrition?.length > 0 ? (
-                  <button onClick={() => setShowNutritionPicker(v => !v)} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>swap_horiz</span>
-                    Change Nutrition Plan
-                  </button>
-                ) : (
-                  <button onClick={() => setShowNutritionPicker(v => !v)} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--r-md)', border: 'none', background: 'var(--primary)', color: 'white', fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>add</span>
-                    Assign Nutrition Plan
-                  </button>
-                )}
-                {showNutritionPicker && (
-                  <div className="card-glass" style={{ padding: '0.75rem', width: '100%' }}>
-                    {availablePlans.length === 0 ? (
-                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--outline)' }}>No plans available. Create one in the AI Plans section.</p>
-                    ) : (
-                      availablePlans.map(p => (
-                        <button key={p.id} onClick={async () => {
-                          setAssigning(true);
-                          try {
-                            await fetchJson(`/clients/${profileClientId}`, { method: 'PATCH', body: JSON.stringify({ nutritionPlanId: p.id }) });
-                            setShowNutritionPicker(false);
-                          } catch { /* silent */ } finally { setAssigning(false); }
-                        }} disabled={assigning} style={{ display: 'block', width: '100%', padding: '0.5rem 0.75rem', background: 'none', border: 'none', borderBottom: '1px solid var(--surface-container)', cursor: 'pointer', textAlign: 'left', fontFamily: 'Inter, sans-serif', fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: 500 }}>
-                          {p.title || 'Unnamed Plan'}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-              {clientPlan && (clientPlan as any).latestVersion?.nutrition?.length > 0 ? (
-                <>
-                  {(clientPlan as any).latestVersion.explanation?.map((e: string, i: number) => (
-                    <div key={i} className="card-glass" style={{ padding: '1rem', marginBottom: '0.75rem', borderLeft: '3px solid var(--primary)' }}>
-                      <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: 0 }}>{e}</p>
-                    </div>
-                  ))}
-                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0' }}>Nutrition Guidelines</h3>
-                  {(clientPlan as any).latestVersion.nutrition.map((n: string, i: number) => (
-                    <div key={i} className="card-glass" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.65rem 0.75rem', marginBottom: '0.5rem' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--primary)', flexShrink: 0 }}>restaurant</span>
-                      <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface)', lineHeight: 1.5 }}>{n}</span>
-                    </div>
-                  ))}
-                </>
-              ) : !showNutritionPicker && (
-                <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>restaurant</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No nutrition plan assigned yet.</p></div>
-              )}
-            </>
-          )}
-          {activeTab === 'progress' && (
-            <>
-              <div className="card-glass" style={{ padding: '1rem', marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>Log Check-in</h3>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  {[
-                    {l:'Weight (kg)',k:'weightKg',type:'number',step:'0.1',ph:'e.g. 78.5'},
-                    {l:'Body Fat (%)',k:'bodyFatPct',type:'number',step:'0.1',ph:'e.g. 18.5'},
-                    {l:'Waist (cm)',k:'waistCm',type:'number',step:'0.1',ph:'e.g. 82'},
-                    {l:'Hips (cm)',k:'hipsCm',type:'number',step:'0.1',ph:'e.g. 98'},
-                    {l:'Arm (cm)',k:'armCm',type:'number',step:'0.1',ph:'e.g. 35'},
-                    {l:'Thigh (cm)',k:'thighCm',type:'number',step:'0.1',ph:'e.g. 58'},
-                  ].map(f => (
-                    <div key={f.k}>
-                      <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.25rem' }}>{f.l}</label>
-                      <input type={f.type} step={f.step} value={metricDraft[f.k as keyof typeof metricDraft]} onChange={e => setMetricDraft(d => ({ ...d, [f.k]: e.target.value }))} placeholder={f.ph} style={{ width: '100%', padding: '0.4rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', boxSizing: 'border-box', outline: 'none' }} />
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  {[{l:'Energy (1-10)',k:'energyScore',ph:'1-10'}, {l:'Sleep (1-10)',k:'sleepRating',ph:'1-10'}].map(f => (
-                    <div key={f.k}>
-                      <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.25rem' }}>{f.l}</label>
-                      <input type="number" min="1" max="10" value={metricDraft[f.k as keyof typeof metricDraft]} onChange={e => setMetricDraft(d => ({ ...d, [f.k]: e.target.value }))} placeholder={f.ph} style={{ width: '100%', padding: '0.4rem 0.5rem', borderRadius: 'var(--r-sm)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', boxSizing: 'border-box', outline: 'none' }} />
-                    </div>
-                  ))}
-                </div>
-                <button onClick={async () => {
-                  setSavingMetric(true);
-                  try {
-                    const payload = {
-                      measuredAt: new Date().toISOString(),
-                      weightKg: metricDraft.weightKg ? Number(metricDraft.weightKg) : null,
-                      bodyFatPct: metricDraft.bodyFatPct ? Number(metricDraft.bodyFatPct) : null,
-                      waistCm: metricDraft.waistCm ? Number(metricDraft.waistCm) : null,
-                      hipsCm: metricDraft.hipsCm ? Number(metricDraft.hipsCm) : null,
-                      armCm: metricDraft.armCm ? Number(metricDraft.armCm) : null,
-                      thighCm: metricDraft.thighCm ? Number(metricDraft.thighCm) : null,
-                      energyScore: metricDraft.energyScore ? Number(metricDraft.energyScore) : null,
-                      sleepRating: metricDraft.sleepRating ? Number(metricDraft.sleepRating) : null,
-                    };
-                    const created = await fetchJson<BodyMetric>(`/clients/${profileClientId}/metrics`, { method: 'POST', body: JSON.stringify(payload) });
-                    setMetrics(prev => [...prev, created]);
-                    setMetricDraft({ weightKg: '', bodyFatPct: '', waistCm: '', hipsCm: '', armCm: '', thighCm: '', energyScore: '', sleepRating: '' });
-                  } catch { /* silent */ } finally { setSavingMetric(false); }
-                }} disabled={savingMetric} style={{ padding: '0.5rem 1rem', borderRadius: 'var(--r-md)', border: 'none', background: savingMetric ? 'var(--surface-container)' : 'var(--primary)', color: savingMetric ? 'var(--outline)' : 'white', fontFamily: 'Manrope, sans-serif', fontSize: '0.8rem', fontWeight: 700, cursor: savingMetric ? 'not-allowed' : 'pointer' }}>
-                  {savingMetric ? 'Saving...' : 'Log Check-in'}
-                </button>
-              </div>
-              {metrics.length === 0 ? (
-                <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>show_chart</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No body metrics recorded yet. Use the form above to log the first check-in.</p></div>
-              ) : (() => {
-                const mSorted = [...metrics].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt));
-                const latest = mSorted[mSorted.length - 1];
-                const first = mSorted[0];
-                const wDelta = latest && first && latest.weightKg && first.weightKg ? +(latest.weightKg - first.weightKg).toFixed(1) : null;
+              {profileClient.goal ? (() => {
+                const goalText = (profileClient.goal || '').toLowerCase();
+                let goalTypeLabel = 'General Fitness';
+                let goalIcon = 'fitness_center';
+                if (/weight|lose|kg|fat|lean|slim|cut|shred/i.test(goalText)) { goalTypeLabel = 'Weight Loss'; goalIcon = 'monitor_weight'; }
+                else if (/muscle|bulk|gain|strength|power|hypertrophy|mass/i.test(goalText)) { goalTypeLabel = 'Strength & Muscle'; goalIcon = 'fitness_center'; }
+                else if (/endurance|cardio|run|marathon|triathlon|stamina|mile|5k|10k/i.test(goalText)) { goalTypeLabel = 'Endurance'; goalIcon = 'directions_run'; }
+                else if (/flexibility|yoga|mobility|stretch/i.test(goalText)) { goalTypeLabel = 'Flexibility'; goalIcon = 'self_improvement'; }
+                else if (/nutrition|diet|meal|eat|food|calorie/i.test(goalText)) { goalTypeLabel = 'Nutrition'; goalIcon = 'restaurant'; }
+
+                const targetMatch = goalText.match(/(\d+(?:\.\d+)?)\s*(kg|lbs?|%|reps?|miles?|km)/i);
+                const targetValue = targetMatch ? targetMatch[1] : null;
+                const targetUnit = targetMatch ? targetMatch[2] : null;
+
+                const adherenceScore = profileClient.adherenceScore;
+                const progressPct = Math.min(100, Math.max(0, adherenceScore));
+                const progressColor = progressPct < 50 ? 'var(--danger)' : progressPct < 75 ? 'var(--warning)' : 'var(--primary)';
+
                 return (
-                  <div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                      {[{l:'Weight',v:latest?.weightKg!=null?latest.weightKg+' kg':'—',d:wDelta!=null?(wDelta>0?'+':'')+wDelta+' kg':null,dc:wDelta!=null?(wDelta<0?'var(--primary)':'var(--danger)'):undefined},
-                        {l:'Body Fat',v:latest?.bodyFatPct!=null?latest.bodyFatPct+'%':'—',d:null,dc:undefined},
-                        {l:'Waist',v:latest?.waistCm!=null?latest.waistCm+' cm':'—',d:null,dc:undefined},
-                        {l:'Energy',v:latest?.energyScore!=null?latest.energyScore+'/10':'—',d:null,dc:undefined},
-                        {l:'Sleep',v:latest?.sleepRating!=null?latest.sleepRating+'/10':'—',d:null,dc:undefined},
-                        {l:'Records',v:mSorted.length+'',d:null,dc:undefined}].map(m => (
-                        <div key={m.l} className="card-glass" style={{ padding: '0.75rem', textAlign: 'center' }}>
-                          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.3rem' }}>{m.l}</div>
-                          <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{m.v}</div>
-                          {m.d && <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: m.dc }}>{m.d}</div>}
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem' }}>
-                        <thead><tr style={{ borderBottom: '1px solid var(--surface-container)' }}>{['Date','Weight','Body Fat','Waist','Hips','Arm','Thigh','Energy','Sleep'].map(h => <th key={h} style={{ padding: '0.4rem 0.5rem', textAlign: 'right', color: 'var(--outline)', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.68rem', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
-                        <tbody>
-                          {[...mSorted].reverse().map(m => (
-                            <tr key={m.id} style={{ borderBottom: '1px solid var(--surface-container)' }}>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 500 }}>{new Date(m.measuredAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.weightKg != null ? m.weightKg+' kg' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.bodyFatPct != null ? m.bodyFatPct+'%' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.waistCm != null ? m.waistCm+' cm' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.hipsCm != null ? m.hipsCm+' cm' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.armCm != null ? m.armCm+' cm' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.thighCm != null ? m.thighCm+' cm' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.energyScore != null ? m.energyScore+'/10' : '—'}</td>
-                              <td style={{ padding: '0.4rem 0.5rem', textAlign: 'right' }}>{m.sleepRating != null ? m.sleepRating+'/10' : '—'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {/* SVG Trend Charts */}
-                    {mSorted.length >= 2 && (
-                      <div style={{ marginTop: "1.5rem" }}>
-                        <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)", marginBottom: "0.75rem" }}>Progress Trends</div>
-                        <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
-                          {([
-                            { key: "weightKg", label: "Weight (kg)", color: "var(--primary)" },
-                            { key: "bodyFatPct", label: "Body Fat (%)", color: "var(--tertiary)" },
-                            { key: "waistCm", label: "Waist (cm)", color: "var(--accent)" },
-                          ] as const).map(metric => {
-                            const validData = mSorted.map(m => m[metric.key]).filter(v => v != null) as number[];
-                            if (validData.length < 2) return null;
-                            const min = Math.min(...validData);
-                            const max = Math.max(...validData);
-                            const range = max - min || 1;
-                            const height = 80;
-                            const width = Math.min(500, mSorted.length * 60);
-                            const step = width / (mSorted.length - 1);
-                            const pts = mSorted.map((m, i) => {
-                              const val = m[metric.key] as number | null;
-                              if (val == null) return null;
-                              return `${i * step},${height - ((val - min) / range) * height}`;
-                            }).filter(Boolean);
-                            const ptsStr = pts.join(" ");
-                            return (
-                              <div key={metric.key} style={{ flex: "1 1 140px" }}>
-                                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--outline)", marginBottom: "0.3rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{metric.label}</div>
-                                <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "80px", overflow: "visible" }}>
-                                  <polyline points={ptsStr} fill="none" stroke={metric.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-                                  {pts.map((p, i) => {
-                                    if (!p) return null;
-                                    const [x, y] = p.split(",");
-                                    return <circle key={i} cx={x} cy={y} r="3" fill={metric.color} />;
-                                  })}
-                                </svg>
-                                <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "Inter, sans-serif", fontSize: "0.6rem", color: "var(--outline)", marginTop: "0.15rem" }}>
-                                  <span>{new Date(mSorted[0].measuredAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-                                  <span>{new Date(mSorted[mSorted.length - 1].measuredAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.5rem' }}>
+                      <div style={{ background: 'var(--surface-container)', borderRadius: 'var(--r-md)', padding: '0.6rem', textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.6rem', fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Category</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>{goalIcon}</span>
+                          <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-primary)' }}>{goalTypeLabel}</span>
                         </div>
                       </div>
-                    )}
+                      {targetValue && targetUnit ? (
+                        <div style={{ background: 'var(--surface-container)', borderRadius: 'var(--r-md)', padding: '0.6rem', textAlign: 'center' }}>
+                          <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.6rem', fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Target</div>
+                          <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>{targetValue} <span style={{ fontSize: '0.7rem', color: 'var(--outline)', fontWeight: 600 }}>{targetUnit}</span></div>
+                        </div>
+                      ) : null}
+                      <div style={{ background: 'var(--surface-container)', borderRadius: 'var(--r-md)', padding: '0.6rem', textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.6rem', fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Progress</div>
+                        <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1rem', color: progressColor }}>{progressPct}%</div>
+                      </div>
+                      <div style={{ background: 'var(--surface-container)', borderRadius: 'var(--r-md)', padding: '0.6rem', textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.6rem', fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>Next Review</div>
+                        <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                          {profileClient.nextRenewalDate
+                            ? new Date(profileClient.nextRenewalDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                            : '—'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between" style={{ marginBottom: '0.35rem' }}>
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.68rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Goal Progress</span>
+                        <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.75rem', color: progressColor }}>{progressPct}%</span>
+                      </div>
+                      <div className="progress-bar-track" style={{ height: '10px' }}>
+                        <div className={`progress-bar-fill${progressPct < 50 ? ' progress-bar-fill--danger' : progressPct < 75 ? ' progress-bar-fill--warning' : ''}`} style={{ width: `${progressPct}%` }} />
+                      </div>
+                      <div className="flex items-center justify-between" style={{ marginTop: '0.3rem' }}>
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.6rem', color: 'var(--outline)' }}>Started</span>
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.6rem', color: 'var(--outline)' }}>
+                          Target: {progressPct >= 80 ? 'On track' : progressPct >= 50 ? 'In progress' : 'Needs attention'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 );
-              })()}
-            </>
-          )}
-          {activeTab === 'payments' && (
-            clientSubscription ? (
-              <div>
-                <div className="card-glass" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>Active Subscription</h3>
-                    <span style={{ padding: '0.25rem 0.75rem', borderRadius: 9999, fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', fontWeight: 600, background: 'var(--primary-light)', color: 'var(--primary)' }}>{subStatusLabel}</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
-                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Monthly Rate</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>£{clientSubscription.amountGbp}</div></div>
-                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Renewal Date</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{clientSubscription.renewalDate || '—'}</div></div>
-                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.65rem', color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client Since</div><div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{(profileClient as any).startDate || '—'}</div></div>
-                  </div>
-                </div>
-                <div className="card-glass" style={{ padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                    <span className="material-symbols-outlined" style={{ color: 'var(--primary)', fontSize: '1rem' }}>receipt_long</span>
-                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)', margin: 0 }}>Recent Payments</h3>
-                  </div>
-                  <div className="card-glass" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', marginBottom: '0.5rem', background: 'var(--surface-container-low)' }}>
-                    <div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>Monthly subscription</div><div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)' }}>{clientSubscription.renewalDate || '—'}</div></div>
-                    <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary)' }}>£{clientSubscription.amountGbp}.00</div>
-                  </div>
-                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)', textAlign: 'center', marginTop: '0.75rem' }}>Connect Stripe for auto-invoicing and full payment history.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="empty-state"><span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--outline)' }}>credit_card</span><p style={{ fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>No active subscription.</p></div>
-            )
+              })() : null}
+            </div>
           )}
         </div>
+
+        {/* â”€â”€ QUICK STATS â”€â”€ */}
+        <div className="profile-stats-grid" style={{ marginBottom: '1.5rem' }}>
+          <div className="profile-stat-card card">
+            <div className="profile-stat-label">Weight</div>
+            <div className="profile-stat-value">{latestCi?.progress?.weightKg != null ? `${latestCi.progress.weightKg} kg` : 'â€”'}</div>
+            <div className="profile-stat-sub">{latestCi ? `as of ${new Date(latestCi.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'No data'}</div>
+          </div>
+          <div className="profile-stat-card card">
+            <div className="profile-stat-label">Energy</div>
+            <div className="profile-stat-value">{latestCi?.progress?.energyScore != null ? `${latestCi.progress.energyScore}/10` : 'â€”'}</div>
+            <div className="profile-stat-sub">latest score</div>
+          </div>
+          <div className="profile-stat-card card">
+            <div className="profile-stat-label">Steps</div>
+            <div className="profile-stat-value">{latestCi?.progress?.steps != null ? latestCi.progress.steps.toLocaleString() : 'â€”'}</div>
+            <div className="profile-stat-sub">last recorded</div>
+          </div>
+          <div className="profile-stat-card card">
+            <div className="profile-stat-label">Last Check-in</div>
+            <div className="profile-stat-value" style={{ fontSize: '1.25rem' }}>{lastCheckInDate}</div>
+            <div className="profile-stat-sub">{profileClient.lastCheckInDate ? `${Math.floor((Date.now() - new Date(profileClient.lastCheckInDate).getTime()) / 86400000)}d ago` : 'No check-ins yet'}</div>
+          </div>
+        </div>
+
+        {/* â”€â”€ ASSIGNED PLAN â”€â”€ */}
+        <div className="card mb-lg">
+          <div className="profile-section-header mb-md">
+            <span className="material-symbols-outlined" style={{ fontSize: '1.15rem', color: 'var(--primary)' }}>assignment</span>
+            <h3 className="profile-section-title">Assigned Plan</h3>
+            {clientPlan && (
+              <span className={`profile-plan-badge ${(clientPlan as any).latestVersion?.status === 'draft' ? 'profile-plan-badge--draft' : 'profile-plan-badge--active'}`}>
+                {(clientPlan as any).latestVersion?.status === 'draft' ? 'Draft' : 'Active'}
+              </span>
+            )}
+          </div>
+          {clientPlan ? (
+            <div className="profile-plan-row">
+              <div className="profile-plan-card card-glass">
+                <h4 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '0.95rem', color: 'var(--primary)' }}>fitness_center</span>
+                  Workouts
+                </h4>
+                {(clientPlan as any).latestVersion?.workouts?.length > 0 ? (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {(clientPlan as any).latestVersion.workouts.slice(0, 6).map((w: string, i: number) => (
+                      <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
+                        <span style={{ color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span>
+                        <span>{w}</span>
+                      </li>
+                    ))}
+                    {(clientPlan as any).latestVersion.workouts.length > 6 && (
+                      <li style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)', marginTop: '0.15rem' }}>+{(clientPlan as any).latestVersion.workouts.length - 6} more workouts</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p className="profile-plan-empty-text">No workouts assigned</p>
+                )}
+              </div>
+              <div className="profile-plan-card card-glass">
+                <h4 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '0.95rem', color: 'var(--primary)' }}>restaurant</span>
+                  Nutrition
+                </h4>
+                {(clientPlan as any).latestVersion?.nutrition?.length > 0 ? (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {(clientPlan as any).latestVersion.nutrition.slice(0, 6).map((n: string, i: number) => (
+                      <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--on-surface-variant)', lineHeight: 1.5 }}>
+                        <span style={{ color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>{i + 1}.</span>
+                        <span>{n}</span>
+                      </li>
+                    ))}
+                    {(clientPlan as any).latestVersion.nutrition.length > 6 && (
+                      <li style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)', marginTop: '0.15rem' }}>+{(clientPlan as any).latestVersion.nutrition.length - 6} more guidelines</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p className="profile-plan-empty-text">No nutrition guidelines</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="profile-plan-card profile-plan-card--empty card-glass">
+              <span className="material-symbols-outlined" style={{ fontSize: '1.5rem', color: 'var(--outline)' }}>assignment</span>
+              <p className="profile-plan-empty-text">No plan assigned yet.</p>
+            </div>
+          )}
+        </div>
+
+        {/* â”€â”€ RECENT CHECK-INS â”€â”€ */}
+        <div className="profile-history-section">
+          <div className="flex items-center justify-between mb-md">
+            <div className="profile-section-header">
+              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>history</span>
+              <h3 className="profile-section-title">Recent Check-ins</h3>
+              {sortedCheckIns.length > 0 && <span className="profile-section-count">{sortedCheckIns.length}</span>}
+            </div>
+          </div>
+          {sortedCheckIns.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: 'var(--outline)', display: 'block', marginBottom: '0.5rem' }}>history</span>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--outline)', margin: 0 }}>No check-ins yet.</p>
+            </div>
+          ) : (
+            <div className="profile-checkin-list">
+              {sortedCheckIns.slice(0, 10).map((ci: any, i: number) => {
+                const date = new Date(ci.submittedAt);
+                const daysAgo = Math.floor((Date.now() - date.getTime()) / 86400000);
+                return (
+                  <div key={ci.id} className="checkin-card card-glass" style={{ padding: '0.75rem 1rem' }}>
+                    <div className="checkin-card-summary">
+                      <div className="checkin-card-date">
+                        {date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                        <span style={{ fontFamily: 'Inter, sans-serif', fontWeight: 400, fontSize: '0.7rem', color: 'var(--outline)', marginLeft: '0.5rem' }}>
+                          {daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : `${daysAgo}d ago`}
+                        </span>
+                      </div>
+                      <div className="checkin-card-metrics">
+                        {ci.progress?.weightKg != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.7rem' }}>monitor_weight</span> {ci.progress.weightKg} kg</span>}
+                        {ci.progress?.energyScore != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.7rem' }}>bolt</span> {ci.progress.energyScore}/10</span>}
+                        {ci.progress?.steps != null && <span className="checkin-chip"><span className="material-symbols-outlined" style={{ fontSize: '0.7rem' }}>directions_walk</span> {ci.progress.steps.toLocaleString()}</span>}
+                        {ci.progress?.adherenceScore != null && <span className="checkin-chip" style={{ background: ci.progress.adherenceScore >= 75 ? 'var(--success-light)' : ci.progress.adherenceScore >= 50 ? 'var(--warning-light)' : 'var(--danger-light)', color: ci.progress.adherenceScore >= 75 ? 'var(--success-text)' : ci.progress.adherenceScore >= 50 ? 'var(--warning-text)' : 'var(--danger-text)' }}><span className="material-symbols-outlined" style={{ fontSize: '0.7rem' }}>trending_up</span> {ci.progress.adherenceScore}%</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {sortedCheckIns.length > 10 && (
+                <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--outline)', textAlign: 'center', marginTop: '0.5rem' }}>
+                  +{sortedCheckIns.length - 10} older check-ins
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* â”€â”€ COACH NOTES â”€â”€ */}
+        <div className="card mb-lg">
+          <div className="profile-section-header mb-md">
+            <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>sticky_note_2</span>
+            <h3 className="profile-section-title">Coach Notes</h3>
+            {notes.length > 0 && <span className="profile-section-count">{notes.length}</span>}
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <textarea
+              className="input"
+              value={newNote}
+              onChange={e => setNewNote(e.target.value)}
+              placeholder="Write a private note about this client..."
+              rows={2}
+              style={{ marginBottom: '0.5rem', resize: 'vertical', minHeight: '60px' }}
+            />
+            <button
+              className="btn-primary btn-sm"
+              onClick={async () => {
+                if (!newNote.trim()) return;
+                setNoteSaving(true);
+                try {
+                  const created = await fetchJson<ClientNote>(`/clients/${profileClientId}/notes`, {
+                    method: 'POST',
+                    body: JSON.stringify({ content: newNote.trim() }),
+                  });
+                  setNotes(prev => [created, ...prev]);
+                  setNewNote('');
+                } catch { /* silent */ } finally {
+                  setNoteSaving(false);
+                }
+              }}
+              disabled={noteSaving || !newNote.trim()}
+            >
+              {noteSaving ? 'Saving...' : 'Add Note'}
+            </button>
+          </div>
+          {notes.length === 0 ? (
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--outline)', textAlign: 'center', padding: '1rem 0', margin: 0 }}>
+              No notes yet. Write your first observation above.
+            </p>
+          ) : (
+            <div className="flex-col" style={{ gap: '0.5rem', maxHeight: '320px', overflowY: 'auto' }}>
+              {notes.map(note => (
+                <div key={note.id} style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-md)', padding: '0.75rem 1rem', position: 'relative', border: '1px solid var(--border-light)' }}>
+                  <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)', lineHeight: 1.6, margin: '0 0 0.35rem 0', paddingRight: '1.5rem' }}>{note.content}</p>
+                  <div className="flex items-center justify-between">
+                    <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--outline)' }}>
+                      {new Date(note.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                    <button
+                      className="btn-ghost btn-xs"
+                      onClick={async () => {
+                        if (!confirm('Delete this note?')) return;
+                        try {
+                          await fetchJson(`/clients/${profileClientId}/notes/${note.id}`, { method: 'DELETE' });
+                          setNotes(prev => prev.filter(n => n.id !== note.id));
+                        } catch { /* silent */ }
+                      }}
+                      style={{ color: 'var(--danger)', borderColor: 'transparent' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* â”€â”€ ACTIONS BAR â”€â”€ */}
+        <div className="card">
+          <div className="flex items-center gap-md flex-wrap">
+            <button className="btn-primary" onClick={() => {
+              if (onStartSession) {
+                onStartSession({ id: profileClient.id, fullName: profileClient.fullName });
+              } else {
+                setBookingClient({ id: profileClient.id, fullName: profileClient.fullName });
+              }
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>event</span>
+              Book Session
+            </button>
+            <button className="btn-secondary" onClick={() => onOpenClient(profileClient.id)}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>chat</span>
+              Send Message
+            </button>
+            <button className="btn-ghost" onClick={async () => {
+              setSavingMetric(true);
+              try {
+                await fetchJson<BodyMetric>(`/clients/${profileClientId}/metrics`, {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    measuredAt: new Date().toISOString(),
+                    energyScore: latestCi?.progress?.energyScore ?? null,
+                  }),
+                });
+                const fresh = await fetchJson<BodyMetric[]>(`/clients/${profileClientId}/metrics`);
+                setMetrics(fresh);
+              } catch { /* silent */ } finally {
+                setSavingMetric(false);
+              }
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>check_circle</span>
+              Log Check-in
+            </button>
+          </div>
+        </div>
+
+        {bookingClient && (
+          <SessionBookingModal
+            client={bookingClient}
+            onClose={() => setBookingClient(null)}
+            onSuccess={() => setBookingClient(null)}
+            push={() => {}}
+          />
+        )}
       </div>
     );
-    <>
-    {bookingClient && (
-      <SessionBookingModal
-        client={bookingClient as { id: string; fullName: string }}
-        onClose={() => setBookingClient(null)}
-        onSuccess={() => { setBookingClient(null); }}
-        push={(msg, type) => {}}
-      />
-    )}
-    </>
   }
+
+  const rosterStatusLabel = filterStatus === "all" ? "active high-performers"
+    : filterStatus === "active" ? "active clients"
+    : filterStatus === "at_risk" ? "at-risk clients"
+    : "trial clients";
 
   return (
     <div className="page-view">
-
-      {/* Editorial header */}
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "2rem", gap: "1rem", flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontFamily: "Manrope, sans-serif", fontSize: "2.25rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: "0.35rem" }}>
             Client Roster
           </h1>
           <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.875rem", color: "var(--on-surface-variant)", fontWeight: 500 }}>
-            Curating growth for {activeClients} {statusLabel}.
+            Curating growth for {activeClients} {rosterStatusLabel}.
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          {/* Filter pills */}
+        <div className="flex items-center gap-md flex-wrap">
           <div style={{ display: "flex", background: "var(--surface-container)", borderRadius: "9999px", padding: "3px" }}>
             {[
               { key: "all", label: "All" },
@@ -1648,27 +1619,14 @@ function ClientsView({
               </button>
             ))}
           </div>
-          {/* Search */}
-          <div style={{ position: "relative" }}>
-            <span className="material-symbols-outlined" style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--outline)", fontSize: "1.1rem" }}>search</span>
+          <div className="search-wrapper">
+            <span className="search-icon material-symbols-outlined">search</span>
             <input
+              className="input"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search clients, goals…"
-              style={{
-                padding: "0.5rem 1rem 0.5rem 2.5rem",
-                borderRadius: "9999px",
-                border: "1.5px solid var(--border)",
-                background: "var(--bg-card)",
-                fontFamily: "Inter, sans-serif",
-                fontSize: "0.8rem",
-                color: "var(--text-primary)",
-                width: "220px",
-                outline: "none",
-                transition: "border-color 0.15s",
-              }}
-              onFocus={e => e.target.style.borderColor = "var(--primary)"}
-              onBlur={e => e.target.style.borderColor = "var(--border)"}
+              placeholder="Search clients, goalsâ€¦"
+              style={{ width: "200px", fontSize: "0.8rem", padding: "0.5rem 1rem 0.5rem 2.5rem" }}
             />
           </div>
         </div>
@@ -1677,115 +1635,108 @@ function ClientsView({
       {/* Client cards grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.5rem", marginBottom: "3rem" }}>
         {filtered.map(client => {
-          const initials = client.fullName.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
-          const adherenceColor = client.adherenceScore < 50 ? "var(--danger)"
-            : client.adherenceScore < 75 ? "var(--tertiary)"
+          const ini = client.fullName.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
+          const adhColor = client.adherenceScore < 50 ? "var(--danger)"
+            : client.adherenceScore < 75 ? "var(--warning)"
             : "var(--primary)";
-          const statusBadgeClass = client.status === "at_risk" ? "badge-danger"
+          const cardBadgeClass = client.status === "at_risk" ? "badge-danger"
             : client.status === "trial" ? "badge-warning"
             : "badge-success";
-          const statusLabel = client.status === "at_risk" ? "At Risk"
+          const cardStatusLabel = client.status === "at_risk" ? "At Risk"
             : client.status === "trial" ? "Trial" : "Active";
-          const avatarBg = client.status === "at_risk" ? "var(--danger-light)"
-            : client.status === "trial" ? "var(--tertiary-fixed)"
-            : "var(--primary-fixed-dim)";
+          const cardAvBg = client.status === "at_risk" ? "var(--danger-light)"
+            : client.status === "trial" ? "var(--warning-light)"
+            : "var(--primary-light)";
+          const cardAvColor = client.status === "at_risk" ? "var(--danger-text)"
+            : client.status === "trial" ? "var(--warning-text)"
+            : "var(--primary-dark)";
+          const cardRiskClass = client.status === "at_risk" ? "client-card--at-risk"
+            : client.status === "trial" ? "client-card--trial"
+            : "client-card--active";
 
           return (
             <div
               key={client.id}
-              className="roster-card"
+              className={`client-card ${cardRiskClass}`}
               onClick={() => setProfileClientId(client.id)}
-              style={{ cursor: "pointer" }}
             >
-              {/* Card header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <div style={{ width: 56, height: 56, borderRadius: "var(--r-lg)", background: avatarBg, display: "grid", placeItems: "center", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: client.status === "at_risk" ? "var(--danger-text)" : client.status === "trial" ? "var(--on-tertiary-fixed-variant)" : "var(--primary)", flexShrink: 0 }}>
-                    {initials}
+              <div className="flex items-center justify-between" style={{ marginBottom: "1.25rem" }}>
+                <div className="flex items-center gap-md">
+                  <div className="attention-avatar" style={{ width: 52, height: 52, borderRadius: "var(--r-lg)", background: cardAvBg, color: cardAvColor, fontSize: "0.95rem" }}>
+                    {ini}
                   </div>
                   <div>
-                    <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", lineHeight: 1.2 }}>{client.fullName}</div>
-                    <span className={`at-risk-status-badge ${statusBadgeClass}`} style={{ marginTop: "0.25rem", display: "inline-block" }}>{statusLabel}</span>
+                    <div className="attention-name">{client.fullName}</div>
+                    <span className={`badge ${cardBadgeClass}`} style={{ marginTop: "0.2rem" }}>{cardStatusLabel}</span>
                   </div>
                 </div>
-                <div style={{ fontFamily: "Inter, sans-serif", fontWeight: 700, fontSize: "0.875rem", color: "var(--text-primary)", textAlign: "right" }}>
-                  £{client.monthlyPriceGbp}<span style={{ color: "var(--on-surface-variant)", fontWeight: 400 }}>/mo</span>
+                <div style={{ fontFamily: "Inter, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)", textAlign: "right" }}>
+                  Â£{client.monthlyPriceGbp}<span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: "0.7rem" }}>/mo</span>
                 </div>
               </div>
 
-              {/* Goal */}
               <div style={{ marginBottom: "1rem" }}>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.35rem" }}>Current Goal</div>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--on-surface-variant)", fontWeight: 500, lineHeight: 1.4 }}>{client.goal}</div>
-              </div>
-
-              {/* Adherence bar */}
-              <div style={{ marginBottom: "1.5rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "0.4rem" }}>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Adherence</div>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: adherenceColor }}>{client.adherenceScore}%</div>
-                </div>
-                <div style={{ height: 6, background: "rgba(235,238,237,0.5)", borderRadius: "9999px", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${client.adherenceScore}%`, background: client.adherenceScore < 50 ? "var(--danger)" : client.adherenceScore < 75 ? `linear-gradient(90deg, var(--tertiary) 0%, var(--tertiary-container) 100%)` : "linear-gradient(90deg, var(--primary) 0%, var(--primary-container) 100%)", borderRadius: "9999px", transition: "width 0.6s cubic-bezier(0.34,1.56,0.64,1)" }} />
+                <div className="stat-chip-label" style={{ marginBottom: "0.35rem" }}>Current Goal</div>
+                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--on-surface-variant)", fontWeight: 500, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  {client.goal}
                 </div>
               </div>
 
-              {/* Card footer */}
-              <div style={{ paddingTop: "1rem", borderTop: "1px solid var(--surface-container)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                {client.status === "at_risk" ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--danger)", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>warning</span>
-                    Needs attention
-                  </div>
-                ) : client.status === "trial" ? (
-                  <div style={{ color: "var(--on-surface-variant)", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 500 }}>Trial active</div>
-                ) : (
-                  <div style={{ color: "var(--on-surface-variant)", fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 500 }}>On track</div>
-                )}
-                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 700 }}>
-                  Open Dashboard <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>arrow_forward</span>
+              <div style={{ marginBottom: "1.25rem" }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: "0.35rem" }}>
+                  <span className="stat-chip-label" style={{ margin: 0 }}>Adherence</span>
+                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: adhColor }}>{client.adherenceScore}%</span>
                 </div>
+                <div className="progress-bar-track" style={{ height: 6 }}>
+                  <div className={`progress-bar-fill${client.adherenceScore < 50 ? " progress-bar-fill--danger" : client.adherenceScore < 75 ? " progress-bar-fill--warning" : ""}`} style={{ width: `${client.adherenceScore}%` }} />
+                </div>
+              </div>
+
+              <div style={{ paddingTop: "0.85rem", borderTop: "1px solid var(--surface-container)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: client.status === "at_risk" ? "var(--danger)" : "var(--text-muted)", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  {client.status === "at_risk" ? (
+                    <><span className="material-symbols-outlined" style={{ fontSize: "0.85rem" }}>warning</span> Needs attention</>
+                  ) : client.status === "trial" ? "Trial active" : "On track"}
+                </span>
+                <span className="flex items-center gap-sm" style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--primary)", fontWeight: 700 }}>
+                  View Profile <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>arrow_forward</span>
+                </span>
               </div>
             </div>
           );
         })}
 
-        {/* Onboard CTA */}
         <div
           onClick={onAddClient ?? (() => onOpenClient(""))}
-          style={{ borderRadius: "var(--r-xl)", padding: "1.5rem", border: "2px dashed var(--outline-variant)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem", cursor: "pointer", transition: "all 0.2s ease", minHeight: "220px", textAlign: "center" }}
+          className="program-create-card"
+          style={{ borderRadius: "var(--r-xl)", border: "2px dashed var(--outline-variant)", minHeight: "220px" }}
         >
-          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--surface-container)", display: "grid", placeItems: "center" }}>
-            <span className="material-symbols-outlined" style={{ fontSize: "1.5rem", color: "var(--primary)" }}>person_add</span>
-          </div>
-          <div>
-            <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)", marginBottom: "0.25rem" }}>Onboard New Client</div>
-            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--on-surface-variant)", maxWidth: "160px", margin: "0 auto" }}>Start a new coaching journey today.</div>
-          </div>
+          <span className="material-symbols-outlined program-create-card-icon" style={{ color: "var(--primary)" }}>person_add</span>
+          <p className="program-create-card-label" style={{ color: "var(--primary)" }}>Onboard New Client</p>
+          <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--on-surface-variant)", maxWidth: "160px", textAlign: "center", margin: 0 }}>
+            Start a new coaching journey today.
+          </p>
         </div>
       </div>
 
-      {/* Footer stats */}
       {filtered.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "3rem", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid var(--surface-container)", paddingTop: "2rem" }}>
           <div style={{ display: "flex", gap: "3rem" }}>
             <div>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>Total Monthly Revenue</div>
-              <div style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em" }}>£{mrr}</div>
+              <div className="stat-chip-label" style={{ marginBottom: "0.25rem" }}>Total Monthly Revenue</div>
+              <div className="stat-chip-value">Â£{mrr.toLocaleString()}</div>
             </div>
             <div>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>Avg. Adherence</div>
-              <div style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.75rem", fontWeight: 800, color: avgAdherence < 60 ? "var(--warning)" : "var(--primary)", letterSpacing: "-0.04em" }}>{avgAdherence}%</div>
+              <div className="stat-chip-label" style={{ marginBottom: "0.25rem" }}>Avg. Adherence</div>
+              <div className="stat-chip-value" style={{ color: avgAdherence < 60 ? "var(--warning)" : "var(--primary)" }}>{avgAdherence}%</div>
             </div>
             <div>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.25rem" }}>Total Clients</div>
-              <div style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.75rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.04em" }}>{session.clients.length}</div>
+              <div className="stat-chip-label" style={{ marginBottom: "0.25rem" }}>Total Clients</div>
+              <div className="stat-chip-value">{session.clients.length}</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--on-surface-variant)", fontWeight: 500 }}>
-              Showing {filtered.length} of {session.clients.length}
-            </div>
+          <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--on-surface-variant)", fontWeight: 500 }}>
+            Showing {filtered.length} of {session.clients.length}
           </div>
         </div>
       )}
@@ -1894,9 +1845,9 @@ function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavI
               onChange={e => { setSelectedClientId(e.target.value); setActivePlan(null); }}
               style={{ width: "100%", padding: "0.6rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "white", fontFamily: "Inter, sans-serif", fontSize: "0.85rem", color: "var(--text-primary)", boxSizing: "border-box" }}
             >
-              <option value="">— Select a client —</option>
+              <option value="">â€” Select a client â€”</option>
               {sortedClients.map(c => (
-                <option key={c.id} value={c.id}>{c.fullName} — {c.goal}</option>
+                <option key={c.id} value={c.id}>{c.fullName} â€” {c.goal}</option>
               ))}
             </select>
           </div>
@@ -2075,7 +2026,7 @@ function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavI
   );
 }
 
-// ── CLIENT PORTAL VIEW ──────────────────────
+// â”€â”€ CLIENT PORTAL VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, onCheckIn, onSaveEdits, onSendMessage, onRefreshProof, onApprove, checkInHistory, onNav, push }: {
   session: CoachSession;
   clientPortal: ClientSession | null;
@@ -2139,25 +2090,25 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
       { slot: "Breakfast", name: "Protein Smoothie Bowl", cal: 340, protein: 30 },
       { slot: "Lunch", name: "Tuna Nicoise Salad", cal: 420, protein: 40 },
       { slot: "Snacks", name: "Rice Cakes & Almond Butter", cal: 180, protein: 5 },
-      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
     ]},
     { name: "Fri", meals: [
-      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
     ]},
     { name: "Sat", meals: [
-      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
     ]},
     { name: "Sun", meals: [
-      { slot: "Breakfast", name: "—", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "—", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "—", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "—", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
     ]},
   ]);
   const [savingMeal, setSavingMeal] = useState(false);
@@ -2223,7 +2174,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
     setSavingMeal(true);
     try {
       const nutritionStrings = mealWeek.map(day =>
-        `${day.name}: ${day.meals.filter(m => m.name !== "—").map(m => `${m.slot} — ${m.name} (${m.cal} cal, ${m.protein}g protein)`).join(" | ")}`
+        `${day.name}: ${day.meals.filter(m => m.name !== "â€”").map(m => `${m.slot} â€” ${m.name} (${m.cal} cal, ${m.protein}g protein)`).join(" | ")}`
       );
       await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ nutrition: nutritionStrings }) });
       push("Meal plan saved to client profile!", "success");
@@ -2442,7 +2393,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                           onKeyDown={e => { if (e.key === "Enter") saveProfile({ goal: (document.getElementById("edit-goal") as HTMLInputElement).value }); if (e.key === "Escape") cancelEdit(); }}
                         />
                       ) : (
-                        <div className="portal-goal-text">{(clientPortal.client as any).goal || "Not set — click edit to add"}</div>
+                        <div className="portal-goal-text">{(clientPortal.client as any).goal || "Not set â€” click edit to add"}</div>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
@@ -2571,7 +2522,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         ].map(m => (
                           <div key={m.label} className="portal-macro-chip">
                             <div className="portal-macro-label">{m.label}</div>
-                            <div className="portal-macro-value">{m.value ?? "—"}</div>
+                            <div className="portal-macro-value">{m.value ?? "â€”"}</div>
                             <div className="portal-macro-unit">{m.unit}</div>
                           </div>
                         ))}
@@ -2718,7 +2669,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     <div className="meal-week-nav">
                       <div className="meal-week-label">
                         <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary)" }}>calendar_today</span>
-                        Oct 23 – Oct 29, 2023
+                        Oct 23 â€“ Oct 29, 2023
                       </div>
                       <button className="meal-week-nav-btn" onClick={() => setMealWeekOffset(o => o - 1)}>
                         <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>chevron_left</span>
@@ -2807,34 +2758,34 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         { slot: "Breakfast", name: "Protein Smoothie Bowl", cal: 340, protein: 30, cheat: false },
                         { slot: "Lunch", name: "Tuna Nicoise Salad", cal: 420, protein: 40, cheat: false },
                         { slot: "Snacks", name: "Rice Cakes & Almond Butter", cal: 180, protein: 5, cheat: false },
-                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "â€”", cal: 0, protein: 0, cheat: false },
                       ],
                       cheatMeal: null
                     },
                     { name: "Fri", date: 27, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
                       meals: [
-                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Breakfast", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "â€”", cal: 0, protein: 0, cheat: false },
                       ],
                       cheatMeal: null
                     },
                     { name: "Sat", date: 28, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
                       meals: [
-                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Breakfast", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "â€”", cal: 0, protein: 0, cheat: false },
                       ],
                       cheatMeal: null
                     },
                     { name: "Sun", date: 29, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
                       meals: [
-                        { slot: "Breakfast", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "—", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "—", cal: 0, protein: 0, cheat: false },
+                        { slot: "Breakfast", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "â€”", cal: 0, protein: 0, cheat: false },
                       ],
                       cheatMeal: null
                     },
@@ -2864,7 +2815,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
                             <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.04em" }}>P / C / F</span>
                             <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                              {day.proteinTarget}g · {day.carbsTarget}g · {day.fatTarget}g
+                              {day.proteinTarget}g Â· {day.carbsTarget}g Â· {day.fatTarget}g
                             </span>
                           </div>
                           <div className="meal-macro-mini-bars">
@@ -2884,7 +2835,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         {day.meals.map((meal) => (
                           <div key={meal.slot}>
                             <div className="meal-slot-label">{meal.slot}</div>
-                            {meal.name === "—" ? (
+                            {meal.name === "â€”" ? (
                               <button className="meal-add-btn" title={`Add ${meal.slot}`} onClick={() => setEditingMeal({ day: day.name, slot: meal.slot })}>
                                 <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>add</span>
                               </button>
@@ -2894,7 +2845,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                                   <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>edit</span>
                                 </button>
                                 <div className="meal-item-name">{meal.name}</div>
-                                <div className="meal-item-cal">{meal.cal} kcal · {meal.protein}g P</div>
+                                <div className="meal-item-cal">{meal.cal} kcal Â· {meal.protein}g P</div>
                               </div>
                             )}
                           </div>
@@ -2909,7 +2860,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                                 <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>edit</span>
                               </button>
                               <div className="meal-item-name">{day.cheatMeal.name}</div>
-                              <div className="meal-item-cal meal-item-cal--cheat">{day.cheatMeal.cal} kcal · {day.cheatMeal.protein}g P</div>
+                              <div className="meal-item-cal meal-item-cal--cheat">{day.cheatMeal.cal} kcal Â· {day.cheatMeal.protein}g P</div>
                             </div>
                           </>
                         ) : null}
@@ -2928,7 +2879,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem", fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
                     <span>AI Generate</span>
                   </button>
-                  <button className="meal-architect-btn" onClick={() => { push("Opening Smart Swap — managing nutrition swaps in Habits", "info"); onNav("habits"); }}>
+                  <button className="meal-architect-btn" onClick={() => { push("Opening Smart Swap â€” managing nutrition swaps in Habits", "info"); onNav("habits"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>swap_horiz</span>
                     <span>Smart Swap</span>
                   </button>
@@ -2936,7 +2887,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>restaurant_menu</span>
                     <span>Add Meal</span>
                   </button>
-                  <button className="meal-architect-btn" onClick={() => { push("Macro targets saved — 150g protein, 210g carbs, 58g fat per day", "success"); }}>
+                  <button className="meal-architect-btn" onClick={() => { push("Macro targets saved â€” 150g protein, 210g carbs, 58g fat per day", "success"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>tune</span>
                     <span>Macro Setup</span>
                   </button>
@@ -3120,7 +3071,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 </div>
                 <div className="workout-bottom-actions">
                   <button className="workout-discard-btn" onClick={() => { setWorkoutExercises([{ id: 1, name: "Jumping Jacks", tag: "Metabolic / Plyometric", sets: "3 Sets of 50", duration: "60 Seconds", advanced: "" }, { id: 2, name: "High Knees", tag: "Agility / Power", sets: "Per Set: 30", duration: "45 Seconds", advanced: "Ankle Weights 1kg" }, { id: 3, name: "Butt Kicks", tag: "Metabolic / Warmup", sets: "Fixed: 40", duration: "30 Seconds", advanced: "" }]); push("Workout draft discarded - reverted to last saved version"); }}>Discard Draft</button>
-                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { setSavingWorkout(true); try { await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ workouts: JSON.stringify(workoutExercises) }) }); await onApprove(clientPortal.plan.id); push("Workout plan saved and published!", "success"); } catch { push("Failed to save workout plan", "error"); } finally { setSavingWorkout(false); } } else { push("No active plan — generate one from AI Plans first", "error"); } }}>Save &amp; Publish</button>
+                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { setSavingWorkout(true); try { await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ workouts: JSON.stringify(workoutExercises) }) }); await onApprove(clientPortal.plan.id); push("Workout plan saved and published!", "success"); } catch { push("Failed to save workout plan", "error"); } finally { setSavingWorkout(false); } } else { push("No active plan â€” generate one from AI Plans first", "error"); } }}>Save &amp; Publish</button>
                 </div>
               </div>
             </div>
@@ -3145,7 +3096,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 }
               </div>
               <form className="message-input-row" onSubmit={handleSendMessage}>
-                <input value={msgDraft} onChange={e => setMsgDraft(e.target.value)} placeholder="Type a message…" />
+                <input value={msgDraft} onChange={e => setMsgDraft(e.target.value)} placeholder="Type a messageâ€¦" />
                 <button type="submit">Send</button>
               </form>
             </div>
@@ -3178,7 +3129,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                       <div className="stat-card__value" style={{ fontSize: "1.6rem", color: "var(--primary)" }}>
                         {(() => {
                           const deltas = checkInHistory.filter(c => c.weightDelta != null);
-                          if (deltas.length < 2) return "—";
+                          if (deltas.length < 2) return "â€”";
                           const net = deltas[deltas.length - 1].weightDelta! + deltas[0].weightDelta!;
                           return `${net > 0 ? "+" : ""}${net.toFixed(1)}kg`;
                         })()}
@@ -3210,7 +3161,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                             <div className="trend-bar-track">
                               <div className="trend-bar-fill trend-bar-fill--weight" style={{ height: hasWeight ? `${Math.max(8, pct)}%` : "8%", opacity: hasWeight ? 1 : 0.3 }} />
                             </div>
-                            <span className="trend-bar-label">{checkIn.progress.weightKg != null ? `${checkIn.progress.weightKg}` : "—"}</span>
+                            <span className="trend-bar-label">{checkIn.progress.weightKg != null ? `${checkIn.progress.weightKg}` : "â€”"}</span>
                             <span className="trend-bar-date">{new Date(checkIn.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
                           </div>
                         );
@@ -3321,7 +3272,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
   );
 }
 
-// ── BILLING VIEW ──────────────────────
+// â”€â”€ BILLING VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function BillingView({ session, onToggleBilling }: {
   session: CoachSession;
   onToggleBilling: (clientId: string, status: "active"|"past_due"|"cancelled") => Promise<void>;
@@ -3343,11 +3294,11 @@ function BillingView({ session, onToggleBilling }: {
       <div className="stat-grid" style={{ marginBottom: "2rem" }}>
         <div className="stat-card stat-card--accent card-glass">
           <div className="stat-card__label">Monthly Recurring Revenue</div>
-          <div className="stat-card__value">£{mrrGbp}</div>
+          <div className="stat-card__value">Â£{mrrGbp}</div>
         </div>
         <div className="stat-card card-glass" style={{ borderLeft: "3px solid var(--primary)" }}>
           <div className="stat-card__label">Est. VAT Collected (20%)</div>
-          <div className="stat-card__value">£{totalTaxGbp.toFixed(2)}</div>
+          <div className="stat-card__value">Â£{totalTaxGbp.toFixed(2)}</div>
         </div>
         <div className="stat-card stat-card--danger card-glass">
           <div className="stat-card__label">Past Due</div>
@@ -3362,7 +3313,7 @@ function BillingView({ session, onToggleBilling }: {
       <div className="panel card-glass">
         <div className="section-header inline-spread">
           <h2>Client Subscriptions & Invoices</h2>
-          <button className="secondary sm" onClick={() => downloadBulkTaxReport(subs, session.clients, session.workspace)}>📥 Bulk Download Tax Report</button>
+          <button className="secondary sm" onClick={() => downloadBulkTaxReport(subs, session.clients, session.workspace)}>ðŸ“¥ Bulk Download Tax Report</button>
         </div>
         <div className="stack compact">
           {subs.map(sub => {
@@ -3380,14 +3331,14 @@ function BillingView({ session, onToggleBilling }: {
                 </div>
                 <div className="inline" style={{ gap: "1.5rem" }}>
                   <div style={{ textAlign: "right", display: "flex", flexDirection: "column" }}>
-                    <span style={{ fontWeight: 700, color: "var(--on-surface)" }}>£{sub.amountGbp.toFixed(2)}/mo</span>
-                    <span className="muted text-xs">Net: £{subNet.toFixed(2)} + VAT: £{subVat.toFixed(2)}</span>
+                    <span style={{ fontWeight: 700, color: "var(--on-surface)" }}>Â£{sub.amountGbp.toFixed(2)}/mo</span>
+                    <span className="muted text-xs">Net: Â£{subNet.toFixed(2)} + VAT: Â£{subVat.toFixed(2)}</span>
                   </div>
                   <span className={`pill ${sub.status === "past_due" ? "pill-danger" : sub.status === "trialing" ? "pill-warning" : "pill-success"}`}>
                     {sub.status}
                   </span>
                   <div className="inline compact">
-                    <button className="ghost sm" onClick={() => client && generateInvoicePDF(sub, client, session.workspace)}>📄 PDF Invoice</button>
+                    <button className="ghost sm" onClick={() => client && generateInvoicePDF(sub, client, session.workspace)}>ðŸ“„ PDF Invoice</button>
                     {sub.status === "active" ? (
                       <button className="secondary sm" onClick={() => onToggleBilling(sub.clientId, "past_due")}>Mark due</button>
                     ) : (
@@ -3404,7 +3355,7 @@ function BillingView({ session, onToggleBilling }: {
   );
 }
 
-// ── MIGRATION VIEW ──────────────────────
+// â”€â”€ MIGRATION VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
   const [csvRows, setCsvRows] = useState("Name,Email,Goal,MonthlyPriceGbp\nEmma Walker,emma@example.com,Drop 6kg before wedding,179\nNoah Reed,noah@example.com,Improve strength and reduce body fat,149");
   const [preview, setPreview] = useState<any>(null);
@@ -3450,7 +3401,7 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
             <textarea className="csv-box" value={csvRows} onChange={e => setCsvRows(e.target.value)} />
             <div className="inline">
               <button className="secondary" onClick={doPreview}>Preview</button>
-              <button disabled={loading === "commit"} onClick={doCommit}>{loading === "commit" ? "Importing…" : "Commit rows"}</button>
+              <button disabled={loading === "commit"} onClick={doCommit}>{loading === "commit" ? "Importingâ€¦" : "Commit rows"}</button>
             </div>
             {preview && (
               <div className="preview-table">
@@ -3474,18 +3425,18 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
         <div className="stack">
           <div className="panel">
             <div className="section-header"><h2>Export & Rollback</h2></div>
-            <p className="muted text-sm" style={{ marginBottom: "1rem" }}>Download a portable JSON snapshot of all state — clients, plans, payments, and analytics.</p>
+            <p className="muted text-sm" style={{ marginBottom: "1rem" }}>Download a portable JSON snapshot of all state â€” clients, plans, payments, and analytics.</p>
             <div className="inline">
-              <a className="ghost-button" href={`${apiBase}/export`} target="_blank" rel="noreferrer">↓ Export bundle</a>
-              <button className="danger" disabled={loading === "reset"} onClick={doReset}>{loading === "reset" ? "Resetting…" : "Reset to seed"}</button>
+              <a className="ghost-button" href={`${apiBase}/export`} target="_blank" rel="noreferrer">â†“ Export bundle</a>
+              <button className="danger" disabled={loading === "reset"} onClick={doReset}>{loading === "reset" ? "Resettingâ€¦" : "Reset to seed"}</button>
             </div>
           </div>
 
           <div className="panel">
             <div className="section-header"><h2>Restore Snapshot</h2></div>
             <form className="stack" onSubmit={doRestore}>
-              <textarea className="csv-box" value={restoreJson} onChange={e => setRestoreJson(e.target.value)} placeholder='Paste exported JSON here…' />
-              <button type="submit" disabled={loading === "restore"}>{loading === "restore" ? "Restoring…" : "Restore snapshot"}</button>
+              <textarea className="csv-box" value={restoreJson} onChange={e => setRestoreJson(e.target.value)} placeholder='Paste exported JSON hereâ€¦' />
+              <button type="submit" disabled={loading === "restore"}>{loading === "restore" ? "Restoringâ€¦" : "Restore snapshot"}</button>
             </form>
           </div>
         </div>
@@ -3494,7 +3445,7 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
   );
 }
 
-// ── SETTINGS VIEW ──────────────────────
+// â”€â”€ SETTINGS VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function SettingsView({ session, onSave }: {
   session: CoachSession;
   onSave: (draft: any) => Promise<void>;
@@ -3642,7 +3593,7 @@ function SettingsView({ session, onSave }: {
                   {hours.enabled && (
                     <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
                       <input type="time" value={hours.start} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), start: e.target.value } }))} style={{ flex: 1, padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
-                      <span style={{ color: "var(--outline)", fontSize: "0.75rem" }}>–</span>
+                      <span style={{ color: "var(--outline)", fontSize: "0.75rem" }}>â€“</span>
                       <input type="time" value={hours.end} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), end: e.target.value } }))} style={{ flex: 1, padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
                     </div>
                   )}
@@ -3664,7 +3615,7 @@ function SettingsView({ session, onSave }: {
               {blockedDates.map((d, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                   <input type="date" value={d} onChange={e => setBlockedDates(prev => prev.map((x, j) => j === i ? e.target.value : x))} style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
-                  <button onClick={() => setBlockedDates(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.1rem" }}>×</button>
+                  <button onClick={() => setBlockedDates(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.1rem" }}>Ã—</button>
                 </div>
               ))}
             </div>
@@ -3679,9 +3630,9 @@ function SettingsView({ session, onSave }: {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    WORKOUT LOGGER MODAL
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
   onClose: () => void;
   onSuccess: () => void;
@@ -3717,8 +3668,8 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
           clientId: selectedClientId,
           submittedAt: new Date(workoutDate).toISOString(),
           progress: {
-            notes: `Workout — ${sessionType}. Exercises: ${completed.map(ex =>
-              `${ex.name} ${ex.sets}×${ex.reps}${ex.weight ? ` @${ex.weight}kg` : ""}`
+            notes: `Workout â€” ${sessionType}. Exercises: ${completed.map(ex =>
+              `${ex.name} ${ex.sets}Ã—${ex.reps}${ex.weight ? ` @${ex.weight}kg` : ""}`
             ).join(" | ")}`,
           },
         })
@@ -3733,7 +3684,7 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
       <div className="modal-panel" style={{ maxWidth: 520 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", margin: 0 }}>Log Workout Session</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>Ã—</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
@@ -3770,7 +3721,7 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
                 <input value={ex.reps} onChange={e => updateExercise(i, "reps", e.target.value)} placeholder="Reps" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
                 <input value={ex.weight} onChange={e => updateExercise(i, "weight", e.target.value)} placeholder="kg" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
                 {exercises.length > 1 && (
-                  <button type="button" onClick={() => removeExercise(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.2rem" }}>×</button>
+                  <button type="button" onClick={() => removeExercise(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.2rem" }}>Ã—</button>
                 )}
               </div>
             ))}
@@ -3787,9 +3738,9 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CLIENT NOTES MODAL
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function ClientNotesModal({ onClose, push, clients }: {
   onClose: () => void;
   push: (message: string, type?: "success"|"error"|"info") => void;
@@ -3877,7 +3828,7 @@ function ClientNotesModal({ onClose, push, clients }: {
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexShrink: 0 }}>
           <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", margin: 0 }}>Client Notes & Chat</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>×</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>Ã—</button>
         </div>
 
         {/* Client selector */}
@@ -3995,9 +3946,9 @@ function ClientNotesModal({ onClose, push, clients }: {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    ONBOARDING WIZARD
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState({
@@ -4035,7 +3986,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           ))}
         </div>
 
-        {/* Step 0 — Workspace Setup */}
+        {/* Step 0 â€” Workspace Setup */}
         {step === 0 && (
           <div>
             <p className="eyebrow">Step 1 of {STEPS.length}</p>
@@ -4056,12 +4007,12 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
-        {/* Step 1 — Coach Type */}
+        {/* Step 1 â€” Coach Type */}
         {step === 1 && (
           <div>
             <p className="eyebrow">Step 2 of {STEPS.length}</p>
             <h2 className="modal-title">What kind of coach are you?</h2>
-            <p className="modal-subtitle">We'll tailor your experience — you can change this later.</p>
+            <p className="modal-subtitle">We'll tailor your experience â€” you can change this later.</p>
             <div className="coach-type-grid" style={{ marginTop: "1.5rem" }}>
               {COACH_TYPES.map(ct => (
                 <button
@@ -4083,7 +4034,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
-        {/* Step 2 — Launch */}
+        {/* Step 2 â€” Launch */}
         {step === 2 && (
           <div style={{ textAlign: "center", padding: "1rem 0" }}>
             <p className="eyebrow">Step 3 of {STEPS.length}</p>
@@ -4091,17 +4042,17 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <p className="modal-subtitle">Your workspace is ready. Let's go.</p>
             <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div className="onboard-summary-item">
-                <span className="onboard-summary-icon">🏋️</span>
+                <span className="onboard-summary-icon">ðŸ‹ï¸</span>
                 <span>CoachOS workspace created</span>
               </div>
               {coachTypes.length > 0 && (
                 <div className="onboard-summary-item">
-                  <span className="onboard-summary-icon">🎯</span>
+                  <span className="onboard-summary-icon">ðŸŽ¯</span>
                   <span>{coachTypes.length} coaching specialty{coachTypes.length > 1 ? "ies" : "y"} selected</span>
                 </div>
               )}
               <div className="onboard-summary-item">
-                <span className="onboard-summary-icon">📋</span>
+                <span className="onboard-summary-icon">ðŸ“‹</span>
                 <span>Demo clients loaded and ready to explore</span>
               </div>
             </div>
@@ -4110,24 +4061,24 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
         <div className="onboard-actions">
           {step > 0 ? (
-            <button className="secondary" onClick={() => setStep(s => s - 1)}>← Back</button>
+            <button className="secondary" onClick={() => setStep(s => s - 1)}>â† Back</button>
           ) : (
             <div />
           )}
           <div className="inline">
             <span className="text-sm muted">{step + 1} / {STEPS.length}</span>
-            <button onClick={next}>{step === STEPS.length - 1 ? "Launch CoachOS →" : "Continue →"}</button>
+            <button onClick={next}>{step === STEPS.length - 1 ? "Launch CoachOS â†’" : "Continue â†’"}</button>
           </div>
         </div>
-        <div className="onboard-skip" onClick={onComplete}>Skip onboarding — use defaults</div>
+        <div className="onboard-skip" onClick={onComplete}>Skip onboarding â€” use defaults</div>
       </div>
     </div>
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    GROUP PROGRAMS VIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function GroupsView({ session, onCreate, onUpdate, onArchive }: {
   session: CoachSession;
   onCreate: (payload: Partial<GroupProgram>) => Promise<void>;
@@ -4199,11 +4150,11 @@ function GroupsView({ session, onCreate, onUpdate, onArchive }: {
           </div>
           <div className="program-stat">
             <span className="program-stat-label">Price/mo</span>
-            <span className="program-stat-value">£{program.monthlyPriceGbp}</span>
+            <span className="program-stat-value">Â£{program.monthlyPriceGbp}</span>
           </div>
           <div className="program-stat">
             <span className="program-stat-label">Revenue/mo</span>
-            <span className="program-stat-value">£{program.monthlyPriceGbp * program.memberIds.length}</span>
+            <span className="program-stat-value">Â£{program.monthlyPriceGbp * program.memberIds.length}</span>
           </div>
         </div>
       </div>
@@ -4219,7 +4170,7 @@ function GroupsView({ session, onCreate, onUpdate, onArchive }: {
       {programs.length === 0 && !showCreate && (
         <div className="panel">
           <div className="empty-state">
-            <div className="empty-state-icon">👥</div>
+            <div className="empty-state-icon">ðŸ‘¥</div>
             <p style={{ color: "var(--on-surface)", fontWeight: 600 }}>No group programs yet</p>
             <p className="muted text-sm">Create a programme to coach multiple clients together.</p>
           </div>
@@ -4307,7 +4258,7 @@ function CreateProgramModal({ clients, onSave, onClose }: {
           <label>Program title<input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Summer Fat-Loss Sprint" /></label>
           <label>Goal<input value={goal} onChange={e => setGoal(e.target.value)} placeholder="e.g. Lose 4kg before summer" /></label>
           <label>Description<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description of the programme..." /></label>
-          <label>Monthly price (£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
+          <label>Monthly price (Â£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
           <div>
             <label style={{ marginBottom: "0.5rem" }}>Assign clients</label>
             <div className="member-select-list">
@@ -4355,7 +4306,7 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
           <label>Program title<input value={title} onChange={e => setTitle(e.target.value)} /></label>
           <label>Goal<input value={goal} onChange={e => setGoal(e.target.value)} /></label>
           <label>Description<textarea value={description} onChange={e => setDescription(e.target.value)} /></label>
-          <label>Monthly price (£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
+          <label>Monthly price (Â£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
           <div>
             <label style={{ marginBottom: "0.5rem" }}>Members</label>
             <div className="member-select-list">
@@ -4382,9 +4333,9 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    HABITS VIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function HabitsView({ session }: { session: CoachSession }) {
   const [summaries, setSummaries] = useState<Map<string, HabitSummary[]>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -4427,7 +4378,7 @@ function HabitsView({ session }: { session: CoachSession }) {
         metadata: { habit: habitTitle }
       })
     });
-    push("Nudge sent to client ✓");
+    push("Nudge sent to client âœ“");
   };
 
   const addHabit = async (clientId: string) => {
@@ -4476,7 +4427,7 @@ function HabitsView({ session }: { session: CoachSession }) {
                         {rate}% today
                       </span>
                       {items.map(i => i.streak > 0 && (
-                        <span key={i.habit.id} className="habit-streak-badge">🔥 {i.streak}d streak</span>
+                        <span key={i.habit.id} className="habit-streak-badge">ðŸ”¥ {i.streak}d streak</span>
                       ))}
                     </div>
                   </div>
@@ -4521,7 +4472,7 @@ function HabitsView({ session }: { session: CoachSession }) {
                       />
                       <span className={`habit-title${todayDone ? " done" : ""}`}>{habit.title}</span>
                       <div className="habit-meta">
-                        <span className="streak-flame">🔥 {streak}</span>
+                        <span className="streak-flame">ðŸ”¥ {streak}</span>
                         <span className="habit-frequency">{habit.frequency}</span>
                         {!todayDone && (
                           <button className="habit-nudge-btn" onClick={() => sendNudge(client.id, habit.title)}>
@@ -4541,9 +4492,9 @@ function HabitsView({ session }: { session: CoachSession }) {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    EXERCISES VIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function ExercisesView() {
   const [search, setSearch] = useState("");
   const [bodyPart, setBodyPart] = useState("all");
@@ -4572,12 +4523,12 @@ function ExercisesView() {
     <div className="page-view">
       <p className="eyebrow">Exercise Library</p>
       <h1 className="page-title">Movement Database</h1>
-      <p className="page-subtitle">{exercises.length} exercises across all movement patterns — tagged by body part, equipment, and difficulty.</p>
+      <p className="page-subtitle">{exercises.length} exercises across all movement patterns â€” tagged by body part, equipment, and difficulty.</p>
 
       <div className="panel">
         <div className="search-wrapper" style={{ marginBottom: "1rem" }}>
-          <span className="search-icon">⌕</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search exercises…" />
+          <span className="search-icon">âŒ•</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search exercisesâ€¦" />
         </div>
         <div className="exercise-filters">
           {BODY_PARTS.map(bp => (
@@ -4609,7 +4560,7 @@ function ExercisesView() {
         ))}
         {exercises.length === 0 && (
           <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
-            <div className="empty-state-icon">🏋️</div>
+            <div className="empty-state-icon">ðŸ‹ï¸</div>
             <p>No exercises match your filters.</p>
           </div>
         )}
@@ -4618,147 +4569,77 @@ function ExercisesView() {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CALENDAR VIEW
-──────────────────────────────────────── */
-type CalendarEvent = {
-  id: string;
-  date: string; // YYYY-MM-DD
-  type: "check-in"|"renewal"|"billing"|"session"|"reminder"|"blocked";
-  clientId?: string;
-  clientName?: string;
-  label: string;
-  color: string;
-};
-
-function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: NavId) => void }) {
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function CalendarView({ session, onNav, bookedSessions, onUpdateSessions, push, clients }: {
+  session: CoachSession;
+  onNav: (id: NavId) => void;
+  bookedSessions: BookedSession[];
+  onUpdateSessions: React.Dispatch<React.SetStateAction<BookedSession[]>>;
+  push: (message: string, type?: ToastType, options?: ToastOptions) => number;
+  clients: ClientProfile[];
+}) {
   const today = new Date();
-  const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [monthOffset, setMonthOffset] = useState(0);
-  const [blockedDates, setBlockedDates] = useState<Record<string, string[]>>({});
-  const [newBlockComment, setNewBlockComment] = useState("");
-  const [showBlockInput, setShowBlockInput] = useState(false);
-
-  useEffect(() => {
-    setShowBlockInput(false);
-    setNewBlockComment("");
-  }, [selectedDate]);
-
-  const displayDate = useMemo(() => {
-    const d = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
-    setViewDate(d);
-    return d;
-  }, [monthOffset]);
-
-  const year = displayDate.getFullYear();
-  const month = displayDate.getMonth();
-
-  const events: CalendarEvent[] = useMemo(() => {
-    const evs: CalendarEvent[] = [];
-    // Renewal events
-    session.subscriptions.forEach(sub => {
-      if (sub.renewalDate && sub.status !== "cancelled") {
-        const client = session.clients.find(c => c.id === sub.clientId);
-        evs.push({
-          id: sub.id,
-          date: sub.renewalDate,
-          type: "renewal",
-          clientId: sub.clientId,
-          clientName: client?.fullName,
-          label: `Renewal: ${client?.fullName ?? "Client"}`,
-          color: "var(--primary)",
-        });
-      }
-    });
-    // Billing events (same as renewal)
-    session.subscriptions.forEach(sub => {
-      if (sub.renewalDate && sub.status === "active") {
-        const client = session.clients.find(c => c.id === sub.clientId);
-        evs.push({
-          id: `bill-${sub.id}`,
-          date: sub.renewalDate,
-          type: "billing",
-          clientId: sub.clientId,
-          clientName: client?.fullName,
-          label: `Payment: £${sub.amountGbp}`,
-          color: "var(--accent)",
-        });
-      }
-    });
-    // Check-in reminders (scheduled based on last check-in + 7 days)
-    session.clients.forEach(client => {
-      if (client.lastCheckInDate) {
-        const last = new Date(client.lastCheckInDate);
-        const next = new Date(last);
-        next.setDate(next.getDate() + 7);
-        // Only add if within this month
-        if (next.getMonth() === month && next.getFullYear() === year) {
-          evs.push({
-            id: `checkin-reminder-${client.id}`,
-            date: next.toISOString().split("T")[0],
-            type: "check-in",
-            clientId: client.id,
-            clientName: client.fullName,
-            label: `Check-in: ${client.fullName}`,
-            color: "var(--tertiary)",
-          });
-        }
-      }
-    });
-    // Add blocked dates as events (one per comment)
-    Object.entries(blockedDates).forEach(([date, comments]) => {
-      comments.forEach((comment, i) => {
-        evs.push({
-          id: `blocked-${date}-${i}`,
-          date,
-          type: "blocked",
-          label: comment,
-          color: "var(--danger)",
-        });
-      });
-    });
-    return evs;
-  }, [session, month, year, blockedDates]);
-
-  const eventMap = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>();
-    events.forEach(e => {
-      const existing = map.get(e.date) ?? [];
-      existing.push(e);
-      map.set(e.date, existing);
-    });
-    return map;
-  }, [events]);
-
-  // Calendar grid
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const calendarDays: (number | null)[] = [
-    ...Array(firstDay === 0 ? 6 : firstDay - 1).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-    ...Array(42 - (firstDay === 0 ? 6 : firstDay - 1) - daysInMonth).fill(null),
-  ];
-
-  const formatDate = (day: number) => `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   const todayStr = today.toISOString().split("T")[0];
 
-  const selectedEvents = selectedDate ? eventMap.get(selectedDate) ?? [] : [];
-  const upcomingEvents = events
-    .filter(e => e.date >= todayStr)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 8);
+  const [bookingClient, setBookingClient] = useState<{ id: string; fullName: string } | null>(null);
+  const [activeNoteSession, setActiveNoteSession] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
 
-  const monthName = displayDate.toLocaleString("en-GB", { month: "long", year: "numeric" });
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const todaySessions = useMemo(() => {
+    return bookedSessions
+      .filter(s => s.date === todayStr && s.status !== 'cancelled')
+      .sort((a, b) => a.time.localeCompare(b.time));
+  }, [bookedSessions, todayStr]);
 
-  const typeConfig = {
-    "check-in": { icon: "monitor_heart", color: "var(--tertiary)", bg: "var(--tertiary-fixed)" },
-    "renewal": { icon: "autorenew", color: "var(--primary)", bg: "var(--primary-light)" },
-    "billing": { icon: "payments", color: "var(--accent)", bg: "var(--accent-light)" },
-    "session": { icon: "event", color: "var(--secondary)", bg: "var(--secondary-fixed)" },
-    "reminder": { icon: "notifications", color: "var(--warning)", bg: "var(--warning-light)" },
-    "blocked": { icon: "block", color: "var(--danger)", bg: "rgba(239,68,68,0.1)" },
+  const upcomingSessions = useMemo(() => {
+    return bookedSessions
+      .filter(s => s.date > todayStr && s.status === 'upcoming')
+      .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  }, [bookedSessions, todayStr]);
+
+  const pastSessions = useMemo(() => {
+    return bookedSessions
+      .filter(s => s.date < todayStr || s.status === 'completed')
+      .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
+      .slice(0, 20);
+  }, [bookedSessions, todayStr]);
+
+  const markComplete = (sessionId: string) => {
+    onUpdateSessions(prev => prev.map(s =>
+      s.id === sessionId
+        ? { ...s, status: 'completed' as const, completedAt: new Date().toISOString() }
+        : s
+    ));
+  };
+
+  const cancelSession = (sessionId: string) => {
+    onUpdateSessions(prev => prev.map(s =>
+      s.id === sessionId ? { ...s, status: 'cancelled' as const } : s
+    ));
+  };
+
+  const saveSessionNotes = (sessionId: string) => {
+    if (!noteDraft.trim()) return;
+    onUpdateSessions(prev => prev.map(s =>
+      s.id === sessionId
+        ? { ...s, sessionNotes: s.sessionNotes ? `${s.sessionNotes}\n\n${noteDraft.trim()}` : noteDraft.trim() }
+        : s
+    ));
+    setNoteDraft("");
+    setActiveNoteSession(null);
+  };
+
+  const getClientInitials = (name: string) => name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr + "T12:00:00");
+    const dayDiff = Math.floor((d.getTime() - today.getTime()) / 86400000);
+    if (dayDiff === 0) return <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Today</span>;
+    if (dayDiff === 1) return <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Tomorrow</span>;
+    if (dayDiff < 7 && dayDiff > 0) return <span style={{ fontWeight: 600 }}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</span>;
+    return <span>{d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>;
   };
 
   return (
@@ -4766,287 +4647,300 @@ function CalendarView({ session, onNav }: { session: CoachSession; onNav: (id: N
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 0.25rem" }}>Schedule</p>
-          <h1 style={{ fontFamily: "Manrope, sans-serif", fontSize: "2.25rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: 0 }}>Calendar</h1>
+          <h1 style={{ fontFamily: "Manrope, sans-serif", fontSize: "2.25rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: 0 }}>Session Calendar</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <button className="btn-ghost" onClick={() => setMonthOffset(o => o - 1)}>
-            <span className="material-symbols-outlined" style={{ fontSize: "1.2rem" }}>chevron_left</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <button className="btn-primary btn-sm" onClick={() => {
+            if (clients.length > 0) setBookingClient({ id: clients[0].id, fullName: clients[0].fullName });
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>add</span>
+            Book Session
           </button>
-          <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", minWidth: "160px", textAlign: "center" }}>{monthName}</span>
-          <button className="btn-ghost" onClick={() => setMonthOffset(o => o + 1)}>
-            <span className="material-symbols-outlined" style={{ fontSize: "1.2rem" }}>chevron_right</span>
-          </button>
-          {monthOffset !== 0 && (
-            <button className="btn-ghost" onClick={() => setMonthOffset(0)} style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, padding: "0.4rem 0.75rem" }}>Today</button>
-          )}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "1.5rem", alignItems: "start" }}>
-        {/* Calendar grid */}
-        <div>
-          <div className="card-glass" style={{ padding: "1rem" }}>
-            {/* Day headers */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "4px" }}>
-              {days.map(d => (
-                <div key={d} style={{ textAlign: "center", fontFamily: "Inter, sans-serif", fontSize: "0.65rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.4rem 0" }}>{d}</div>
-              ))}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.5rem", alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {/* TODAY'S SESSIONS */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-md">
+              <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--primary)" }}>today</span>
+                Today
+              </h2>
+              <span className="badge badge-success" style={{ fontSize: "0.65rem" }}>
+                {today.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
             </div>
-            {/* Day cells */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px" }}>
-              {calendarDays.map((day, idx) => {
-                if (!day) return <div key={`empty-${idx}`} />;
-                const dateStr = formatDate(day);
-                const dayEvents = eventMap.get(dateStr) ?? [];
-                const isBlocked = (blockedDates[dateStr]?.length ?? 0) > 0;
-                const isToday = dateStr === todayStr;
-                const isSelected = dateStr === selectedDate;
-                return (
-                  <button
-                    key={day}
-                    onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                    style={{
-                      border: "none",
-                      background: isSelected ? "var(--primary-light)" : isToday ? "var(--surface-container)" : "transparent",
-                      borderRadius: "var(--r-lg)",
-                      padding: "0.5rem 0.25rem",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "2px",
-                      minHeight: "60px",
-                      transition: "background 0.15s",
-                      position: "relative",
-                    }}
-                  >
-                    {isBlocked && (
-                      <div style={{ position: "absolute", top: "4px", right: "4px", width: "6px", height: "6px", borderRadius: "50%", background: "var(--danger)" }} />
-                    )}
-                    <span style={{
-                      fontFamily: "Manrope, sans-serif",
-                      fontWeight: 800,
-                      fontSize: "0.9rem",
-                      color: isToday ? "var(--primary)" : "var(--text-primary)",
-                    }}>{day}</span>
-                    {dayEvents.filter(e => e.type !== "blocked").slice(0, 2).map(e => (
-                      <div key={e.id} style={{
-                        width: "100%",
-                        padding: "1px 4px",
-                        borderRadius: "9999px",
-                        background: typeConfig[e.type]?.bg ?? "var(--surface-container)",
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: "0.55rem",
-                        fontWeight: 600,
-                        color: typeConfig[e.type]?.color ?? "var(--on-surface)",
-                        textAlign: "center",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}>{e.clientName ? e.clientName.split(" ")[0] : e.type}</div>
-                    ))}
-                    {dayEvents.filter(e => e.type !== "blocked").length > 2 && (
-                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.5rem", color: "var(--outline)" }}>+{dayEvents.filter(e => e.type !== "blocked").length - 2}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Upcoming events strip */}
-          <div style={{ marginTop: "1.5rem" }}>
-            <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", marginBottom: "0.75rem" }}>Upcoming</h2>
-            {upcomingEvents.length === 0 ? (
-              <div className="empty-state" style={{ padding: "2rem" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "2rem", color: "var(--outline)" }}>event_available</span>
-                <p style={{ fontFamily: "Inter, sans-serif", color: "var(--outline)", fontSize: "0.85rem" }}>No upcoming events this month.</p>
+            {todaySessions.length === 0 ? (
+              <div style={{ padding: "2rem 0", textAlign: "center" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "2rem", color: "var(--outline)", display: "block", marginBottom: "0.5rem" }}>event_busy</span>
+                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.85rem", color: "var(--outline)" }}>No sessions scheduled today.</p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                {upcomingEvents.map(e => {
-                  const cfg = typeConfig[e.type];
-                  const client = e.clientId ? session.clients.find(c => c.id === e.clientId) : null;
-                  const isBlocked = e.type === "blocked";
-                  return (
-                    <div key={e.id} className="card-glass" style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem", cursor: (client || isBlocked) ? "pointer" : "default", borderLeft: isBlocked ? "3px solid var(--danger)" : undefined, opacity: isBlocked ? 0.85 : 1 }} onClick={() => { setSelectedDate(e.date); setMonthOffset(0); }}>
-                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: cfg?.bg, display: "grid", placeItems: "center", flexShrink: 0 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: cfg?.color }}>{cfg?.icon}</span>
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: isBlocked ? "var(--danger)" : "var(--text-primary)" }}>{e.label}</div>
-                        <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)" }}>{new Date(e.date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</div>
-                      </div>
-                      {client && (
-                        <button className="btn-ghost" style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, padding: "0.3rem 0.6rem" }}
-                          onClick={ev => { ev.stopPropagation(); onNav("clients"); }}>
-                          View
-                        </button>
-                      )}
-                      {isBlocked && (
-                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "var(--danger)", background: "rgba(239,68,68,0.1)", padding: "0.15rem 0.4rem", borderRadius: "9999px" }}>Blocked</span>
-                      )}
+              <div className="flex-col" style={{ gap: "0.5rem" }}>
+                {todaySessions.map(s => (
+                  <div key={s.id} className={`session-row${s.status === 'completed' ? '' : ''}`} style={{
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 'var(--r-lg)',
+                    padding: '0.85rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    background: s.status === 'completed' ? 'var(--success-light)' : 'var(--surface-container)',
+                  }}>
+                    <div style={{
+                      width: '40px', height: '40px',
+                      borderRadius: 'var(--r-md)',
+                      background: s.status === 'completed' ? 'var(--success)' : s.sessionType === 'virtual' ? 'var(--info-light)' : 'var(--accent-light)',
+                      display: 'grid', placeItems: 'center', flexShrink: 0,
+                    }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: s.status === 'completed' ? 'white' : s.sessionType === 'virtual' ? 'var(--info)' : 'var(--accent-dark)' }}>
+                        {s.status === 'completed' ? 'check' : s.sessionType === 'virtual' ? 'videocam' : 'person_pin'}
+                      </span>
                     </div>
-                  );
-                })}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                        {s.clientName}
+                      </div>
+                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--outline)' }}>
+                        {s.time} Â· {s.duration}min Â· {s.sessionType === 'virtual' ? 'Virtual' : 'In-Person'}
+                      </div>
+                    </div>
+                    <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'var(--primary)' }}>
+                      {s.time}
+                    </span>
+                    {s.status === 'upcoming' && (
+                      <button
+                        onClick={() => markComplete(s.id)}
+                        className="btn-primary btn-xs"
+                        style={{ padding: '0.3rem 0.65rem' }}
+                        title="Mark complete"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '0.8rem' }}>check</span>
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        </div>
 
-        {/* Right sidebar: selected date detail */}
-        <div>
-          {selectedDate ? (
-            <div className="card-glass" style={{ padding: "1.25rem", position: "sticky", top: "1rem" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-                <h3 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", margin: 0 }}>
-                  {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-                </h3>
-                <button onClick={() => setSelectedDate(null)} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--outline)", padding: "0.25rem" }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>close</span>
-                </button>
-              </div>
-
-              {/* Block this date */}
-              <div style={{ marginBottom: "1rem" }}>
-                {/* Existing block comments for this date */}
-                {(blockedDates[selectedDate!]?.length ?? 0) > 0 && (
-                  <div style={{ marginBottom: "0.75rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.2rem" }}>
-                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "var(--danger)", textTransform: "uppercase" }}>
-                        Blocked ({blockedDates[selectedDate!]?.length}/10)
+          {/* UPCOMING SESSIONS */}
+          {upcomingSessions.length > 0 && (
+            <div className="card">
+              <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: '0 0 1rem', display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--accent)" }}>upcoming</span>
+                Upcoming ({upcomingSessions.length})
+              </h2>
+              <div className="flex-col" style={{ gap: "0.4rem" }}>
+                {upcomingSessions.map(s => (
+                  <div key={s.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    padding: '0.6rem 0.75rem', borderRadius: 'var(--r-md)',
+                    border: '1px solid var(--border-light)',
+                    transition: 'background 0.15s',
+                    cursor: 'pointer',
+                  }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-container)'}
+                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                    <div style={{ minWidth: '48px', textAlign: 'center', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>
+                      {formatDate(s.date)}
+                    </div>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: s.sessionType === 'virtual' ? 'var(--info-light)' : 'var(--accent-light)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '0.8rem', color: s.sessionType === 'virtual' ? 'var(--info)' : 'var(--accent-dark)' }}>
+                        {s.sessionType === 'virtual' ? 'videocam' : 'person_pin'}
                       </span>
                     </div>
-                    {blockedDates[selectedDate!].map((comment, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "0.4rem", padding: "0.35rem 0.5rem", borderRadius: "var(--r-sm)", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)" }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: "0.8rem", color: "var(--danger)", flexShrink: 0, marginTop: "0.05rem" }}>block</span>
-                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-primary)", flex: 1, lineHeight: 1.4 }}>{comment}</span>
-                        <button
-                          onClick={() => setBlockedDates(prev => {
-                            const existing = prev[selectedDate!] ?? [];
-                            const updated = existing.filter((_, idx) => idx !== i);
-                            if (updated.length === 0) {
-                              const n = { ...prev };
-                              delete n[selectedDate!];
-                              return n;
-                            }
-                            return { ...prev, [selectedDate!]: updated };
-                          })}
-                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--outline)", fontSize: "0.75rem", padding: "0 0.2rem", flexShrink: 0, lineHeight: 1 }}>
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add comment input or button */}
-                {showBlockInput ? (
-                  <div>
-                    <textarea
-                      value={newBlockComment}
-                      onChange={e => setNewBlockComment(e.target.value)}
-                      placeholder="e.g. Going out for dinner with family..."
-                      rows={2}
-                      maxLength={200}
-                      style={{ width: "100%", padding: "0.4rem 0.6rem", borderRadius: "var(--r-md)", border: "1.5px solid rgba(239,68,68,0.3)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", resize: "none", boxSizing: "border-box", marginBottom: "0.4rem" }}
-                    />
-                    <div style={{ display: "flex", gap: "0.4rem" }}>
-                      <button
-                        onClick={() => {
-                          if (!newBlockComment.trim() || !selectedDate) return;
-                          if ((blockedDates[selectedDate]?.length ?? 0) >= 10) return;
-                          setBlockedDates(prev => ({
-                            ...prev,
-                            [selectedDate!]: [...(prev[selectedDate!] ?? []), newBlockComment.trim()],
-                          }));
-                          setNewBlockComment("");
-                          setShowBlockInput(false);
-                        }}
-                        disabled={!newBlockComment.trim() || (blockedDates[selectedDate!]?.length ?? 0) >= 10}
-                        style={{ flex: 1, padding: "0.4rem", borderRadius: "var(--r-sm)", border: "none", background: newBlockComment.trim() ? "var(--danger)" : "var(--surface-container)", color: newBlockComment.trim() ? "white" : "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: newBlockComment.trim() ? "pointer" : "not-allowed" }}>
-                        Add Block
-                      </button>
-                      <button
-                        onClick={() => { setShowBlockInput(false); setNewBlockComment(""); }}
-                        style={{ padding: "0.4rem 0.6rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>
-                        Cancel
-                      </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{s.clientName}</div>
+                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.68rem', color: 'var(--outline)' }}>{s.time} Â· {s.duration}min</div>
                     </div>
-                    {(blockedDates[selectedDate!]?.length ?? 0) >= 10 && (
-                      <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", color: "var(--danger)", margin: "0.25rem 0 0" }}>Maximum 10 blocks per day.</p>
-                    )}
+                    <button className="btn-ghost btn-xs" onClick={() => cancelSession(s.id)} title="Cancel session">
+                      <span className="material-symbols-outlined" style={{ fontSize: '0.8rem' }}>close</span>
+                    </button>
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setShowBlockInput(true)}
-                    disabled={(blockedDates[selectedDate!]?.length ?? 0) >= 10}
-                    style={{ width: "100%", padding: "0.45rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid rgba(239,68,68,0.3)", background: (blockedDates[selectedDate!]?.length ?? 0) < 10 ? "rgba(239,68,68,0.06)" : "var(--surface-container)", color: (blockedDates[selectedDate!]?.length ?? 0) < 10 ? "var(--danger)" : "var(--outline)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, cursor: (blockedDates[selectedDate!]?.length ?? 0) < 10 ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "center" }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>add</span>
-                    {(blockedDates[selectedDate!]?.length ?? 0) > 0 ? "Add another block" : "Block this date"}
-                  </button>
-                )}
+                ))}
               </div>
+            </div>
+          )}
 
-              {/* Events list */}
-              {selectedEvents.filter(e => e.type !== "blocked").length === 0 ? (
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--outline)" }}>No events on this day.</p>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {selectedEvents.map(e => {
-                    const cfg = typeConfig[e.type];
-                    const client = e.clientId ? session.clients.find(c => c.id === e.clientId) : null;
-                    return (
-                      <div key={e.id} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", padding: "0.75rem", borderRadius: "var(--r-lg)", background: cfg?.bg ?? "var(--surface-container)", borderLeft: `3px solid ${cfg?.color}` }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: "1rem", color: cfg?.color, flexShrink: 0 }}>{cfg?.icon}</span>
-                        <div>
-                          <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>{e.label}</div>
-                          {client && (
-                            <button
-                              onClick={() => onNav("clients")}
-                              style={{ border: "none", background: "transparent", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: cfg?.color, padding: "0.2rem 0", textDecoration: "underline" }}>
-                              View client profile
-                            </button>
-                          )}
+          {/* PAST SESSIONS */}
+          {pastSessions.length > 0 && (
+            <div className="card">
+              <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: '0 0 1rem', display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--outline)" }}>history</span>
+                Past Sessions ({pastSessions.length})
+              </h2>
+              <div className="flex-col" style={{ gap: "0.4rem" }}>
+                {pastSessions.map(s => (
+                  <div key={s.id}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '0.75rem',
+                      padding: '0.6rem 0.75rem', borderRadius: 'var(--r-md)',
+                      border: '1px solid var(--border-light)',
+                      opacity: s.status === 'cancelled' ? 0.5 : 1,
+                    }}>
+                      <div style={{ minWidth: '48px', textAlign: 'center', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>
+                        {new Date(s.date + "T12:00:00").toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </div>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: s.status === 'completed' ? 'var(--success-light)' : s.status === 'cancelled' ? 'var(--danger-light)' : 'var(--surface-container)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '0.8rem', color: s.status === 'completed' ? 'var(--success)' : s.status === 'cancelled' ? 'var(--danger)' : 'var(--outline)' }}>
+                          {s.status === 'completed' ? 'check' : s.status === 'cancelled' ? 'close' : s.sessionType === 'virtual' ? 'videocam' : 'person_pin'}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{s.clientName}</div>
+                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.68rem', color: 'var(--outline)' }}>
+                          {s.time} Â· {s.duration}min Â· {s.sessionType === 'virtual' ? 'Virtual' : 'In-Person'}
+                          {s.status === 'cancelled' && <span style={{ color: 'var(--danger)', fontWeight: 600, marginLeft: '0.35rem' }}>Cancelled</span>}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="card-glass" style={{ padding: "1.25rem", position: "sticky", top: "1rem" }}>
-              <h3 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)", marginBottom: "1rem" }}>This Month</h3>
-              {[
-                { type: "renewal" as const, label: "Renewals", icon: "autorenew", color: "var(--primary)", bg: "var(--primary-light)" },
-                { type: "billing" as const, label: "Payments due", icon: "payments", color: "var(--accent)", bg: "var(--accent-light)" },
-                { type: "check-in" as const, label: "Check-in reminders", icon: "monitor_heart", color: "var(--tertiary)", bg: "var(--tertiary-fixed)" },
-              ].map(t => {
-                const count = events.filter(e => e.type === t.type).length;
-                return (
-                  <div key={t.type} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0", borderBottom: "1px solid var(--surface-container)" }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: t.bg, display: "grid", placeItems: "center" }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: t.color }}>{t.icon}</span>
+                      {s.status === 'completed' && (
+                        <button
+                          className="btn-ghost btn-xs"
+                          onClick={() => { setActiveNoteSession(s.id === activeNoteSession ? null : s.id); setNoteDraft(''); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>edit_note</span>
+                          Notes
+                        </button>
+                      )}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-primary)" }}>{t.label}</div>
-                    </div>
-                    <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: count > 0 ? t.color : "var(--outline)" }}>{count}</span>
+                    {activeNoteSession === s.id && (
+                      <div style={{
+                        marginTop: '0.35rem', padding: '0.75rem',
+                        borderRadius: 'var(--r-md)',
+                        background: 'var(--surface-container)',
+                        border: '1.5px solid var(--primary)',
+                      }}>
+                        {s.sessionNotes && (
+                          <div style={{
+                            fontFamily: 'Inter, sans-serif', fontSize: '0.8rem',
+                            color: 'var(--text-primary)', lineHeight: 1.5,
+                            marginBottom: '0.5rem', whiteSpace: 'pre-wrap',
+                            background: 'white', padding: '0.6rem', borderRadius: 'var(--r-sm)',
+                            border: '1px solid var(--border-light)',
+                          }}>
+                            {s.sessionNotes}
+                          </div>
+                        )}
+                        <textarea
+                          value={noteDraft}
+                          onChange={e => setNoteDraft(e.target.value)}
+                          placeholder="Add session notes â€” observations, progress, action items..."
+                          rows={2}
+                          style={{
+                            width: '100%', padding: '0.5rem 0.75rem',
+                            borderRadius: 'var(--r-sm)',
+                            border: '1.5px solid var(--outline-variant)',
+                            background: 'white',
+                            color: 'var(--text-primary)',
+                            fontFamily: 'Inter, sans-serif',
+                            fontSize: '0.8rem', outline: 'none',
+                            resize: 'vertical', boxSizing: 'border-box',
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem' }}>
+                          <button
+                            className="btn-primary btn-xs"
+                            onClick={() => saveSessionNotes(s.id)}
+                            disabled={!noteDraft.trim()}
+                          >
+                            Save Note
+                          </button>
+                          <button
+                            className="btn-ghost btn-xs"
+                            onClick={() => { setActiveNoteSession(null); setNoteDraft(''); }}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* EMPTY STATE */}
+          {bookedSessions.length === 0 && (
+            <div className="empty-state" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--primary)', opacity: 0.3, display: 'block', marginBottom: '1rem' }}>calendar_month</span>
+              <p style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>No sessions yet</p>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--outline)', maxWidth: '360px', margin: '0 auto 1.25rem' }}>
+                Book your first coaching session from a client profile or use the button above.
+              </p>
+              <button className="btn-primary" onClick={() => {
+                if (clients.length > 0) setBookingClient({ id: clients[0].id, fullName: clients[0].fullName });
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
+                Book First Session
+              </button>
             </div>
           )}
         </div>
+
+        {/* Right sidebar â€” quick stats + session booking guide */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", position: "sticky", top: "1rem" }}>
+          <div className="card">
+            <h3 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)", marginBottom: "1rem" }}>Session Stats</h3>
+            {[
+              { label: "Today", value: todaySessions.length, icon: "today", color: "var(--primary)", bg: "var(--primary-light)" },
+              { label: "Upcoming", value: upcomingSessions.length, icon: "upcoming", color: "var(--accent)", bg: "var(--accent-light)" },
+              { label: "Completed", value: bookedSessions.filter(s => s.status === 'completed').length, icon: "check_circle", color: "var(--success)", bg: "var(--success-light)" },
+              { label: "Total Sessions", value: bookedSessions.length, icon: "event", color: "var(--secondary)", bg: "var(--secondary-fixed)" },
+            ].map(stat => (
+              <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0", borderBottom: "1px solid var(--surface-container)" }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: stat.bg, display: "grid", placeItems: "center" }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: stat.color }}>{stat.icon}</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-primary)" }}>{stat.label}</div>
+                </div>
+                <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: stat.value > 0 ? stat.color : "var(--outline)" }}>{stat.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="card" style={{ background: "var(--surface-container)", border: "1px solid var(--border-light)" }}>
+            <h3 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)", marginBottom: "0.5rem" }}>Quick Tips</h3>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {[
+                { icon: 'person', text: 'Book sessions from a client\'s profile page' },
+                { icon: 'check_circle', text: 'Mark sessions complete to track coaching hours' },
+                { icon: 'edit_note', text: 'Add session notes for progress tracking' },
+              ].map(tip => (
+                <li key={tip.icon} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '0.8rem', color: 'var(--primary)', flexShrink: 0, marginTop: '0.1rem' }}>{tip.icon}</span>
+                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: 1.4 }}>{tip.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
+
+      {/* Session booking modal (for the "Book Session" button in calendar) */}
+      {bookingClient && (
+        <SessionBookingModal
+          client={bookingClient}
+          onClose={() => setBookingClient(null)}
+          onSuccess={() => setBookingClient(null)}
+          onBookSession={(s) => {
+            onUpdateSessions(prev => [...prev, s]);
+            push(`Session booked with ${s.clientName}`, 'success');
+          }}
+          push={(msg, type) => {}}
+        />
+      )}
     </div>
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    NUTRITION SWAP AGENT
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNutrition: string[] }) {
   const [foods, setFoods] = useState<Array<{ id: string; name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; swapped: boolean }>>([]);
   const [activeSwap, setActiveSwap] = useState<number | null>(null);
@@ -5087,7 +4981,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
       });
       setSuggestion(result);
     } catch {
-      // Silent fail — agentic fallback
+      // Silent fail â€” agentic fallback
     } finally { setLoading(false); }
   };
 
@@ -5123,7 +5017,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
   return (
     <div className="swap-agent">
       <div className="swap-agent-header">
-        <span style={{ fontSize: "1.1rem" }}>🔄</span>
+        <span style={{ fontSize: "1.1rem" }}>ðŸ”„</span>
         <div>
           <h3 style={{ fontSize: "1rem", marginBottom: "0.1rem" }}>Nutrition Swap Agent</h3>
           <p className="text-sm muted" style={{ margin: 0 }}>Click any food to get AI macro-matched alternatives.</p>
@@ -5135,8 +5029,8 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <div key={food.id}>
           <div className={`swap-food-item${food.swapped ? " swapped" : ""}${activeSwap === i ? " active" : ""}`} onClick={() => !food.swapped && requestSwap(i)}>
             <div>
-              <div className="swap-food-name">{food.swapped ? "✓ " : ""}{food.name}</div>
-              <div className="swap-food-macros">{food.calories} kcal · {food.proteinG}g P · {food.carbsG}g C · {food.fatG}g F</div>
+              <div className="swap-food-name">{food.swapped ? "âœ“ " : ""}{food.name}</div>
+              <div className="swap-food-macros">{food.calories} kcal Â· {food.proteinG}g P Â· {food.carbsG}g C Â· {food.fatG}g F</div>
             </div>
             {!food.swapped && <button className="swap-swap-btn" onClick={e => { e.stopPropagation(); requestSwap(i); }}>Swap</button>}
             {food.swapped && <span className="pill pill-success" style={{ fontSize: "0.72rem" }}>Swapped</span>}
@@ -5149,7 +5043,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
               {!loading && suggestion && suggestion.suggestion && (
                 <>
                   <div className="swap-result-header">
-                    <span className="swap-result-title">⚡ {suggestion.suggestion.name}</span>
+                    <span className="swap-result-title">âš¡ {suggestion.suggestion.name}</span>
                   </div>
                   <p className="swap-result-reason">"{suggestion.suggestion.reasoning}"</p>
                   <div className="swap-macro-compare">
@@ -5168,7 +5062,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
                       </div>
                     ))}
                   </div>
-                  <button className="swap-apply-btn" onClick={applySwap}>✓ Apply this swap</button>
+                  <button className="swap-apply-btn" onClick={applySwap}>âœ“ Apply this swap</button>
                 </>
               )}
               {!loading && suggestion && !suggestion.suggestion && (
@@ -5183,7 +5077,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <span className="swap-applied-count">{appliedCount} swap{appliedCount !== 1 ? "s" : ""} applied</span>
         <div className="inline">
           <RecipePanel planNutrition={planNutrition} />
-          <button className="swap-history-btn" onClick={loadHistory} disabled={historyLoading}>View history →</button>
+          <button className="swap-history-btn" onClick={loadHistory} disabled={historyLoading}>View history â†’</button>
         </div>
       </div>
 
@@ -5191,7 +5085,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <div className="swap-history-panel">
           <div className="swap-history-header">
             <h4>Swap History</h4>
-            <button className="ghost sm" onClick={() => setShowHistory(false)}>✕</button>
+            <button className="ghost sm" onClick={() => setShowHistory(false)}>âœ•</button>
           </div>
           {historyLoading ? (
             <div style={{ display: "flex", justifyContent: "center", padding: "1rem" }}><div className="spinner" /></div>
@@ -5203,12 +5097,12 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
                 <div key={s.id} className="swap-history-item">
                   <div className="swap-history-row">
                     <span className="swap-history-food swap-history-orig">{s.originalFood.name}</span>
-                    <span className="swap-history-arrow">→</span>
+                    <span className="swap-history-arrow">â†’</span>
                     <span className="swap-history-food swap-history-new">{s.swapSuggestion.name}</span>
                   </div>
                   <div className="swap-history-meta">
-                    {s.originalFood.calories} kcal → {s.swapSuggestion.calories} kcal
-                    {s.appliedAt && <span className="muted text-xs"> · {new Date(s.appliedAt).toLocaleDateString()}</span>}
+                    {s.originalFood.calories} kcal â†’ {s.swapSuggestion.calories} kcal
+                    {s.appliedAt && <span className="muted text-xs"> Â· {new Date(s.appliedAt).toLocaleDateString()}</span>}
                   </div>
                 </div>
               ))}
@@ -5220,9 +5114,9 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    RECIPE PANEL
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
@@ -5252,7 +5146,7 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
           onChange={e => setSelectedFood(e.target.value)}
           style={{ width: "auto", fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}
         >
-          <option value="">Pick a food…</option>
+          <option value="">Pick a foodâ€¦</option>
           {foodOptions.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
         </select>
         <button
@@ -5260,7 +5154,7 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
           disabled={!selectedFood || loading}
           onClick={() => selectedFood && generateRecipe(selectedFood)}
         >
-          {loading ? "…" : "🍳 Generate Recipe"}
+          {loading ? "â€¦" : "ðŸ³ Generate Recipe"}
         </button>
       </div>
 
@@ -5270,11 +5164,11 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
             <div>
               <div className="recipe-title">{recipe.name}</div>
               <div className="recipe-meta">
-                <span className="recipe-meta-item">⏱ Prep {recipe.prepTime}min</span>
-                <span className="recipe-meta-item">🔥 Cook {recipe.cookTime}min</span>
+                <span className="recipe-meta-item">â± Prep {recipe.prepTime}min</span>
+                <span className="recipe-meta-item">ðŸ”¥ Cook {recipe.cookTime}min</span>
               </div>
             </div>
-            <button className="icon" style={{ fontSize: "1rem" }} onClick={() => setShowPanel(false)}>✕</button>
+            <button className="icon" style={{ fontSize: "1rem" }} onClick={() => setShowPanel(false)}>âœ•</button>
           </div>
           <div className="recipe-macro-pills">
             {[
@@ -5306,9 +5200,9 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
   );
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    PDF INVOICE GENERATOR
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const jspdf: { jsPDF: new (opts?: { orientation?: string; unit?: string; format?: string }) => Record<string, any> };
 
@@ -5340,7 +5234,7 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFontSize(10);
   doc.text(workspace.name, 20, 28);
   doc.setFontSize(8);
-  doc.text("Tax Invoice · UK VAT Registered", 20, 34);
+  doc.text("Tax Invoice Â· UK VAT Registered", 20, 34);
 
   // Invoice meta (right side)
   doc.setTextColor(r, g, b);
@@ -5382,10 +5276,10 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(40, 40, 40);
-  doc.text("Coaching Services — Monthly Subscription", 22, y);
+  doc.text("Coaching Services â€” Monthly Subscription", 22, y);
   doc.text("1", 123, y);
-  doc.text(`£${netAmount.toFixed(2)}`, 140, y);
-  doc.text(`£${vatAmount.toFixed(2)}`, 160, y);
+  doc.text(`Â£${netAmount.toFixed(2)}`, 140, y);
+  doc.text(`Â£${vatAmount.toFixed(2)}`, 160, y);
 
   // Divider
   y += 6;
@@ -5402,14 +5296,14 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFontSize(10);
   doc.text("TOTAL (inc. VAT)", 133, y + 2);
   doc.setFontSize(12);
-  doc.text(`£${subscription.amountGbp.toFixed(2)}`, 160, y + 3);
+  doc.text(`Â£${subscription.amountGbp.toFixed(2)}`, 160, y + 3);
 
   // VAT summary
   y += 16;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Net amount: £${netAmount.toFixed(2)}    VAT rate: 20%    VAT: £${vatAmount.toFixed(2)}    Gross: £${subscription.amountGbp.toFixed(2)}`, 20, y);
+  doc.text(`Net amount: Â£${netAmount.toFixed(2)}    VAT rate: 20%    VAT: Â£${vatAmount.toFixed(2)}    Gross: Â£${subscription.amountGbp.toFixed(2)}`, 20, y);
 
   // Footer
   doc.setTextColor(150, 150, 150);
@@ -5436,7 +5330,7 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${workspace.name} — HMRC Tax Report`, 20, 13);
+  doc.text(`${workspace.name} â€” HMRC Tax Report`, 20, 13);
 
   const today = new Date().toISOString().slice(0, 10);
   doc.setFont("helvetica", "normal");
@@ -5474,9 +5368,9 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
     doc.setTextColor(sub.status === "active" ? 58 : 255, sub.status === "active" ? 180 : 115, sub.status === "active" ? 80 : 81);
     doc.text(sub.status.toUpperCase(), 80, y);
     doc.setTextColor(40, 40, 40);
-    doc.text(`£${net.toFixed(2)}`, 110, y);
-    doc.text(`£${vat.toFixed(2)}`, 130, y);
-    doc.text(`£${sub.amountGbp.toFixed(2)}`, 155, y);
+    doc.text(`Â£${net.toFixed(2)}`, 110, y);
+    doc.text(`Â£${vat.toFixed(2)}`, 130, y);
+    doc.text(`Â£${sub.amountGbp.toFixed(2)}`, 155, y);
 
     y += 7;
     if (y > 270) { doc.addPage(); y = 20; }
@@ -5494,17 +5388,17 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text("TOTALS", 108, y + 1);
-  doc.text(`£${totalNet.toFixed(2)}`, 110, y + 1);
-  doc.text(`£${totalVat.toFixed(2)}`, 130, y + 1);
-  doc.text(`£${totalGross.toFixed(2)}`, 155, y + 1);
+  doc.text(`Â£${totalNet.toFixed(2)}`, 110, y + 1);
+  doc.text(`Â£${totalVat.toFixed(2)}`, 130, y + 1);
+  doc.text(`Â£${totalGross.toFixed(2)}`, 155, y + 1);
 
   doc.setDocumentProperties({ title: `Tax Report ${today}`, author: workspace.name });
   doc.save(`tax-report-${today}.pdf`);
 }
 
-/* ────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    CLIENT APP PREVIEW
-──────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 type ClientAppTab = "today"|"plan"|"checkin"|"messages";
 
 function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPortal: ClientSession; onCheckInSuccess?: () => void }) {
@@ -5585,7 +5479,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
     <div className="client-app">
       <div className="client-app-status-bar">
         <span className="client-app-status-bar-left">9:41</span>
-        <span className="client-app-status-bar-right"><span>●●●●●</span><span>📶</span><span>🔋</span></span>
+        <span className="client-app-status-bar-right"><span>â—â—â—â—â—</span><span>ðŸ“¶</span><span>ðŸ”‹</span></span>
       </div>
 
       {activeTab === "today" && (
@@ -5593,8 +5487,8 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
           <div className="client-app-greeting">{greeting}, {firstName}!</div>
           <div className="client-app-date">{today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>
           <div className="client-app-streak-row">
-            <span className="client-app-streak-badge">🔥 5 day streak</span>
-            <span className="client-app-streak-badge" style={{ background: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.25)", color: "#60a5fa" }}>📋 {workouts.length} sessions this week</span>
+            <span className="client-app-streak-badge">ðŸ”¥ 5 day streak</span>
+            <span className="client-app-streak-badge" style={{ background: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.25)", color: "#60a5fa" }}>ðŸ“‹ {workouts.length} sessions this week</span>
           </div>
           <div className="client-app-stats-row" style={{ marginTop: 14 }}>
             <div className="client-app-stat-chip">
@@ -5603,7 +5497,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             </div>
             <div className="client-app-stat-chip">
               <span className="client-app-stat-chip-label">Energy</span>
-              <span className="client-app-stat-chip-value">{clientPortal.latestCheckIn?.progress.energyScore ?? "—"}/10</span>
+              <span className="client-app-stat-chip-value">{clientPortal.latestCheckIn?.progress.energyScore ?? "â€”"}/10</span>
             </div>
             <div className="client-app-stat-chip">
               <span className="client-app-stat-chip-label">Renewal</span>
@@ -5619,12 +5513,12 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             <>
               <div className="client-app-section-title">Today's Focus</div>
               <div className="client-app-card">
-                <div className="client-app-card-label">💪 Workout</div>
+                <div className="client-app-card-label">ðŸ’ª Workout</div>
                 <div className="client-app-card-title">{workouts[todayIndex] || workouts[0]}</div>
                 <div className="client-app-card-chip">Approved</div>
               </div>
               <div className="client-app-card">
-                <div className="client-app-card-label">🥗 Nutrition</div>
+                <div className="client-app-card-label">ðŸ¥— Nutrition</div>
                 <div className="client-app-card-title">{nutrition[todayIndex]?.split(":")[0] || "Moderate deficit"}</div>
                 <div className="client-app-card-body">{nutrition[todayIndex] || nutrition[0]}</div>
               </div>
@@ -5639,7 +5533,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
           <div className="client-app-card">
             {habits.map((h, i) => (
               <div key={i} className="client-app-habit-item">
-                <div className={`client-app-habit-check${h.done ? " checked" : ""}`}>{h.done ? "✓" : ""}</div>
+                <div className={`client-app-habit-check${h.done ? " checked" : ""}`}>{h.done ? "âœ“" : ""}</div>
                 <span className={`client-app-habit-title${h.done ? " done" : ""}`}>{h.title}</span>
               </div>
             ))}
@@ -5656,10 +5550,10 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             return (
               <div key={day} className="client-app-day-card">
                 <div className="client-app-day-card-header">
-                  <span className={`client-app-day-label${isToday ? " today" : ""}`}>{isToday ? "● " : ""}{day}{isToday ? " — Today" : ""}</span>
+                  <span className={`client-app-day-label${isToday ? " today" : ""}`}>{isToday ? "â— " : ""}{day}{isToday ? " â€” Today" : ""}</span>
                   <div className="client-app-day-chips">
-                    {workout && <span className="client-app-day-chip client-app-day-chip--workout">💪</span>}
-                    {nutrition[i] && <span className="client-app-day-chip client-app-day-chip--nutrition">🥗</span>}
+                    {workout && <span className="client-app-day-chip client-app-day-chip--workout">ðŸ’ª</span>}
+                    {nutrition[i] && <span className="client-app-day-chip client-app-day-chip--nutrition">ðŸ¥—</span>}
                   </div>
                 </div>
                 <div className="client-app-day-detail">{workout}</div>
@@ -5675,7 +5569,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
         <div className="client-app-checkin-form">
           <div className="client-app-section-title" style={{ marginTop: 8 }}>Submit Check-In</div>
           {checkInSuccess && (
-            <div className="client-app-success-banner">✓ Check-in submitted!</div>
+            <div className="client-app-success-banner">âœ“ Check-in submitted!</div>
           )}
           <form onSubmit={handleCheckInSubmit}>
             <label className="client-app-form-label">Weight (kg)</label>
@@ -5690,11 +5584,11 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             <label className="client-app-form-label">Progress Photo</label>
             <input ref={photoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
             <button type="button" className="client-app-photo-btn" onClick={() => photoInputRef.current?.click()}>
-              <span>{checkInPhoto ? "✓" : "📷"}</span> {checkInPhoto ? "Photo selected" : "Add Progress Photo"}
+              <span>{checkInPhoto ? "âœ“" : "ðŸ“·"}</span> {checkInPhoto ? "Photo selected" : "Add Progress Photo"}
             </button>
             {checkInPhoto && <img src={checkInPhoto} alt="Preview" style={{ width: "100%", borderRadius: "var(--r-lg)", marginTop: "0.5rem" }} />}
             <button type="submit" className="client-app-submit-btn" disabled={checkInSubmitting}>
-              {checkInSubmitting ? "Submitting…" : "Submit Check-In"}
+              {checkInSubmitting ? "Submittingâ€¦" : "Submit Check-In"}
             </button>
           </form>
         </div>
@@ -5717,17 +5611,17 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             ))}
           </div>
           <div className="client-app-message-input-row">
-            <input className="client-app-message-input" placeholder="Type a message…" />
+            <input className="client-app-message-input" placeholder="Type a messageâ€¦" />
           </div>
         </>
       )}
 
       <div className="client-app-tabs">
         {([
-          { id: "today" as ClientAppTab, icon: "🏠", label: "Today" },
-          { id: "plan" as ClientAppTab, icon: "📋", label: "Plan" },
-          { id: "checkin" as ClientAppTab, icon: "✅", label: "Check-In" },
-          { id: "messages" as ClientAppTab, icon: "💬", label: "Messages" },
+          { id: "today" as ClientAppTab, icon: "ðŸ ", label: "Today" },
+          { id: "plan" as ClientAppTab, icon: "ðŸ“‹", label: "Plan" },
+          { id: "checkin" as ClientAppTab, icon: "âœ…", label: "Check-In" },
+          { id: "messages" as ClientAppTab, icon: "ðŸ’¬", label: "Messages" },
         ] as const).map(t => (
           <button key={t.id} className={`client-app-tab${activeTab === t.id ? " active" : ""}`} onClick={() => setActiveTab(t.id)}>
             <span>{t.icon}</span>
@@ -5750,7 +5644,7 @@ function ClientAppView({ session, clientPortal, onSwitchClient }: {
     <div className="page-view">
       <p className="eyebrow">CoachOS Preview</p>
       <h1 className="page-title">Client App Preview</h1>
-      <p className="page-subtitle">See exactly what your clients see — live mobile simulator.</p>
+      <p className="page-subtitle">See exactly what your clients see â€” live mobile simulator.</p>
 
       <div className="client-app-split">
         <div className="coach-preview-panel">
@@ -5782,19 +5676,19 @@ function ClientAppView({ session, clientPortal, onSwitchClient }: {
                 <div className="phone-notch" />
                 <div className="phone-status-bar">
                   <span className="phone-status-bar-left">9:41</span>
-                  <span className="phone-status-bar-right"><span>●●●●●</span><span>📶</span><span>🔋</span></span>
+                  <span className="phone-status-bar-right"><span>â—â—â—â—â—</span><span>ðŸ“¶</span><span>ðŸ”‹</span></span>
                 </div>
                 <div className="phone-viewport">
-                  {/* @ts-expect-error — loadCoach/selectedClientId declared later, visible at runtime */}
+                  {/* @ts-expect-error â€” loadCoach/selectedClientId declared later, visible at runtime */}
                   <ClientAppPreviewInner clientPortal={clientPortal} onCheckInSuccess={() => (loadCoach as any)((selectedClientId as any) ?? undefined)} />
                 </div>
                 <div className="phone-home-bar" />
               </div>
-              <p className="phone-preview-label">CoachOS Client App — {clientPortal.client.fullName}</p>
+              <p className="phone-preview-label">CoachOS Client App â€” {clientPortal.client.fullName}</p>
             </>
           ) : (
             <div className="empty-state">
-              <div className="empty-state-icon">📱</div>
+              <div className="empty-state-icon">ðŸ“±</div>
               <p>Select a client to preview their experience.</p>
             </div>
           )}
@@ -5817,6 +5711,7 @@ function App() {
   const [showClientNotesModal, setShowClientNotesModal] = useState(false);
   const [notifications, setNotifications] = useState<Array<{ id: string; message: string; type: string; time: string; read: boolean }>>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [bookedSessions, setBookedSessions] = useState<BookedSession[]>([]);
   const { toasts, push, dismiss } = useToast();
 
   // Check if onboarding was already completed
@@ -5867,7 +5762,7 @@ function App() {
   }, [selectedClientId, switchClient]);
 
   useEffect(() => {
-    loadCoach().catch(err => setLoadError(err instanceof Error ? err.message : "Connection failed — is the API running?"));
+    loadCoach().catch(err => setLoadError(err instanceof Error ? err.message : "Connection failed â€” is the API running?"));
   }, []);
 
   const handleNavWithPortal = (id: NavId) => {
@@ -5886,7 +5781,7 @@ function App() {
   const handleApprove = async (planId: string) => {
     await fetchJson(`/plans/${planId}/approve`, { method: "POST" });
     await loadCoach(selectedClientId ?? undefined);
-    push("Plan approved ✓");
+    push("Plan approved âœ“");
   };
 
   const handleCheckIn = async (clientId: string) => {
@@ -5967,7 +5862,7 @@ function App() {
         <div className="loading">
           <div className="loading-inner">
             <div className="loading-logo">C</div>
-            <p style={{ color: "var(--danger)", fontWeight: 600 }}>⚠ Cannot connect to CoachOS API</p>
+            <p style={{ color: "var(--danger)", fontWeight: 600 }}>âš  Cannot connect to CoachOS API</p>
             <p className="muted text-sm" style={{ maxWidth: 380, textAlign: "center" }}>{loadError}</p>
             <p className="muted text-xs">Run: <code>npm run dev:api</code></p>
             <button onClick={() => { setLoadError(null); loadCoach().catch(e => setLoadError(e.message)); }}>Retry</button>
@@ -5980,7 +5875,7 @@ function App() {
         <div className="loading-inner">
           <div className="loading-logo">C</div>
           <div className="spinner" />
-          <p className="muted">Loading CoachOS…</p>
+          <p className="muted">Loading CoachOSâ€¦</p>
         </div>
       </div>
     );
@@ -6006,7 +5901,7 @@ function App() {
           />
         )}
         {activeNav === "clients" && (
-          <ClientsView session={session} onOpenClient={id => { setActiveNav("portal"); switchClient(id); }} onAddClient={() => setShowAddClientModal(true)} />
+          <ClientsView session={session} onOpenClient={id => { setActiveNav("portal"); switchClient(id); }} onAddClient={() => setShowAddClientModal(true)} onStartSession={(client) => { push(`Session booked with ${client.fullName}`, 'success'); }} />
         )}
         {activeNav === "plans" && (
           <PlansView session={session} onNav={handleNavWithPortal} />
@@ -6054,7 +5949,7 @@ function App() {
           <RecipeBrowserView />
         )}
         {activeNav === "calendar" && (
-          <CalendarView session={session} onNav={setActiveNav} />
+          <CalendarView session={session} onNav={setActiveNav} bookedSessions={bookedSessions} onUpdateSessions={setBookedSessions} push={push} clients={session.clients} />
         )}
         {activeNav === "settings" && (
           <SettingsView session={session} onSave={handleSaveSettings} />
