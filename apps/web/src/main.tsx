@@ -5588,6 +5588,30 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                       <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>push_pin</span>
                       Assign to {firstName}
                     </button>
+                    <button
+                      className="btn-primary btn-sm"
+                      onClick={async () => {
+                        try {
+                          const planData: Record<string, unknown> = { assignedPlan: lastAi.content, assignedAt: new Date().toISOString() };
+                          const plans = await fetchJson<any[]>(`/plans?clientId=${selectedClientId}`);
+                          let planId = plans?.[0]?.id;
+                          if (!planId) {
+                            const gen = await fetchJson<any>("/plans/generate", { method: "POST", body: JSON.stringify({ clientId: selectedClientId }) });
+                            planId = gen?.id;
+                          }
+                          if (planId) {
+                            await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(planData) });
+                            push(`Plan assigned to ${firstName}! Open their profile → Meal Planner → the data will auto-populate.`, "success");
+                            if (typeof (window as any).__coachosPendingMealPlan === "undefined") (window as any).__coachosPendingMealPlan = {};
+                            (window as any).__coachosPendingMealPlan[selectedClientId] = lastAi.content;
+                          }
+                        } catch { push("Failed to assign", "error"); }
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>edit_calendar</span>
+                      Fill Meal Planner
+                    </button>
                   </div>
                 </div>
               </div>

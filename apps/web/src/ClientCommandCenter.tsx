@@ -47,9 +47,75 @@ type MealSlotData = {dish:string;time:string;ingredients:string;calories:number;
 type WeekMealMap = Record<string,Record<string,MealSlotData>>;
 const emptySlot = ():MealSlotData=>({dish:"",time:"",ingredients:"",calories:0,proteinG:0,carbsG:0,fatG:0});
 
-function MealPlannerModal({clientName,macroTargets,onClose,onSave,push}:{clientName:string;macroTargets:{calories:number;proteinG:number;fatG:number;carbsG:number};onClose:()=>void;onSave:(d:WeekMealMap)=>Promise<void>;push:(m:string,t?:string)=>void}){
+function parseAIPlan(text: string, map: WeekMealMap) {
+  const lines = text.split("\n");
+  let currentDay = DAYS[0];
+  const mealSlotPatterns: [string, string, RegExp][] = [
+    ["breakfast", "breakfast", /(breakfast|🍳|meal 1|morning).*?(?:dish|name)[:\s]*(.+?)(?:$|\n)/i],
+    ["snack1", "snack", /(snack|🥜|morning snack|11.*am)/i],
+    ["lunch", "lunch", /(lunch|🥗|meal 2|afternoon meal).*?(?:dish|name)[:\s]*(.+?)(?:$|\n)/i],
+    ["snack2", "snack2", /(afternoon snack|4.*pm|evening snack)/i],
+    ["dinner", "dinner", /(dinner|🍗|meal 3|evening meal).*?(?:dish|name)[:\s]*(.+?)(?:$|\n)/i],
+    ["cheat", "cheat", /(cheat|🍕|dessert|treat)/i],
+  ];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Detect day: "Day 1 — Monday:" or "Monday:" or "Mon:"
+    const dayMatch = trimmed.match(/(?:day\s*\d+\s*[—–-]\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i);
+    if (dayMatch) {
+      const d = dayMatch[1].toLowerCase().substring(0, 3);
+      const dayMap: Record<string,string> = {mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun"};
+      currentDay = dayMap[d] ?? DAYS[0];
+      continue;
+    }
+
+    // Detect dish name
+    const dishMatch = trimmed.match(/(?:dish|name)[:\s]*(.+)/i) || trimmed.match(/^[•\-*]\s*(.+)/);
+    const dishName = dishMatch?.[1]?.trim();
+
+    // Detect time
+    const timeMatch = trimmed.match(/(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)/);
+    const time = timeMatch?.[1];
+
+    // Detect macros: "420 kcal · 38g P · 45g C · 12g F" or "Cal: 400 P: 30 C: 40 F: 12"
+    const macrosMatch1 = trimmed.match(/(\d+)\s*kcal.*?(\d+)g\s*P.*?(\d+)g\s*C.*?(\d+)g\s*F/i);
+    const macrosMatch2 = trimmed.match(/Cal[:\s]*(\d+).*?P[:\s]*(\d+).*?C[:\s]*(\d+).*?F[:\s]*(\d+)/i);
+    const macros = macrosMatch1 || macrosMatch2;
+    const cal = macros ? Number(macros[1]) : 0;
+    const p = macros ? Number(macros[2]) : 0;
+    const c = macros ? Number(macros[3]) : 0;
+    const f = macros ? Number(macros[4]) : 0;
+
+    // Detect ingredients
+    const ingMatch = trimmed.match(/ingredients?[:\s]*(.+)/i);
+    const ingredients = ingMatch?.[1]?.trim() || "";
+
+    // Match meal slot
+    for (const [slotKey, _label, pattern] of mealSlotPatterns) {
+      if (pattern.test(trimmed)) {
+        const existing = map[currentDay]?.[slotKey];
+        if (existing && (!existing.dish || dishName)) {
+          if (dishName) existing.dish = dishName;
+          if (time) existing.time = time;
+          if (ingredients) existing.ingredients = ingredients;
+          if (cal > 0) { existing.calories = cal; existing.proteinG = p; existing.carbsG = c; existing.fatG = f; }
+        }
+        break;
+      }
+    }
+  }
+}
+
+function MealPlannerModal({clientName,macroTargets,onClose,onSave,push,initialPlan}:{clientName:string;macroTargets:{calories:number;proteinG:number;fatG:number;carbsG:number};onClose:()=>void;onSave:(d:WeekMealMap)=>Promise<void>;push:(m:string,t?:string)=>void;initialPlan?:string|null}){
   const [day,setDay]=useState(DAYS[0]);const [edit,setEdit]=useState<string|null>(null);const [saving,setSaving]=useState(false);
-  const [data,setData]=useState<WeekMealMap>(()=>{const m:WeekMealMap={};DAYS.forEach(d=>{m[d]={};MEAL_SLOTS.forEach(s=>m[d][s]=emptySlot())});return m});
+  const [data,setData]=useState<WeekMealMap>(()=>{
+    const m:WeekMealMap={};DAYS.forEach(d=>{m[d]={};MEAL_SLOTS.forEach(s=>m[d][s]=emptySlot())});
+    if(initialPlan){parseAIPlan(initialPlan,m)}
+    return m;
+  });
   const dayData=data[day]??{};
   const totals=(()=>{let c=0,p=0,cb=0,f=0;MEAL_SLOTS.forEach(s=>{const x=dayData[s];if(x){  c+=x.calories||0;p+=x.proteinG||0;cb+=x.carbsG||0;f+=x.fatG||0}});return{cal:c,pro:p,carb:cb,fat:f}})();
   const upd=(slot:string,field:keyof MealSlotData,val:string|number)=>setData(p=>({...p,[day]:{...p[day],[slot]:{...(p[day]?.[slot]??emptySlot()),[field]:val}}}));
@@ -1645,7 +1711,16 @@ export function ClientCommandCenter({
           clientName={client?.fullName ?? "Client"}
           macroTargets={{ calories: macroDraft.calories, proteinG: macroDraft.proteinG, fatG: macroDraft.fatG, carbsG: macroDraft.carbsG }}
           onClose={() => setShowMealModal(false)}
-          onSave={async () => { await saveMeals(); }}
+          onSave={async (data) => {
+            const mealsForPlan = Array.from(Object.entries(data).flatMap(([day,slots]) =>
+              Object.entries(slots).filter(([_,m])=>m.dish).map(([slot,m])=>({id:`meal_${day}_${slot}_${Date.now()}`,name:m.dish||`${SLOT_LABELS[slot]}`,ingredients:m.ingredients||"",calories:m.calories||0,proteinG:m.proteinG||0,carbsG:m.carbsG||0,fatG:m.fatG||0}))
+            ));
+            const weekPlanData = DAYS.map(d=>({day:d,meals:Object.entries(data[d]??{}).filter(([_,m])=>m.dish).map(([slot,m])=>({id:`meal_${d}_${slot}_${Date.now()}`,name:m.dish||"",ingredients:m.ingredients||"",calories:m.calories||0,proteinG:m.proteinG||0,carbsG:m.carbsG||0,fatG:m.fatG||0}))}));
+            setMeals(mealsForPlan.slice(0,6));
+            setWeekMeals(weekPlanData);
+            await saveMeals();
+          }}
+          initialPlan={(typeof window !== "undefined" && (window as any).__coachosPendingMealPlan?.[clientId]) ?? null}
           push={(msg: string, t?: string) => push(msg, (t ?? "info") as any)}
         />
       )}
