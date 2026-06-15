@@ -218,9 +218,6 @@ async function updateClient(id: string, patch: Partial<ClientProfile>) {
   if (patch.monthlyPriceGbp !== undefined) updates.monthly_price_gbp = patch.monthlyPriceGbp;
   if (patch.nextRenewalDate !== undefined) updates.next_renewal_date = patch.nextRenewalDate;
   if (patch.goal !== undefined) updates.goal = patch.goal;
-  if (patch.startDate !== undefined) updates.start_date = patch.startDate;
-  if (patch.avatarInitials !== undefined) updates.avatar_initials = patch.avatarInitials;
-  if (patch.tags !== undefined) updates.tags = patch.tags;
   if (patch.healthConditions !== undefined) updates.health_conditions = patch.healthConditions;
   if (patch.dailyWaterTarget !== undefined) updates.daily_water_target = patch.dailyWaterTarget;
   if (patch.dailyStepsTarget !== undefined) updates.daily_steps_target = patch.dailyStepsTarget;
@@ -243,18 +240,12 @@ async function createClient(body: {
   nextRenewalDate: string;
   status: ClientProfile["status"];
 }) {
-  // Derive avatar initials
-  const initials = body.fullName
-    .split(" ")
-    .map(p => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
+  const clientId = `client_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const { data } = await getSupabase()
     .from("clients")
     .insert({
-      workspace_id: "ws_1",
+      id: clientId,
+      organization_id: "ws_uk_1",
       full_name: body.fullName,
       email: body.email,
       goal: body.goal,
@@ -262,9 +253,6 @@ async function createClient(body: {
       next_renewal_date: body.nextRenewalDate,
       status: body.status === "trial" ? "trialing" : body.status,
       adherence_score: 0,
-      avatar_initials: initials,
-      tags: [],
-      start_date: new Date().toISOString().slice(0, 10),
     })
     .select()
     .single();
@@ -804,7 +792,6 @@ app.use("/*", cors({
 }));
 
 app.get("/api/health", (c) => c.json({ ok: true, service: "coachos-api", db: "supabase" }));
-
 app.get("/api/runtime", async (c) => c.json(await getRuntimeInfo()));
 
 app.get("/api/session/coach", async (c) => {
@@ -1069,7 +1056,6 @@ app.patch("/api/coach/profile", async (c) => {
     .from("coaches")
     .update({
       full_name: body.fullName ?? `${coach.firstName} ${coach.lastName}`,
-      avatar_initials: body.avatarInitials ?? `${coach.firstName[0]}${coach.lastName[0] || ''}`,
     })
     .eq("id", coach.id)
     .select()
@@ -1078,7 +1064,6 @@ app.patch("/api/coach/profile", async (c) => {
   return c.json({
     id: data.id, workspaceId: data.workspace_id,
     fullName: data.full_name, email: data.email,
-    avatarInitials: data.avatar_initials,
   });
 });
 
