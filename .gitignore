@@ -44,4 +44,5 @@ screens.json
 stitch_help*.txt
 stitch_tools.txt
 
+.wrangler/
 .vercel
