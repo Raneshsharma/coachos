@@ -44,6 +44,8 @@ screens.json
 stitch_help*.txt
 stitch_tools.txt
 
+.claude/settings.local.json
+.claude/
 .wrangler/
 .vercel
 wrangler.toml
