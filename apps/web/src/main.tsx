@@ -6,7 +6,6 @@ import type {
 } from "@coachos/domain";
 import { Pill, SectionShell, StatCard } from "@coachos/ui";
 import "./styles.css";
-import { CompetitorsView } from "./views/CompetitorsView";
 import { ExerciseLibraryView } from "./views/ExerciseLibraryView";
 import { RecipeBrowserView } from "./views/RecipeBrowserView";
 
@@ -37,7 +36,7 @@ type Toast = {
   action?: ToastAction;
   duration: number;
 };
-type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"settings"|"migration"|"competitors"|"groups"|"habits"|"exercises"|"calendar"|"recipes";
+type NavId = "dashboard"|"clients"|"plans"|"calendar"|"habits"|"exercises"|"recipes"|"business"|"settings";
 type CheckInWithDelta = CheckIn & { weightDelta: number | null; energyDelta: number | null; adherenceDelta: number | null };
 type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceGbp: number; status: "active"|"archived"|"upcoming"; createdAt: string };
 type NutritionSwap = { id: string; planId: string; originalFood: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string }; swapSuggestion: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; reasoning: string }; appliedAt: string | null };
@@ -331,21 +330,15 @@ function Sidebar({
       )}
 
       <nav className="sidebar-nav">
-        {nav("dashboard", "â—‰", "Dashboard", atRiskCount || undefined)}
-
-        <span className="nav-section-label">Core</span>
-        {nav("clients", "âŠž", "All Clients")}
-        {nav("plans", "âœ¦", "AI Plans")}
-        {nav("calendar", "â–¦", "Calendar")}
-        {nav("habits", "â—ˆ", "Habits")}
-
-        <span className="nav-section-label">Tools</span>
-        {nav("exercises", "â¬¢", "Exercise Library")}
-        {nav("recipes", "â¬¡", "Recipe Browser")}
-
-        <span className="nav-section-label">Business</span>
-        {nav("billing", "Â£", "Billing & MRR")}
-        {nav("settings", "âš™", "Workspace")}
+        {nav("dashboard", "\u25C9", "Dashboard", atRiskCount || undefined)}
+        {nav("clients", "\u229E", "Clients")}
+        {nav("plans", "\u2726", "Plans")}
+        {nav("calendar", "\u25A6", "Calendar")}
+        {nav("habits", "\u25C8", "Habits")}
+        {nav("exercises", "\u2B22", "Exercises")}
+        {nav("recipes", "\u2B21", "Recipes")}
+        {nav("business", "\u00A3", "Business")}
+        {nav("settings", "\u2B58", "Settings")}
       </nav>
 
       {session && (
@@ -2014,10 +2007,10 @@ function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavI
         {activePlan && (
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
             <button
-              onClick={() => onNav("portal")}
+              onClick={() => onNav("clients")}
               style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600 }}
             >
-              Open Client Portal to assign plan &rarr;
+              Open Client Directory to assign plan &rarr;
             </button>
           </div>
         )}
@@ -3450,181 +3443,135 @@ function SettingsView({ session, onSave }: {
   session: CoachSession;
   onSave: (draft: any) => Promise<void>;
 }) {
+  const { workspace, coach, subscriptions } = session;
   const [draft, setDraft] = useState({
-    name: session.workspace.name,
-    brandColor: session.workspace.brandColor,
-    accentColor: session.workspace.accentColor,
-    heroMessage: session.workspace.heroMessage,
-    stripeConnected: session.workspace.stripeConnected,
-    coachGender: (session.coach as any).gender ?? "male",
+    name: workspace.name,
+    brandColor: workspace.brandColor,
+    accentColor: workspace.accentColor,
+    heroMessage: workspace.heroMessage,
+    stripeConnected: workspace.stripeConnected,
+    coachFirstName: coach.firstName,
+    coachLastName: coach.lastName,
+    coachEmail: coach.email,
   });
-  const [notifPrefs, setNotifPrefs] = useState({
-    enabled: true,
-    clientCheckIn: true,
-    sessionReminder: true,
-    paymentReceived: true,
-    newClientRequest: false,
-    emailEnabled: true,
-  });
-  const [savingNotif, setSavingNotif] = useState(false);
-  type DayKey = "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday";
-  const [availHours, setAvailHours] = useState<Record<DayKey, {enabled:boolean;start:string;end:string}>>({
-    monday: { enabled: true, start: "09:00", end: "17:00" },
-    tuesday: { enabled: true, start: "09:00", end: "17:00" },
-    wednesday: { enabled: true, start: "09:00", end: "17:00" },
-    thursday: { enabled: true, start: "09:00", end: "17:00" },
-    friday: { enabled: true, start: "09:00", end: "17:00" },
-    saturday: { enabled: false, start: "10:00", end: "14:00" },
-    sunday: { enabled: false, start: "10:00", end: "14:00" },
-  });
-  const [blockedDates, setBlockedDates] = useState<string[]>([]);
-  const [savingAvail, setSavingAvail] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const notifTypes = [
-    { key: "clientCheckIn", label: "Client Check-in", desc: "When a client submits a check-in" },
-    { key: "sessionReminder", label: "Session Reminder", desc: "30 min before a scheduled session" },
-    { key: "paymentReceived", label: "Payment Received", desc: "When a client payment comes through" },
-    { key: "newClientRequest", label: "New Client Request", desc: "When a new client signs up" },
-  ];
+  const mrrGbp = subscriptions
+    .filter(s => s.status === "active")
+    .reduce((sum, s) => sum + s.amountGbp, 0);
+
+  const activeSubs = subscriptions.filter(s => s.status === "active").length;
+  const trialSubs = subscriptions.filter(s => s.status === "trialing").length;
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({
+        name: draft.name,
+        brandColor: draft.brandColor,
+        accentColor: draft.accentColor,
+        heroMessage: draft.heroMessage,
+        stripeConnected: draft.stripeConnected,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="page-view">
-      <p className="eyebrow">Workspace</p>
-      <h1 className="page-title">Settings</h1>
-      <p className="page-subtitle">Brand setup, Stripe connection, and rollback options.</p>
+      <p className="eyebrow">Settings</p>
+      <h1 className="page-title">Workspace & Profile</h1>
+      <p className="page-subtitle">Manage your brand, coach profile, and subscription info.</p>
 
-      <div className="panel" style={{ maxWidth: 640 }}>
-        <form className="stack" onSubmit={async e => { e.preventDefault(); await onSave(draft); }}>
-          <label>Workspace name
-            <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
-          </label>
-          <label>Hero message
-            <textarea value={draft.heroMessage} onChange={e => setDraft(d => ({ ...d, heroMessage: e.target.value }))} />
-          </label>
-          <div className="two-col">
-            <label>Brand color<input type="color" value={draft.brandColor} onChange={e => setDraft(d => ({ ...d, brandColor: e.target.value }))} /></label>
-            <label>Accent color<input type="color" value={draft.accentColor} onChange={e => setDraft(d => ({ ...d, accentColor: e.target.value }))} /></label>
-          </div>
-          <label className="toggle">
-            <input type="checkbox" checked={draft.stripeConnected} onChange={e => setDraft(d => ({ ...d, stripeConnected: e.target.checked }))} />
-            Stripe GBP connected
-          </label>
-          <div>
-            <label style={{ display: "block", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase", marginBottom: "0.4rem" }}>Coach Mascot Gender</label>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              {(["male", "female"] as const).map(g => (
-                <button key={g} type="button" onClick={() => setDraft(d => ({ ...d, coachGender: g }))} style={{ flex: 1, padding: "0.5rem", borderRadius: "var(--r-md)", border: "1.5px solid", borderColor: draft.coachGender === g ? "var(--primary)" : "var(--outline-variant)", background: draft.coachGender === g ? "var(--primary-light)" : "var(--surface-container)", color: draft.coachGender === g ? "var(--primary)" : "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>
-                  {g}
-                </button>
-              ))}
+      <div className="content-grid">
+        <div className="panel">
+          <div className="panel-header">
+            <div>
+              <h2 className="panel-title">Workspace Settings</h2>
+              <p className="panel-body-text">Brand identity and messaging.</p>
             </div>
           </div>
-          <div className="inline">
-            <button type="submit">Save settings</button>
-          </div>
-        </form>
-      </div>
-
-      {/* Notification Preferences */}
-      <div style={{ maxWidth: 640, marginTop: "2rem" }}>
-        <div className="panel">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-            <div>
-              <h2 className="section-title" style={{ margin: 0 }}>Notification Preferences</h2>
-              <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--outline)", margin: "0.25rem 0 0" }}>Control how you receive alerts from CoachOS.</p>
+          <form className="stack" onSubmit={handleSubmit}>
+            <label>
+              Workspace name
+              <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
+            </label>
+            <label>
+              Hero message
+              <textarea value={draft.heroMessage} onChange={e => setDraft(d => ({ ...d, heroMessage: e.target.value }))} />
+            </label>
+            <div className="two-col">
+              <label>
+                Brand color
+                <input type="color" value={draft.brandColor} onChange={e => setDraft(d => ({ ...d, brandColor: e.target.value }))} style={{ padding: '0.25rem 0.5rem', height: '2.5rem' }} />
+              </label>
+              <label>
+                Accent color
+                <input type="color" value={draft.accentColor} onChange={e => setDraft(d => ({ ...d, accentColor: e.target.value }))} style={{ padding: '0.25rem 0.5rem', height: '2.5rem' }} />
+              </label>
             </div>
             <label className="toggle">
-              <input type="checkbox" checked={notifPrefs.enabled} onChange={e => setNotifPrefs(p => ({ ...p, enabled: e.target.checked }))} />
-              In-App
+              <input type="checkbox" checked={draft.stripeConnected} onChange={e => setDraft(d => ({ ...d, stripeConnected: e.target.checked }))} />
+              Stripe connected (GBP)
             </label>
-          </div>
-
-          <div className="stack compact">
-            {notifTypes.map(nt => (
-              <div key={nt.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.6rem 0", borderBottom: "1px solid var(--surface-container)" }}>
-                <div>
-                  <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>{nt.label}</div>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)" }}>{nt.desc}</div>
-                </div>
-                <label className="toggle" style={{ flexShrink: 0 }}>
-                  <input type="checkbox" checked={(notifPrefs as any)[nt.key]} onChange={e => setNotifPrefs(p => ({ ...p, [nt.key]: e.target.checked }))} disabled={!notifPrefs.enabled} />
-                </label>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ marginTop: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--surface-container)", paddingTop: "1rem" }}>
             <div>
-              <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: "0.85rem", color: "var(--text-primary)" }}>Email notifications</div>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)" }}>Receive summaries via email</div>
+              <button type="submit" disabled={saving} className="btn-primary">
+                {saving ? "Saving..." : "Save Workspace"}
+              </button>
             </div>
-            <label className="toggle" style={{ flexShrink: 0 }}>
-              <input type="checkbox" checked={notifPrefs.emailEnabled} onChange={e => setNotifPrefs(p => ({ ...p, emailEnabled: e.target.checked }))} disabled={!notifPrefs.enabled} />
-            </label>
-          </div>
+          </form>
+        </div>
 
-          <div style={{ marginTop: "1rem" }}>
-            <button onClick={async () => { setSavingNotif(true); await new Promise(r => setTimeout(r, 400)); setSavingNotif(false); }} disabled={savingNotif} style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "none", background: notifPrefs.enabled ? "var(--primary)" : "var(--surface-container)", color: notifPrefs.enabled ? "white" : "var(--outline)", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, cursor: savingNotif ? "not-allowed" : "pointer" }}>
-              {savingNotif ? "Saving..." : "Save Preferences"}
-            </button>
+        <div className="panel">
+          <div className="panel-header">
+            <div>
+              <h2 className="panel-title">Coach Profile</h2>
+              <p className="panel-body-text">Your personal info shown to clients.</p>
+            </div>
+          </div>
+          <div className="stack">
+            <label>
+              First name
+              <input value={draft.coachFirstName} onChange={e => setDraft(d => ({ ...d, coachFirstName: e.target.value }))} />
+            </label>
+            <label>
+              Last name
+              <input value={draft.coachLastName} onChange={e => setDraft(d => ({ ...d, coachLastName: e.target.value }))} />
+            </label>
+            <label>
+              Email
+              <input value={draft.coachEmail} onChange={e => setDraft(d => ({ ...d, coachEmail: e.target.value }))} type="email" />
+            </label>
           </div>
         </div>
       </div>
 
-      {/* Availability Settings */}
-      <div style={{ maxWidth: 640, marginTop: "2rem" }}>
-        <div className="panel">
+      <div className="panel" style={{ maxWidth: '640px' }}>
+        <div className="panel-header">
           <div>
-            <h2 className="section-title">Schedule Availability</h2>
-            <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--outline)", margin: "0.25rem 0 1.25rem" }}>Define your working hours so clients know when sessions are available.</p>
+            <h2 className="panel-title">Subscription Overview</h2>
+            <p className="panel-body-text">Your workspace plan and current client subscriptions.</p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.75rem", marginBottom: "1.25rem" }}>
-            {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day, i) => {
-              const dayKey = day.toLowerCase() as "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday";
-              const hours = availHours[dayKey] ?? { enabled: i < 5, start: "09:00", end: "17:00" };
-              return (
-                <div key={day} style={{ padding: "0.75rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--surface-container)", background: "var(--surface-container-low)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                    <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>{day.slice(0,3)}</span>
-                    <label className="toggle" style={{ transform: "scale(0.85)" }}>
-                      <input type="checkbox" checked={hours.enabled} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), enabled: e.target.checked } }))} />
-                    </label>
-                  </div>
-                  {hours.enabled && (
-                    <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
-                      <input type="time" value={hours.start} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), start: e.target.value } }))} style={{ flex: 1, padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
-                      <span style={{ color: "var(--outline)", fontSize: "0.75rem" }}>â€“</span>
-                      <input type="time" value={hours.end} onChange={e => setAvailHours(h => ({ ...h, [dayKey]: { ...(h[dayKey] ?? hours), end: e.target.value } }))} style={{ flex: 1, padding: "0.3rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
-                    </div>
-                  )}
-                  {!hours.enabled && (
-                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--outline)" }}>Unavailable</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Blocked dates */}
-          <div style={{ marginBottom: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-              <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "var(--outline)" }}>Block specific dates</label>
-              <button onClick={() => setBlockedDates(prev => [...prev, ""])} style={{ padding: "0.25rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--primary)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>+ Add date</button>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {blockedDates.map((d, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                  <input type="date" value={d} onChange={e => setBlockedDates(prev => prev.map((x, j) => j === i ? e.target.value : x))} style={{ padding: "0.3rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem" }} />
-                  <button onClick={() => setBlockedDates(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.1rem" }}>Ã—</button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button onClick={async () => { setSavingAvail(true); await new Promise(r => setTimeout(r, 400)); setSavingAvail(false); }} disabled={savingAvail} style={{ padding: "0.5rem 1rem", borderRadius: "var(--r-md)", border: "none", background: "var(--primary)", color: "white", fontFamily: "Manrope, sans-serif", fontSize: "0.8rem", fontWeight: 700, cursor: savingAvail ? "not-allowed" : "pointer" }}>
-            {savingAvail ? "Saving..." : "Save Availability"}
-          </button>
         </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
+          <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-lg)', padding: '1rem', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: 'var(--primary)' }}>&pound;{mrrGbp}</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)', marginTop: '0.2rem' }}>Monthly Revenue</div>
+          </div>
+          <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-lg)', padding: '1rem', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: 'var(--primary)' }}>{activeSubs}</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)', marginTop: '0.2rem' }}>Active Clients</div>
+          </div>
+          <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-lg)', padding: '1rem', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: trialSubs > 0 ? 'var(--warning)' : 'var(--outline)' }}>{trialSubs}</div>
+            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)', marginTop: '0.2rem' }}>Trialing</div>
+          </div>
+        </div>
+        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--outline)' }}>
+          Parallel run days left: <strong>{workspace.parallelRunDaysLeft}</strong>
+        </p>
       </div>
     </div>
   );
@@ -5765,11 +5712,8 @@ function App() {
     loadCoach().catch(err => setLoadError(err instanceof Error ? err.message : "Connection failed â€” is the API running?"));
   }, []);
 
-  const handleNavWithPortal = (id: NavId) => {
+  const handleNav = (id: NavId) => {
     setActiveNav(id);
-    if (id === "portal" && session && !selectedClientId && session.clients[0]) {
-      switchClient(session.clients[0].id);
-    }
   };
 
   const handleGenerate = async (clientId: string) => {
@@ -5885,13 +5829,13 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar active={activeNav} onNav={handleNavWithPortal} session={session} atRiskCount={atRiskCount} notifications={notifications} setNotifications={setNotifications} showNotifications={showNotifications} setShowNotifications={setShowNotifications} />
+      <Sidebar active={activeNav} onNav={handleNav} session={session} atRiskCount={atRiskCount} notifications={notifications} setNotifications={setNotifications} showNotifications={showNotifications} setShowNotifications={setShowNotifications} />
 
       <div className="page-content">
         {activeNav === "dashboard" && (
           <DashboardView
             session={session}
-            onNav={handleNavWithPortal}
+            onNav={handleNav}
             onSimulateCheckIn={async id => { await handleCheckIn(id); push("Check-in recovery simulated"); }}
             onMarkPayment={async id => { await handleToggleBilling(id, "active"); }}
             push={push}
@@ -5901,43 +5845,10 @@ function App() {
           />
         )}
         {activeNav === "clients" && (
-          <ClientsView session={session} onOpenClient={id => { setActiveNav("portal"); switchClient(id); }} onAddClient={() => setShowAddClientModal(true)} onStartSession={(client) => { push(`Session booked with ${client.fullName}`, 'success'); }} />
+          <ClientsView session={session} onOpenClient={id => switchClient(id)} onAddClient={() => setShowAddClientModal(true)} onStartSession={(client) => { push(`Session booked with ${client.fullName}`, 'success'); }} />
         )}
         {activeNav === "plans" && (
-          <PlansView session={session} onNav={handleNavWithPortal} />
-        )}
-        {activeNav === "portal" && (
-          <PortalView
-            session={session}
-            clientPortal={clientPortal}
-            selectedClientId={selectedClientId}
-            onSwitchClient={switchClient}
-            onCheckIn={handleCheckIn}
-            onSaveEdits={handleSaveEdits}
-            onSendMessage={handleSendMessage}
-            onRefreshProof={handleRefreshProof}
-            onApprove={handleApprove}
-            checkInHistory={checkInHistory}
-            onNav={setActiveNav}
-            push={push}
-          />
-        )}
-        {activeNav === "billing" && (
-          <BillingView session={session} onToggleBilling={handleToggleBilling} />
-        )}
-        {activeNav === "migration" && (
-          <MigrationView onReload={() => loadCoach(selectedClientId ?? undefined)} />
-        )}
-        {activeNav === "competitors" && (
-          <CompetitorsView />
-        )}
-        {activeNav === "groups" && (
-          <GroupsView
-            session={session}
-            onCreate={handleCreateGroupProgram}
-            onUpdate={handleUpdateGroupProgram}
-            onArchive={handleArchiveGroupProgram}
-          />
+          <PlansView session={session} onNav={handleNav} />
         )}
         {activeNav === "habits" && (
           <HabitsView session={session} />
@@ -5950,6 +5861,9 @@ function App() {
         )}
         {activeNav === "calendar" && (
           <CalendarView session={session} onNav={setActiveNav} bookedSessions={bookedSessions} onUpdateSessions={setBookedSessions} push={push} clients={session.clients} />
+        )}
+        {activeNav === "business" && (
+          <BillingView session={session} onToggleBilling={handleToggleBilling} />
         )}
         {activeNav === "settings" && (
           <SettingsView session={session} onSave={handleSaveSettings} />

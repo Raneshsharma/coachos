@@ -4,7 +4,7 @@ type CoachSession = {
   workspace: any; coach: any; clients: any[]; plans: any[]; subscriptions: any[]; dashboard: any
 };
 
-type NavId = "dashboard"|"clients"|"plans"|"portal"|"billing"|"settings"|"migration"|"competitors"|"groups"|"habits"|"exercises"|"calendar"|"recipes";
+type NavId = "dashboard"|"clients"|"plans"|"calendar"|"habits"|"exercises"|"recipes"|"business"|"settings";
 
 type CalendarEvent = {
   id: string;
