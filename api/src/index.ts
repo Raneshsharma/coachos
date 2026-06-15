@@ -4,7 +4,7 @@
  */
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { supabase } from "./supabase";
+import { getSupabase } from "./supabase";
 
 // ── Domain types ───────────────────────────────────────────────────────────────
 
@@ -191,7 +191,7 @@ async function getCoach(): Promise<CoachUser | null> {
 }
 
 async function listClients(opts: { status?: string; search?: string } = {}) {
-  let q = supabase.from("clients").select("*").eq("workspace_id", "ws_1");
+  let q = getSupabase().from("clients").select("*").eq("workspace_id", "ws_1");
   if (opts.status) q = q.eq("status", opts.status);
   if (opts.search) {
     q = q.or(`full_name.ilike.%${opts.search}%,email.ilike.%${opts.search}%`);
@@ -201,7 +201,7 @@ async function listClients(opts: { status?: string; search?: string } = {}) {
 }
 
 async function getClient(id: string) {
-  const { data } = await supabase.from("clients").select("*").eq("id", id).single();
+  const { data } = await getSupabase().from("clients").select("*").eq("id", id).single();
   return data ? mapClient(data) : null;
 }
 
@@ -227,7 +227,7 @@ async function updateClient(id: string, patch: Partial<ClientProfile>) {
   if (patch.nutritionCarbsG !== undefined) updates.nutrition_carbs_g = patch.nutritionCarbsG;
   if (patch.nutritionCoachNote !== undefined) updates.nutrition_coach_note = patch.nutritionCoachNote;
 
-  const { data } = await supabase.from("clients").update(updates).eq("id", id).select().single();
+  const { data } = await getSupabase().from("clients").update(updates).eq("id", id).select().single();
   return data ? mapClient(data) : null;
 }
 
@@ -268,7 +268,7 @@ async function createClient(body: {
   if (!data) return null;
 
   // Auto-create a subscription record
-  await supabase.from("subscriptions").insert({
+  await getSupabase().from("subscriptions").insert({
     client_id: data.id,
     status: "active",
     amount_gbp: body.monthlyPriceGbp,
@@ -279,7 +279,7 @@ async function createClient(body: {
 }
 
 async function listPlans(opts: { status?: string; clientId?: string } = {}) {
-  let q = supabase.from("plans").select("*");
+  let q = getSupabase().from("plans").select("*");
   if (opts.status) q = q.eq("status", opts.status);
   if (opts.clientId) q = q.eq("client_id", opts.clientId);
   const { data } = await q;
@@ -287,7 +287,7 @@ async function listPlans(opts: { status?: string; clientId?: string } = {}) {
 }
 
 async function getPlan(id: string) {
-  const { data } = await supabase.from("plans").select("*").eq("id", id).single();
+  const { data } = await getSupabase().from("plans").select("*").eq("id", id).single();
   return data ? mapPlan(data) : null;
 }
 
@@ -342,7 +342,7 @@ async function approvePlan(id: string) {
 }
 
 async function listCheckIns(opts: { clientId?: string } = {}) {
-  let q = supabase.from("check_ins").select("*").order("submitted_at", { ascending: false });
+  let q = getSupabase().from("check_ins").select("*").order("submitted_at", { ascending: false });
   if (opts.clientId) q = q.eq("client_id", opts.clientId);
   const { data } = await q;
   return (data ?? []).map(mapCheckIn);
@@ -398,8 +398,8 @@ async function getMessages(clientId: string) {
 async function getMorningDashboard() {
   const today = new Date().toISOString().slice(0, 10);
   const clients = await listClients();
-  const { data: checkIns } = await supabase.from("check_ins").select("*");
-  const { data: subs } = await supabase.from("subscriptions").select("*");
+  const { data: checkIns } = await getSupabase().from("check_ins").select("*");
+  const { data: subs } = await getSupabase().from("subscriptions").select("*");
 
   const checkedInToday = (checkIns ?? []).filter(
     (ci) => ci.submitted_at?.slice(0, 10) === today
@@ -424,7 +424,7 @@ async function getMorningDashboard() {
 }
 
 async function getBillingSummary() {
-  const { data: subs } = await supabase.from("subscriptions").select("*");
+  const { data: subs } = await getSupabase().from("subscriptions").select("*");
   const active = (subs ?? []).filter((s) => s.status === "active");
   const pastDue = (subs ?? []).filter((s) => s.status === "past_due");
   return {
@@ -436,12 +436,12 @@ async function getBillingSummary() {
 }
 
 async function updateBilling(clientId: string, status: PaymentSubscription["status"]) {
-  await supabase.from("subscriptions").update({ status }).eq("client_id", clientId);
+  await getSupabase().from("subscriptions").update({ status }).eq("client_id", clientId);
   return { ok: true };
 }
 
 async function getAnalytics() {
-  const { data: checkIns } = await supabase.from("check_ins").select("*");
+  const { data: checkIns } = await getSupabase().from("check_ins").select("*");
   const events = (checkIns ?? []).map((ci) => ({
     name: "check_in_submitted",
     actorId: ci.client_id,
@@ -496,7 +496,7 @@ async function updateWorkspace(body: Partial<CoachWorkspace>) {
 }
 
 async function listHabits(clientId?: string) {
-  let q = supabase.from("habits").select("*");
+  let q = getSupabase().from("habits").select("*");
   if (clientId) q = q.eq("client_id", clientId);
   const { data } = await q;
   return (data ?? []).map((h) => ({
@@ -535,7 +535,7 @@ async function toggleHabitCompletion(habitId: string, date: string) {
     .maybeSingle();
 
   if (existing) {
-    await supabase.from("habit_completions").delete().eq("id", existing.id);
+    await getSupabase().from("habit_completions").delete().eq("id", existing.id);
     return { completion: { habitId, completed: false, date } };
   }
 
@@ -584,8 +584,8 @@ async function generateProofCard(clientId: string) {
   const client = await getClient(clientId);
   if (!client) return null;
   const [metricsResult, checkInsResult] = await Promise.all([
-    supabase.from("body_metrics").select("*").eq("client_id", clientId).order("measured_at", { ascending: true }),
-    supabase.from("check_ins").select("*").eq("client_id", clientId).order("submitted_at", { ascending: true }),
+    getSupabase().from("body_metrics").select("*").eq("client_id", clientId).order("measured_at", { ascending: true }),
+    getSupabase().from("check_ins").select("*").eq("client_id", clientId).order("submitted_at", { ascending: true }),
   ]);
   const metrics = metricsResult.data ?? [];
   const checkIns = checkInsResult.data ?? [];
@@ -663,7 +663,7 @@ async function updateGroupProgram(programId: string, patch: {
 }
 
 async function listExercises(opts: { search?: string; bodyPart?: string; equipment?: string } = {}) {
-  let q = supabase.from("exercises").select("*");
+  let q = getSupabase().from("exercises").select("*");
   if (opts.search) q = q.ilike("name", `%${opts.search}%`);
   if (opts.bodyPart) q = q.eq("body_part", opts.bodyPart);
   if (opts.equipment) q = q.eq("equipment", opts.equipment);
@@ -688,7 +688,7 @@ async function suggestRecipe(food?: string) {
       .maybeSingle();
     if (data) return data;
   }
-  const { data } = await supabase.from("recipes").select("*").limit(1).maybeSingle();
+  const { data } = await getSupabase().from("recipes").select("*").limit(1).maybeSingle();
   return data ?? {
     id: "r_1",
     name: "High-Protein Chicken Bowl",
@@ -742,17 +742,17 @@ async function getClientSession(clientId: string) {
   if (!client) return null;
 
   const [plans, checkIns, messages, habits, subscription, { data: notesData }] = await Promise.all([
-    supabase.from("plans").select("*").eq("client_id", clientId),
-    supabase.from("check_ins").select("*").eq("client_id", clientId),
-    supabase.from("messages").select("*").eq("client_id", clientId).order("sent_at"),
-    supabase.from("habits").select("*").eq("client_id", clientId),
-    supabase.from("subscriptions").select("*").eq("client_id", clientId).maybeSingle(),
-    supabase.from("client_notes").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
+    getSupabase().from("plans").select("*").eq("client_id", clientId),
+    getSupabase().from("check_ins").select("*").eq("client_id", clientId),
+    getSupabase().from("messages").select("*").eq("client_id", clientId).order("sent_at"),
+    getSupabase().from("habits").select("*").eq("client_id", clientId),
+    getSupabase().from("subscriptions").select("*").eq("client_id", clientId).maybeSingle(),
+    getSupabase().from("client_notes").select("*").eq("client_id", clientId).order("created_at", { ascending: false }),
   ]);
 
   const habitIds = (habits.data ?? []).map(h => h.id);
   const { data: completions } = habitIds.length > 0
-    ? await supabase.from("habit_completions").select("*").in("habit_id", habitIds)
+    ? await getSupabase().from("habit_completions").select("*").in("habit_id", habitIds)
     : { data: [] };
 
   const latest = (checkIns.data ?? []).sort((a, b) =>
@@ -806,7 +806,7 @@ app.get("/api/runtime", async (c) => c.json(await getRuntimeInfo()));
 app.get("/api/session/coach", async (c) => {
   const [workspace, coach, clients, plans, subscriptions] = await Promise.all([
     getWorkspace(), getCoach(),
-    listClients(), listPlans(), supabase.from("subscriptions").select("*"),
+    listClients(), listPlans(), getSupabase().from("subscriptions").select("*"),
   ]);
   if (!workspace || !coach) return c.json({ message: "Not configured." }, 500);
   const dashboard = await getMorningDashboard();
@@ -915,10 +915,10 @@ app.post("/api/check-ins/:id/photo", async (c) => {
   if (!file || !(file instanceof File)) return c.json({ message: "No file provided" }, 400);
   const ext = file.name.split(".").pop() ?? "jpg";
   const path = `${checkInId}/${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from("progress-photos").upload(path, file);
+  const { error } = await getSupabase().storage.from("progress-photos").upload(path, file);
   if (error) return c.json({ message: "Upload failed: " + error.message }, 500);
-  const { data } = supabase.storage.from("progress-photos").getPublicUrl(path);
-  await supabase.from("check_ins").update({ photo_url: data.publicUrl }).eq("id", checkInId);
+  const { data } = getSupabase().storage.from("progress-photos").getPublicUrl(path);
+  await getSupabase().from("check_ins").update({ photo_url: data.publicUrl }).eq("id", checkInId);
   return c.json({ url: data.publicUrl });
 });
 
@@ -980,7 +980,7 @@ app.patch("/api/notes/:noteId", async (c) => {
 });
 
 app.delete("/api/notes/:noteId", async (c) => {
-  const { error } = await supabase.from("client_notes").delete().eq("id", c.req.param("noteId"));
+  const { error } = await getSupabase().from("client_notes").delete().eq("id", c.req.param("noteId"));
   if (error) return c.json({ message: "Failed to delete note." }, 500);
   return c.json({ ok: true });
 });
