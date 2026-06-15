@@ -5412,6 +5412,35 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                     </div>
                   )}
                   {msg.content}
+                  {msg.role === "ai" && (
+                    <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                      <button className="btn-primary btn-xs" style={{ fontSize: "0.7rem" }}
+                        onClick={async () => {
+                          try {
+                            const plans = await fetchJson<ProgramPlan[]>(`/plans?clientId=${selectedClientId}`);
+                            let planId = (plans[0] as any)?.id;
+                            if (!planId) {
+                              const gen = await fetchJson<ProgramPlan>("/plans/generate", { method: "POST", body: JSON.stringify({ clientId: selectedClientId }) });
+                              planId = (gen as any)?.id;
+                            }
+                            if (!planId) { push("Could not find or create a plan", "error"); return; }
+                            const existing = await fetchJson<ProgramPlan>(`/plans?clientId=${selectedClientId}`);
+                            const lv = ((existing as any)[0]?.latestVersion as Record<string,unknown>) ?? {};
+                            const isNutrition = msg.content.includes("🍽️") || msg.content.includes("MEAL") || msg.content.includes("Meal ");
+                            const isWorkout = msg.content.includes("💪") || msg.content.includes("WORKOUT") || msg.content.includes("Bench Press") || msg.content.includes("Squat");
+                            if (isNutrition) { lv.assignedNutrition = msg.content; }
+                            else if (isWorkout) { lv.assignedWorkout = msg.content; }
+                            else { lv.assignedPlan = msg.content; }
+                            await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(lv) });
+                            push(`Plan assigned to ${selectedClient.fullName.split(" ")[0]}! Open their profile to view.`, "success");
+                          } catch { push("Failed to assign plan", "error"); }
+                        }}
+                      >📌 Assign to {selectedClient.fullName.split(" ")[0]}</button>
+                      <button className="btn-ghost btn-xs" style={{ fontSize: "0.7rem" }}
+                        onClick={() => { navigator.clipboard.writeText(msg.content); push("Copied", "info"); }}
+                      >📋 Copy</button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

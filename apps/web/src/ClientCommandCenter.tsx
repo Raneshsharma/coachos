@@ -58,6 +58,7 @@ export function ClientCommandCenter({
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [mealDay, setMealDay] = useState<string>("today");
   const [meals, setMeals] = useState<MealEntry[]>([]);
@@ -65,6 +66,8 @@ export function ClientCommandCenter({
   const [workouts, setWorkouts] = useState<WorkoutEntry[]>([]);
   const [weekMeals, setWeekMeals] = useState<MealPlanDay[]>([]);
   const [weekWorkouts, setWeekWorkouts] = useState<WorkoutPlanDay[]>([]);
+  const [assignedNutrition, setAssignedNutrition] = useState<string | null>(null);
+  const [assignedWorkout, setAssignedWorkout] = useState<string | null>(null);
 
   const [savingMeals, setSavingMeals] = useState(false);
   const [savingWorkouts, setSavingWorkouts] = useState(false);
@@ -129,6 +132,8 @@ export function ClientCommandCenter({
             setWorkouts(loadedWorkouts);
             setWeekMeals(loadedWeekMeals);
             setWeekWorkouts(loadedWeekWorkouts);
+            setAssignedNutrition((lv?.assignedNutrition as string) ?? null);
+            setAssignedWorkout((lv?.assignedWorkout as string) ?? null);
           } catch {
             /* ignore malformed JSON */
           }
@@ -666,6 +671,31 @@ export function ClientCommandCenter({
             </div>
           )}
         </div>
+
+        {/* ASSIGNED AI PLANS */}
+        {(assignedNutrition || assignedWorkout) && (
+          <div className="card" style={{ marginBottom: "1rem", background: "linear-gradient(135deg, rgba(99,102,241,0.08), rgba(245,158,11,0.08))", border: "1px solid var(--primary-glow)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+              <span className="material-symbols-outlined" style={{ color: "var(--primary)", fontSize: "1.1rem" }}>auto_awesome</span>
+              <h3 style={{ fontFamily: "Manrope, sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>AI-Assigned Plans</h3>
+              <span className="badge-accent" style={{ fontSize: "0.6rem" }}>from AI Coach</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: assignedNutrition && assignedWorkout ? "1fr 1fr" : "1fr", gap: "1rem" }}>
+              {assignedNutrition && (
+                <div style={{ background: "var(--bg-card)", borderRadius: "var(--r-md)", padding: "0.75rem", maxHeight: "400px", overflowY: "auto" }}>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>🍽️ Nutrition Plan</div>
+                  <pre style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.6 }}>{assignedNutrition}</pre>
+                </div>
+              )}
+              {assignedWorkout && (
+                <div style={{ background: "var(--bg-card)", borderRadius: "var(--r-md)", padding: "0.75rem", maxHeight: "400px", overflowY: "auto" }}>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>💪 Workout Plan</div>
+                  <pre style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.6 }}>{assignedWorkout}</pre>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* MEAL PLANNER */}
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
