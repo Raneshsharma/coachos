@@ -1238,11 +1238,12 @@ app.post("/api/ai/coach", async (c) => {
   const systemPrompt = `You are CoachOS AI, an elite health and fitness coaching assistant. Here is the full client data:\n\n${JSON.stringify(context, null, 2)}\n\nBased on this data, provide personalized, actionable coaching advice. Consider the client's medical conditions, nutrition needs, workout history, goals, and check-in progress. Be specific and reference the actual data values. Keep responses concise and practical.`;
 
   try {
-    const apiKey = getEnv("BYTEZ_API_KEY");
+    const apiKey = getEnv("BYTEZ_API_KEY") || getEnv("OPENAI_API_KEY");
     const providers = [
-      { url: "https://api.bytez.com/v1/chat/completions", key: apiKey, model: "deepseek-v3-pro" },
-      { url: "https://api.deepseek.com/v1/chat/completions", key: apiKey, model: "deepseek-chat" },
-      { url: "https://openrouter.ai/api/v1/chat/completions", key: apiKey, model: "deepseek/deepseek-chat" },
+      { url: "https://api.openai.com/v1/chat/completions", key: getEnv("OPENAI_API_KEY"), model: "gpt-4.1-mini" },
+      { url: "https://api.bytez.com/v1/chat/completions", key: getEnv("BYTEZ_API_KEY"), model: "deepseek-v3-pro" },
+      { url: "https://api.deepseek.com/v1/chat/completions", key: getEnv("BYTEZ_API_KEY"), model: "deepseek-chat" },
+      { url: "https://openrouter.ai/api/v1/chat/completions", key: getEnv("BYTEZ_API_KEY"), model: "deepseek/deepseek-chat" },
     ];
 
     let aiContent = "";
