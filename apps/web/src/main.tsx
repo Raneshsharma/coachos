@@ -1,4 +1,5 @@
 ﻿import { FormEvent, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import * as React from "react";
 import { createRoot } from "react-dom/client";
 import type {
   CheckIn, ClientProfile, ClientProfilePatch, CoachUser,
@@ -1097,14 +1098,27 @@ function ClientsView({
     .reduce((s, sub) => s + sub.amountGbp, 0);
 
   const [profileClientId, setProfileClientId] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
   if (profileClientId) {
+    if (profileError) {
+      return (
+        <div className="page-view">
+          <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
+            <p style={{ color: "var(--danger)", fontFamily: "Inter, sans-serif", marginBottom: "1rem" }}>Error loading profile: {profileError}</p>
+            <button className="btn-ghost" onClick={() => { setProfileClientId(null); setProfileError(null); }}>← Back to Clients</button>
+          </div>
+        </div>
+      );
+    }
     return (
-      <ClientCommandCenter
-        clientId={profileClientId}
-        clients={session.clients}
-        onBack={() => setProfileClientId(null)}
-        push={(msg, type) => { push(msg, (type ?? 'success') as ToastType); }}
-      />
+      <ErrorBoundary onError={(e) => setProfileError(e)}>
+        <ClientCommandCenter
+          clientId={profileClientId}
+          clients={session.clients}
+          onBack={() => setProfileClientId(null)}
+          push={(msg, type) => { push(msg, (type ?? 'success') as ToastType); }}
+        />
+      </ErrorBoundary>
     );
   }
 
@@ -5500,6 +5514,13 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
       )}
     </div>
   );
+}
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode; onError: (msg: string) => void }, { hasError: boolean }> {
+  constructor(props: any) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error) { this.props.onError(error.message); }
+  render() { return this.state.hasError ? null : this.props.children; }
 }
 
 function App() {
