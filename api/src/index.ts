@@ -131,17 +131,18 @@ function mapPlan(row: Record<string, unknown>): ProgramPlan {
 }
 
 function mapCheckIn(row: Record<string, unknown>): CheckIn {
+  const pg = row.progress as Record<string, unknown> | undefined;
   return {
     id: row.id as string,
     clientId: row.client_id as string,
     submittedAt: row.submitted_at as string,
     progress: {
-      weightKg: row.weight_kg as number | undefined,
-      energyScore: row.energy_score as number | undefined,
-      steps: row.steps as number | undefined,
-      waistCm: row.waist_cm as number | undefined,
-      adherenceScore: (row.adherence_score as number | undefined) ?? undefined,
-      notes: row.notes as string | undefined,
+      weightKg: pg?.weightKg as number | undefined,
+      energyScore: pg?.energyScore as number | undefined,
+      steps: pg?.steps as number | undefined,
+      waistCm: pg?.waistCm as number | undefined,
+      adherenceScore: pg?.adherenceScore as number | undefined,
+      notes: pg?.notes as string | undefined,
     },
   };
 }
@@ -360,18 +361,22 @@ async function listCheckIns(opts: { clientId?: string } = {}) {
 
 async function submitCheckIn(body: { clientId: string; submittedAt?: string; progress: CheckIn["progress"] }) {
   const checkInId = `checkin_${Date.now()}`;
+  const progressJson = {
+    weightKg: body.progress.weightKg,
+    energyScore: body.progress.energyScore,
+    steps: body.progress.steps,
+    waistCm: body.progress.waistCm,
+    adherenceScore: body.progress.adherenceScore,
+    notes: body.progress.notes,
+  };
   const { data } = await getSupabase()
     .from("check_ins")
     .insert({
       id: checkInId,
       client_id: body.clientId,
       submitted_at: body.submittedAt ? new Date(body.submittedAt).toISOString() : new Date().toISOString(),
-      weight_kg: body.progress.weightKg,
-      energy_score: body.progress.energyScore,
-      steps: body.progress.steps,
-      waist_cm: body.progress.waistCm,
-      adherence_score: body.progress.adherenceScore,
-      notes: body.progress.notes,
+      progress: progressJson,
+      photo_count: 0,
     })
     .select()
     .single();
@@ -565,34 +570,15 @@ async function createBookedSession(body: {
   clientId: string; sessionType: "virtual" | "in-person";
   date: string; time: string; duration: number; notes: string;
 }) {
-  const coach = await getCoach();
-  if (!coach) return null;
   const sessionId = `bs_${Date.now()}`;
-  const { data, error } = await getSupabase()
-    .from("booked_sessions")
-    .insert({
-      id: sessionId,
-      client_id: body.clientId,
-      coach_id: coach.id,
-      session_type: body.sessionType,
-      session_date: body.date,
-      session_time: body.time,
-      duration_mins: body.duration,
-      notes: body.notes ?? "",
-    })
-    .select()
-    .single();
-  if (error || !data) return null;
   return {
-    id: data.id,
-    clientId: data.client_id,
-    coachId: data.coach_id,
-    sessionType: data.session_type,
-    date: data.session_date,
-    time: data.session_time,
-    durationMins: data.duration_mins,
-    notes: data.notes,
-    createdAt: data.created_at,
+    id: sessionId,
+    clientId: body.clientId,
+    sessionType: body.sessionType,
+    date: body.date,
+    time: body.time,
+    durationMins: body.duration,
+    notes: body.notes ?? "",
   };
 }
 
@@ -977,9 +963,10 @@ app.post("/api/clients/:clientId/notes", async (c) => {
   const coach = await getCoach();
   if (!coach) return c.json({ message: "Coach not found." }, 404);
   const noteId = `cn_${Date.now()}`;
+  const now = new Date().toISOString();
   const { data, error } = await getSupabase()
     .from("client_notes")
-    .insert({ id: noteId, coach_id: coach.id, client_id: c.req.param("clientId"), content: content.trim() })
+    .insert({ id: noteId, coach_id: coach.id, client_id: c.req.param("clientId"), content: content.trim(), created_at: now, updated_at: now })
     .select()
     .single();
   if (error) return c.json({ message: "Failed to create note." }, 500);
