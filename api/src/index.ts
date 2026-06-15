@@ -1321,6 +1321,155 @@ Prep: [one line]
   }
 });
 
+app.post("/api/ai/agent", async (c) => {
+  const body = await c.req.json<{ command: string; context?: { currentView?: string; selectedClientId?: string | null } }>();
+  if (!body.command?.trim()) return c.json({ message: "command is required." }, 400);
+
+  const allClients = await listClients();
+
+  const clientsForPrompt = allClients.map((cl) => ({
+    id: cl.id,
+    name: cl.fullName,
+    email: cl.email,
+    status: cl.status,
+    adherenceScore: cl.adherenceScore,
+    goal: cl.goal,
+    health_conditions: cl.healthConditions,
+    supplements: cl.supplements,
+    macros: {
+      calories: cl.nutritionCalories,
+      protein_g: cl.nutritionProteinG,
+      fat_g: cl.nutritionFatG,
+      carbs_g: cl.nutritionCarbsG,
+    },
+    water_target_L: cl.dailyWaterTarget,
+    steps_target: cl.dailyStepsTarget,
+    tags: cl.tags,
+    monthly_price_gbp: cl.monthlyPriceGbp,
+    next_renewal_date: cl.nextRenewalDate,
+  }));
+
+  const systemPrompt = `You are CoachOS AI Agent with full CRUD authority. You can read and modify client data.
+
+AVAILABLE CLIENTS:
+${JSON.stringify(clientsForPrompt, null, 2)}
+
+YOUR CAPABILITIES:
+- list: Show/filter clients by any criteria (health conditions, allergies, goals, status, etc.)
+- update: Modify any client field (supplements, macros, goals, status, health_conditions, daily_water_target, daily_steps_target, tags, etc.)
+- The user's command will tell you what to do.
+
+CRITICAL: When the user mentions "allergic to X" or "allergy to X", look for X in the health_conditions array (each entry has a "label" field). A condition like {"label":"mushroom allergy","note":""} means the client is allergic to mushrooms.
+
+When the user says "update supplements", set the "supplements" array to the desired list. If they say "include X" or "add X", add X to the existing list without removing existing items.
+
+RESPOND IN THIS EXACT JSON FORMAT (no markdown fences, no backticks, just raw JSON):
+{
+  "reply": "Your conversational response to the user",
+  "actions": [
+    { "type": "update", "clientId": "client_X", "patch": { "supplements": ["Vitamin D", "Antihistamine"] } }
+  ]
+}
+
+If no data changes are needed, return empty actions array [].`;
+
+  const apiKey = getEnv("BYTEZ_API_KEY") || getEnv("OPENAI_API_KEY");
+  const providers = [
+    { url: "https://api.openai.com/v1/chat/completions", key: getEnv("OPENAI_API_KEY"), model: "gpt-4.1-mini" },
+    { url: "https://api.bytez.com/v1/chat/completions", key: getEnv("BYTEZ_API_KEY"), model: "deepseek-v3-pro" },
+    { url: "https://api.deepseek.com/v1/chat/completions", key: getEnv("BYTEZ_API_KEY"), model: "deepseek-chat" },
+    { url: "https://openrouter.ai/api/v1/chat/completions", key: getEnv("BYTEZ_API_KEY"), model: "deepseek/deepseek-chat" },
+  ];
+
+  let aiContent = "";
+
+  for (const provider of providers) {
+    if (!provider.key) continue;
+    try {
+      const response = await fetch(provider.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${provider.key}` },
+        body: JSON.stringify({ model: provider.model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: body.command }], temperature: 0.3, max_tokens: 4000 }),
+      });
+      if (response.ok) {
+        const data = await response.json() as Record<string, unknown>;
+        aiContent = (data as any)?.choices?.[0]?.message?.content ?? "";
+        if (aiContent) break;
+      }
+    } catch { /* try next provider */ }
+  }
+
+  let parsed: { reply?: string; actions?: { type: string; clientId: string; patch: Record<string, unknown> }[] } = {};
+
+  if (aiContent) {
+    try {
+      const clean = aiContent.replace(/```json|```/g, "").trim();
+      parsed = JSON.parse(clean);
+    } catch {
+      parsed = { reply: aiContent, actions: [] };
+    }
+  } else {
+    const cmdLower = body.command.toLowerCase();
+    const allergyMatch = cmdLower.match(/allergic to (\w+)/i) || cmdLower.match(/(\w+) allergy/i);
+    const allergen = allergyMatch?.[1]?.toLowerCase();
+
+    let matchingClients: typeof clientsForPrompt = [];
+    if (allergen) {
+      matchingClients = clientsForPrompt.filter((cl) =>
+        cl.health_conditions?.some((h: { label: string; note: string }) => h.label.toLowerCase().includes(allergen))
+      );
+    }
+
+    const wantsUpdate = /\b(update|assign|change|set|modify|include|add)\b/i.test(cmdLower);
+    const supplementMatch = cmdLower.match(/supplements?\s*(?:to\s*)?(?:include\s*)?(.+)/i);
+    const supplementItems = supplementMatch?.[1]
+      ?.split(/,|and/)
+      .map((s) => s.trim().replace(/["\[\]]/g, ""))
+      .filter(Boolean) ?? [];
+
+    const actions: { type: string; clientId: string; patch: Record<string, unknown> }[] = [];
+
+    if (wantsUpdate && matchingClients.length > 0 && supplementItems.length > 0) {
+      for (const cl of matchingClients) {
+        const existing = cl.supplements ?? [];
+        const merged = [...new Set([...existing, ...supplementItems])];
+        actions.push({ type: "update", clientId: cl.id, patch: { supplements: merged } });
+      }
+    }
+
+    const names = matchingClients.map((c) => c.name).join(", ");
+    parsed = {
+      reply: allergen
+        ? wantsUpdate
+          ? `I found ${matchingClients.length} client(s) with ${allergen} allergy: ${names}. I've updated their supplements to include: ${supplementItems.join(", ")}. [fallback mode — no AI API key configured]`
+          : `I found ${matchingClients.length} client(s) with ${allergen} allergy: ${names}. [fallback mode — no AI API key configured]`
+        : `I received your command but could not process it. Please configure a valid AI API key (OPENAI_API_KEY or BYTEZ_API_KEY) for full agent capabilities.`,
+      actions,
+    };
+  }
+
+  const executedActions: { type: string; clientId: string; patch: Record<string, unknown>; result: string }[] = [];
+  const affectedClients: string[] = [];
+
+  for (const action of parsed.actions ?? []) {
+    if (action.type === "update" && action.clientId && action.patch) {
+      try {
+        const updated = await updateClient(action.clientId, action.patch as Partial<ClientProfile>);
+        executedActions.push({ type: "update", clientId: action.clientId, patch: action.patch, result: updated ? "success" : "client not found" });
+        if (updated) affectedClients.push(action.clientId);
+      } catch (err) {
+        executedActions.push({ type: "update", clientId: action.clientId, patch: action.patch, result: `error: ${err instanceof Error ? err.message : String(err)}` });
+      }
+    }
+  }
+
+  return c.json({
+    reply: parsed.reply ?? "",
+    actions: executedActions,
+    affectedClients,
+  });
+});
+
 // ── Nudge System ──────────────────────────────────────────────
 const NUDGE_TEMPLATES: Record<string, (name: string) => string> = {
   habit: (n) => `Hey ${n}, I noticed you've missed your daily habits the last couple of days. Let's get back on track! Consistency is the key to reaching your goals. You've got this! 💪`,

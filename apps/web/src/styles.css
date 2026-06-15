@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* ======================================================================
-   CoachOS Design Tokens — Deep Indigo + Electric Amber
+   CoachOS Design Tokens ï¿½ Deep Indigo + Electric Amber
    Premium dark-mode SaaS, modern & visually striking
    ====================================================================== */
 :root {
@@ -153,7 +153,7 @@ body { min-height: 100vh; background: var(--bg-base); }
 .animate-pulse-glow { animation: pulse-glow 2s infinite; }
 
 /* ======================================================================
-   DESIGN SYSTEM — STANDARDIZED COMPONENTS
+   DESIGN SYSTEM ï¿½ STANDARDIZED COMPONENTS
    ====================================================================== */
 
 /* -- Buttons ----------------------- */
@@ -1160,5 +1160,328 @@ code { font-family: 'Courier New', monospace; background: var(--bg-elevated); pa
   .aura-welcome-heading { font-size: 1.75rem; }
   .aura-dashboard { padding-bottom: 6rem; }
   .profile-stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .profile-plan-row { grid-template-columns: 1fr; }
+.profile-plan-row { grid-template-columns: 1fr; }
+}
+
+/* ======================================================================
+   AI COPILOT PANEL
+   ====================================================================== */
+.copilot-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: var(--bg-card);
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-lg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+.copilot-fab::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  z-index: -1;
+  animation: copilot-pulse-ring 2.5s ease infinite;
+}
+.copilot-fab:hover {
+  transform: scale(1.08);
+  box-shadow: var(--shadow-xl);
+}
+.copilot-fab:active {
+  transform: scale(0.95);
+}
+.copilot-fab-label {
+  position: absolute;
+  right: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: Inter, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--r-md);
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.copilot-fab:hover .copilot-fab-label {
+  opacity: 1;
+}
+
+@keyframes copilot-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99,102,241,0.4), 0 0 0 0 rgba(245,158,11,0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(99,102,241,0), 0 0 0 14px rgba(245,158,11,0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(99,102,241,0.4), 0 0 0 0 rgba(245,158,11,0.3);
+  }
+}
+
+.copilot-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 9998;
+  animation: fadeIn 0.2s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.copilot-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  height: 100vh;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15,15,26,0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-xl);
+  animation: copilotSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes copilotSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.copilot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.copilot-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.copilot-header-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+}
+.copilot-header-title {
+  font-family: Manrope, sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+.copilot-header-subtitle {
+  font-family: Inter, sans-serif;
+  font-size: 0.62rem;
+  color: var(--outline);
+  font-weight: 500;
+}
+.copilot-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.15s ease;
+}
+.copilot-close:hover {
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+  border-color: var(--outline-variant);
+}
+
+.copilot-context-badge {
+  margin: 0.75rem 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--primary-container);
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: var(--r-full);
+  padding: 0.25rem 0.75rem;
+  font-family: Inter, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--primary-mid);
+}
+
+.copilot-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.copilot-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 90%;
+  animation: fadeInUp 0.25s ease;
+}
+.copilot-msg.user {
+  align-self: flex-end;
+}
+.copilot-msg.ai {
+  align-self: flex-start;
+}
+.copilot-msg-bubble {
+  padding: 0.7rem 1rem;
+  border-radius: var(--r-lg);
+  font-family: Inter, sans-serif;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.copilot-msg.user .copilot-msg-bubble {
+  background: var(--primary);
+  color: white;
+  border-bottom-right-radius: var(--r-sm);
+}
+.copilot-msg.ai .copilot-msg-bubble {
+  background: var(--surface-container);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: var(--r-sm);
+}
+.copilot-msg-label {
+  font-family: Inter, sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--outline);
+  margin-bottom: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.copilot-msg.user .copilot-msg-label {
+  text-align: right;
+}
+.copilot-client-cards {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.copilot-client-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0.5rem 0.75rem;
+  font-family: Inter, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.copilot-client-card-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.copilot-input-area {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.copilot-input {
+  flex: 1;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: Inter, sans-serif;
+  font-size: 0.78rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.copilot-input:focus {
+  border-color: var(--primary);
+}
+.copilot-input::placeholder {
+  color: var(--text-disabled);
+}
+.copilot-send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.copilot-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.copilot-send-btn:not(:disabled):hover {
+  transform: scale(1.05);
+}
+
+.copilot-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: var(--outline);
+}
+.copilot-empty-icon {
+  font-size: 2.5rem;
+  opacity: 0.25;
+}
+.copilot-empty-text {
+  font-family: Inter, sans-serif;
+  font-size: 0.78rem;
+  text-align: center;
+  max-width: 260px;
+}
+
+@media (max-width: 600px) {
+  .copilot-panel {
+    width: 100vw;
+  }
 }

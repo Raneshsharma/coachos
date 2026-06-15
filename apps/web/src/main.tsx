@@ -5754,6 +5754,128 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode; onError
   render() { return this.state.hasError ? null : this.props.children; }
 }
 
+/* ============================================================================
+   AI COPILOT PANEL COMPONENT
+   ============================================================================ */
+function AICopilotPanel({
+  messages, input, loading, show, onClose, onSend, onInputChange, activeNav, selectedClientName
+}: {
+  messages: Array<{role: string, content: string, clients?: any[]}>;
+  input: string;
+  loading: boolean;
+  show: boolean;
+  onClose: () => void;
+  onSend: () => void;
+  onInputChange: (v: string) => void;
+  activeNav: string;
+  selectedClientName: string | null;
+}) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    if (show) setTimeout(() => inputRef.current?.focus(), 100);
+  }, [show]);
+
+  const navLabels: Record<string, string> = {
+    dashboard: "Dashboard", clients: "Clients", ai: "AI Coach", calendar: "Calendar",
+    habits: "Habits", exercises: "Exercises", recipes: "Recipes", business: "Business", settings: "Settings"
+  };
+
+  if (!show) return null;
+
+  return (
+    <>
+      <div className="copilot-overlay" onClick={onClose} />
+      <div className="copilot-panel">
+        <div className="copilot-header">
+          <div className="copilot-header-left">
+            <div className="copilot-header-icon">
+              <span className="material-symbols-outlined" style={{ color: "white", fontSize: "1.1rem" }}>smart_toy</span>
+            </div>
+            <div>
+              <div className="copilot-header-title">AI Copilot</div>
+              <div className="copilot-header-subtitle">Powered by CoachOS AI</div>
+            </div>
+          </div>
+          <button className="copilot-close" onClick={onClose}>
+            <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>close</span>
+          </button>
+        </div>
+
+        <div>
+          <span className="copilot-context-badge">
+            <span className="material-symbols-outlined" style={{ fontSize: "0.75rem" }}>visibility</span>
+            Viewing: {navLabels[activeNav] ?? activeNav}
+            {selectedClientName ? ` \u00B7 ${selectedClientName}` : ""}
+          </span>
+        </div>
+
+        <div className="copilot-messages">
+          {messages.length === 0 ? (
+            <div className="copilot-empty">
+              <span className="material-symbols-outlined copilot-empty-icon">smart_toy</span>
+              <span className="copilot-empty-text">Ask me anything about your clients, plans, or business</span>
+            </div>
+          ) : (
+            messages.map((msg, i) => (
+              <div key={i} className={`copilot-msg ${msg.role}`}>
+                <div className="copilot-msg-label">{msg.role === "user" ? "You" : "AI Copilot"}</div>
+                <div className="copilot-msg-bubble">
+                  {msg.content}
+                  {msg.clients && msg.clients.length > 0 && (
+                    <div className="copilot-client-cards">
+                      {msg.clients.map((c: any) => (
+                        <div key={c.id} className="copilot-client-card">
+                          <div className="copilot-client-card-dot" />
+                          {c.fullName}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+          {loading && (
+            <div className="copilot-msg ai">
+              <div className="copilot-msg-label">AI Copilot</div>
+              <div className="copilot-msg-bubble" style={{ display: "flex", alignItems: "center", gap: "0.4rem", opacity: 0.7 }}>
+                <div className="spinner" style={{ width: "16px", height: "16px", borderWidth: "2px" }} />
+                Thinking...
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="copilot-input-area">
+          <input
+            ref={inputRef}
+            className="copilot-input"
+            type="text"
+            placeholder="Type a command..."
+            value={input}
+            onChange={e => onInputChange(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !loading && input.trim()) onSend(); }}
+          />
+          <button
+            className="copilot-send-btn"
+            disabled={loading || !input.trim()}
+            onClick={onSend}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: "1.1rem" }}>send</span>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function App() {
   const [session, setSession] = useState<CoachSession | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -5769,6 +5891,10 @@ function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [bookedSessions, setBookedSessions] = useState<BookedSession[]>([]);
   const { toasts, push, dismiss } = useToast();
+  const [showCopilot, setShowCopilot] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<Array<{role: string, content: string, clients?: any[]}>>([]);
+  const [copilotInput, setCopilotInput] = useState("");
+  const [copilotLoading, setCopilotLoading] = useState(false);
 
   // Check if onboarding was already completed
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -5816,6 +5942,32 @@ function App() {
 
     if (nextId) await switchClient(nextId);
   }, [selectedClientId, switchClient]);
+
+  const selectedClient = session?.clients?.find(c => c.id === selectedClientId) ?? null;
+
+  const sendCopilotMessage = useCallback(async () => {
+    if (!copilotInput.trim() || copilotLoading) return;
+    const input = copilotInput.trim();
+    setCopilotInput("");
+    setCopilotMessages(prev => [...prev, { role: "user", content: input }]);
+    setCopilotLoading(true);
+    try {
+      const res = await fetchJson<{ reply: string; actions: any[]; affectedClients: string[] }>("/ai/agent", {
+        method: "POST",
+        body: JSON.stringify({ command: input, context: { currentView: activeNav, selectedClientId } })
+      });
+      const clients = res.affectedClients?.length
+        ? session?.clients?.filter(c => res.affectedClients.includes(c.id)) ?? []
+        : [];
+      setCopilotMessages(prev => [...prev, { role: "ai", content: res.reply, clients }]);
+      await loadCoach(selectedClientId ?? undefined);
+      push("AI Copilot: action completed", "success");
+    } catch {
+      setCopilotMessages(prev => [...prev, { role: "ai", content: "Sorry, something went wrong. Please try again." }]);
+    } finally {
+      setCopilotLoading(false);
+    }
+  }, [copilotInput, copilotLoading, activeNav, selectedClientId, session, loadCoach, push]);
 
   useEffect(() => {
     loadCoach().catch(err => setLoadError(err instanceof Error ? err.message : "Connection failed â€” is the API running?"));
@@ -5978,6 +6130,30 @@ function App() {
           <AICoachView session={session} push={push} />
         )}
       </div>
+
+      {/* AI Copilot Floating Action Button */}
+      <button
+        className="copilot-fab"
+        onClick={() => setShowCopilot(v => !v)}
+        title={showCopilot ? "Close AI Copilot" : "Open AI Copilot"}
+      >
+        <span className="copilot-fab-label">AI Copilot</span>
+        <span className="material-symbols-outlined" style={{ color: showCopilot ? "var(--accent)" : "var(--primary)", fontSize: "1.4rem", transition: "color 0.2s ease" }}>
+          {showCopilot ? "close" : "auto_awesome"}
+        </span>
+      </button>
+
+      <AICopilotPanel
+        show={showCopilot}
+        messages={copilotMessages}
+        input={copilotInput}
+        loading={copilotLoading}
+        activeNav={activeNav}
+        selectedClientName={selectedClient ? selectedClient.fullName : null}
+        onClose={() => setShowCopilot(false)}
+        onSend={sendCopilotMessage}
+        onInputChange={setCopilotInput}
+      />
 
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
 
