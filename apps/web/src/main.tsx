@@ -5424,15 +5424,14 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                               planId = (gen as any)?.id;
                             }
                             if (!planId) { push("Could not find or create a plan", "error"); return; }
-                            const existing = await fetchJson<ProgramPlan>(`/plans?clientId=${selectedClientId}`);
-                            const lv = ((existing as any)[0]?.latestVersion as Record<string,unknown>) ?? {};
                             const isNutrition = msg.content.includes("🍽️") || msg.content.includes("MEAL") || msg.content.includes("Meal ");
                             const isWorkout = msg.content.includes("💪") || msg.content.includes("WORKOUT") || msg.content.includes("Bench Press") || msg.content.includes("Squat");
-                            if (isNutrition) { lv.assignedNutrition = msg.content; }
-                            else if (isWorkout) { lv.assignedWorkout = msg.content; }
-                            else { lv.assignedPlan = msg.content; }
-                            await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(lv) });
-                            push(`Plan assigned to ${selectedClient.fullName.split(" ")[0]}! Open their profile to view.`, "success");
+                            const payload: Record<string, unknown> = {};
+                            if (isNutrition) payload.assignedNutrition = msg.content;
+                            else if (isWorkout) payload.assignedWorkout = msg.content;
+                            else payload.assignedPlan = msg.content;
+                            await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(payload) });
+                            push(`Plan assigned to ${selectedClient.fullName.split(" ")[0]}! Open their profile.`, "success");
                           } catch { push("Failed to assign plan", "error"); }
                         }}
                       >📌 Assign to {selectedClient.fullName.split(" ")[0]}</button>

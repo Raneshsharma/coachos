@@ -126,7 +126,8 @@ function mapPlan(row: Record<string, unknown>): ProgramPlan {
       workouts: (lv?.workouts as string[]) ?? [],
       nutrition: (lv?.nutrition as string[]) ?? [],
       explanation: (lv?.explanation as string[]) ?? [],
-    },
+      ...lv,
+    } as any,
   };
 }
 
@@ -880,18 +881,14 @@ app.post("/api/plans/:planId/approve", async (c) => {
 
 app.patch("/api/plans/:planId", async (c) => {
   const planId = c.req.param("planId");
-  const patch = await c.req.json<{
-    title?: string;
-    workouts?: string[];
-    nutrition?: string[];
-    explanation?: string[];
-  }>();
+  const patch = await c.req.json<Record<string, unknown>>();
   const existing = await getSupabase().from("plans").select("*").eq("id", planId).single();
   if (!existing.data) return c.json({ message: "Plan not found." }, 404);
   const lv = (existing.data.latest_version as Record<string, unknown>) || {};
-  if (patch.workouts !== undefined) lv.workouts = patch.workouts;
-  if (patch.nutrition !== undefined) lv.nutrition = patch.nutrition;
-  if (patch.explanation !== undefined) lv.explanation = patch.explanation;
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === "title") continue;
+    lv[key] = value;
+  }
   lv.updatedAt = new Date().toISOString();
   const updates: Record<string, unknown> = { latest_version: lv, updated_at: new Date().toISOString() };
   if (patch.title !== undefined) updates.title = patch.title;
@@ -1322,6 +1319,31 @@ Prep: [one line]
   } catch (err) {
     return c.json({ message: `AI request failed: ${err instanceof Error ? err.message : String(err)}` }, 500);
   }
+});
+
+// ── Nudge System ──────────────────────────────────────────────
+const NUDGE_TEMPLATES: Record<string, (name: string) => string> = {
+  habit: (n) => `Hey ${n}, I noticed you've missed your daily habits the last couple of days. Let's get back on track! Consistency is the key to reaching your goals. You've got this! 💪`,
+  workout: (n) => `Hi ${n}, just checking in — you haven't logged your workout yet. Every session counts toward your progress. Remember, the hardest part is starting. Let's go! 🔥`,
+  nutrition: (n) => `Hey ${n}, a quick reminder to stick to your nutrition plan today. Your macros are calibrated specifically for your goals. Trust the process and fuel your body right! 🍽️`,
+  general: (n) => `Hi ${n}, I'm checking in on your progress. I'm here to support you every step of the way. Reach out if you need anything or have questions about your plan. You're doing great! 🌟`,
+};
+
+app.post("/api/nudges", async (c) => {
+  const body = await c.req.json<{ clientId: string; type?: string; message?: string }>();
+  if (!body.clientId?.trim()) return c.json({ message: "clientId is required." }, 400);
+  const client = await getClient(body.clientId);
+  if (!client) return c.json({ message: "Client not found." }, 404);
+  const firstName = client.fullName.split(" ")[0];
+  const message = body.message?.trim() || (NUDGE_TEMPLATES[body.type ?? "general"]?.(firstName) ?? NUDGE_TEMPLATES.general(firstName));
+  const msgId = `nudge_${Date.now()}`;
+  const { data, error } = await getSupabase()
+    .from("messages")
+    .insert({ id: msgId, coach_id: "coach_1", client_id: body.clientId, content: `[NUDGE] ${message}`, sender: "coach", sent_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) return c.json({ message: "Failed to send nudge." }, 500);
+  return c.json({ id: data.id, content: data.content, sentAt: data.sent_at }, 201);
 });
 
 export default {
