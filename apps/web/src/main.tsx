@@ -5205,7 +5205,8 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [clientData, setClientData] = useState<ClientProfile | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const resultCardRef = useRef<HTMLDivElement>(null);
 
   const selectedClient = session.clients.find((c) => c.id === selectedClientId) ?? null;
 
@@ -5227,12 +5228,9 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
   };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
     if (!selectedClientId) { setClientData(null); return; }
     setMessages([]);
+    setHistoryOpen(false);
     fetchJson<ClientProfile>(`/clients/${selectedClientId}`)
       .then(setClientData)
       .catch(() => push("Failed to fetch client data", "error"));
@@ -5263,252 +5261,486 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
     [session.clients]
   );
 
+  const aiMessages = useMemo(() => messages.filter((m) => m.role === "ai"), [messages]);
+  const lastAi = aiMessages.length > 0 ? aiMessages[aiMessages.length - 1] : null;
+
+  const assignPlan = async (content: string) => {
+    try {
+      const plans = await fetchJson<ProgramPlan[]>(`/plans?clientId=${selectedClientId}`);
+      let planId = (plans[0] as any)?.id;
+      if (!planId) {
+        const gen = await fetchJson<ProgramPlan>("/plans/generate", { method: "POST", body: JSON.stringify({ clientId: selectedClientId }) });
+        planId = (gen as any)?.id;
+      }
+      if (!planId) { push("Could not find or create a plan", "error"); return; }
+      const isNutrition = content.includes("\uD83C\uDF7D\uFE0F") || content.includes("MEAL") || content.includes("Meal ");
+      const isWorkout = content.includes("\uD83D\uDCAA") || content.includes("WORKOUT") || content.includes("Bench Press") || content.includes("Squat");
+      const payload: Record<string, unknown> = {};
+      if (isNutrition) payload.assignedNutrition = content;
+      else if (isWorkout) payload.assignedWorkout = content;
+      else payload.assignedPlan = content;
+      await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(payload) });
+      const assignName = selectedClient?.fullName.split(" ")[0] ?? "client";
+      push(`Plan assigned to ${assignName}! Open their profile.`, "success");
+    } catch { push("Failed to assign plan", "error"); }
+  };
+
+  const firstName = selectedClient?.fullName?.split(" ")[0] ?? "client";
+
   return (
     <div className="page-view">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.75rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <h1 style={{ fontFamily: "Manrope, sans-serif", fontSize: "2.25rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: "0.35rem" }}>
-            AI Coach
+          <h1 style={{ fontFamily: "Manrope, sans-serif", fontSize: "2rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: "0.25rem" }}>
+            AI COACH
           </h1>
-          <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.875rem", color: "var(--on-surface-variant)", fontWeight: 500 }}>
-            Get personalised AI coaching insights powered by your client data.
+          <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--on-surface-variant)", fontWeight: 500 }}>
+            Your Personal Training Intelligence
           </p>
         </div>
+        <select
+          value={selectedClientId}
+          onChange={(e) => setSelectedClientId(e.target.value)}
+          style={{
+            padding: "0.55rem 2.25rem 0.55rem 1rem",
+            borderRadius: "var(--r-full)",
+            border: "1.5px solid var(--outline-variant)",
+            background: "var(--surface-container)",
+            color: "var(--text-primary)",
+            fontFamily: "Inter, sans-serif",
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            outline: "none",
+            cursor: "pointer",
+            minWidth: "240px",
+            appearance: "none",
+            WebkitAppearance: "none",
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E\")",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 0.75rem center",
+          }}
+        >
+          <option value="">Select Client</option>
+          {sortedClients.map((c) => (
+            <option key={c.id} value={c.id}>{c.fullName}</option>
+          ))}
+        </select>
       </div>
 
-      <div className="card mb-lg">
-        <div style={{ marginBottom: "0.75rem" }}>
-          <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, color: "var(--on-surface-variant)", display: "block", marginBottom: "0.35rem" }}>
-            Select Client
-          </label>
-          <select
-            value={selectedClientId}
-            onChange={(e) => setSelectedClientId(e.target.value)}
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              padding: "0.55rem 0.85rem",
-              borderRadius: "var(--r-md)",
-              border: "1.5px solid var(--outline-variant)",
-              background: "var(--surface-container)",
-              color: "var(--text-primary)",
-              fontFamily: "Inter, sans-serif",
-              fontSize: "0.85rem",
-              outline: "none",
-              boxSizing: "border-box",
-            }}
-          >
-            <option value="">-- Choose a client --</option>
-            {sortedClients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.fullName}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {selectedClient && clientData ? (
+        <div style={{ display: "grid", gridTemplateColumns: "270px 1fr 220px", gap: "1.25rem", alignItems: "start" }}>
+          <div style={{ position: "relative", borderRadius: "var(--r-xl)", padding: "2px", background: "linear-gradient(135deg, var(--primary), var(--accent))" }}>
+            <div className="card-glass" style={{ padding: "1.25rem", borderRadius: "calc(var(--r-xl) - 2px)", background: "rgba(26,26,46,0.9)" }}>
+              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "0.75rem" }}>
+                Client Context
+              </div>
 
-      {selectedClient && clientData && (
-        <div className="card mb-lg">
-          <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: "0 0 1rem" }}>
-            Client Summary
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.75rem" }}>
-            <div style={{ background: "var(--surface-container)", borderRadius: "var(--r-md)", padding: "0.75rem" }}>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.2rem" }}>Goal</div>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-primary)", fontWeight: 500 }}>{clientData.goal || "Not set"}</div>
-            </div>
-            <div style={{ background: "var(--surface-container)", borderRadius: "var(--r-md)", padding: "0.75rem" }}>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.2rem" }}>Adherence</div>
-              <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: clientData.adherenceScore < 50 ? "var(--danger)" : clientData.adherenceScore < 75 ? "var(--warning)" : "var(--primary)" }}>{clientData.adherenceScore}%</div>
-            </div>
-            <div style={{ background: "var(--surface-container)", borderRadius: "var(--r-md)", padding: "0.75rem" }}>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.2rem" }}>Status</div>
-              <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-primary)", fontWeight: 600 }}>{clientData.status === "at_risk" ? "At Risk" : clientData.status === "trial" ? "Trial" : "Active"}</div>
-            </div>
-            {clientData.nutritionCalories != null && (
-              <div style={{ background: "var(--surface-container)", borderRadius: "var(--r-md)", padding: "0.75rem" }}>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.2rem" }}>Macros</div>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-primary)", fontWeight: 500 }}>
-                  {clientData.nutritionCalories} kcal | P:{clientData.nutritionProteinG ?? "?"}g C:{clientData.nutritionCarbsG ?? "?"}g F:{clientData.nutritionFatG ?? "?"}g
+              <div style={{ marginBottom: "0.75rem" }}>
+                <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", marginBottom: "0.1rem", lineHeight: 1.2 }}>
+                  {selectedClient.fullName}
+                </div>
+                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.68rem", color: "var(--outline)", wordBreak: "break-all" }}>
+                  {selectedClient.email}
                 </div>
               </div>
-            )}
-            {clientData.healthConditions.length > 0 && (
-              <div style={{ background: clientData.healthConditions.length > 0 ? "var(--warning-light)" : "var(--surface-container)", borderRadius: "var(--r-md)", padding: "0.75rem" }}>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.2rem" }}>Medical Conditions</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                  {clientData.healthConditions.map((hc, i) => (
-                    <span key={i} style={{ background: "var(--warning)", color: "white", padding: "0.15rem 0.5rem", borderRadius: "9999px", fontFamily: "Inter, sans-serif", fontSize: "0.68rem", fontWeight: 600 }}>{hc.label}</span>
-                  ))}
+
+              <div style={{ display: "flex", gap: "0.45rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+                <span className={`badge ${clientData.status === "at_risk" ? "badge-danger" : clientData.status === "trial" ? "badge-warning" : "badge-success"}`} style={{ fontSize: "0.62rem" }}>
+                  {clientData.status === "at_risk" ? "At Risk" : clientData.status === "trial" ? "Trial" : "Active"}
+                </span>
+                <span className="badge badge-accent" style={{ fontSize: "0.62rem" }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>trending_up</span>
+                  {clientData.adherenceScore}%
+                </span>
+              </div>
+
+              <div style={{ width: "100%", height: "5px", background: "var(--bg-elevated)", borderRadius: "var(--r-full)", marginBottom: "1rem", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${clientData.adherenceScore}%`, background: clientData.adherenceScore < 50 ? "var(--danger)" : clientData.adherenceScore < 75 ? "var(--warning)" : "var(--primary)", borderRadius: "var(--r-full)", transition: "width 0.6s ease" }} />
+              </div>
+
+              <div style={{ marginBottom: "0.5rem" }}>
+                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.55rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.1rem" }}>
+                  Goal
+                </div>
+                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.78rem", color: "var(--text-primary)", fontWeight: 600, lineHeight: 1.3 }}>
+                  {clientData.goal || "Not set"}
                 </div>
               </div>
-            )}
-            {clientData.supplements.length > 0 && (
-              <div style={{ background: "var(--surface-container)", borderRadius: "var(--r-md)", padding: "0.75rem" }}>
-                <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.2rem" }}>Supplements</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                  {clientData.supplements.map((s, i) => (
-                    <span key={i} style={{ background: "var(--primary-light)", color: "var(--primary-dark)", padding: "0.15rem 0.5rem", borderRadius: "9999px", fontFamily: "Inter, sans-serif", fontSize: "0.68rem", fontWeight: 600 }}>{s}</span>
-                  ))}
+
+              {clientData.healthConditions.length > 0 && (
+                <div style={{ marginBottom: "0.5rem", padding: "0.55rem", background: "var(--warning-light)", borderRadius: "var(--r-md)", border: "1px solid rgba(245,158,11,0.15)" }}>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.55rem", fontWeight: 700, color: "var(--warning-text)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.3rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.75rem" }}>warning</span>
+                    Medical
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.22rem" }}>
+                    {clientData.healthConditions.map((hc, i) => (
+                      <span key={i} style={{ background: "var(--warning)", color: "#000", padding: "0.12rem 0.42rem", borderRadius: "var(--r-full)", fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 600 }}>
+                        {hc.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {clientData.supplements.length > 0 && (
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.55rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.22rem" }}>
+                    Supplements
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.22rem" }}>
+                    {clientData.supplements.map((s, i) => (
+                      <span key={i} style={{ background: "var(--primary-container)", color: "var(--primary-mid)", padding: "0.12rem 0.42rem", borderRadius: "var(--r-full)", fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 600 }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {clientData.nutritionCalories != null && (
+                <div style={{ marginBottom: "0.5rem", padding: "0.55rem", background: "var(--surface-container)", borderRadius: "var(--r-md)" }}>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.55rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.3rem" }}>
+                    Daily Macros
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.3rem" }}>
+                    <div>
+                      <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "0.88rem", color: "var(--primary)", lineHeight: 1 }}>{clientData.nutritionCalories}</div>
+                      <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.52rem", color: "var(--outline)", textTransform: "uppercase" }}>Cal</div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "0.88rem", color: "var(--accent)", lineHeight: 1 }}>{clientData.nutritionProteinG ?? "?"}g</div>
+                      <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.52rem", color: "var(--outline)", textTransform: "uppercase" }}>Prot</div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "0.88rem", color: "var(--info)", lineHeight: 1 }}>{clientData.nutritionCarbsG ?? "?"}g</div>
+                      <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.52rem", color: "var(--outline)", textTransform: "uppercase" }}>Carbs</div>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "0.88rem", color: "var(--success)", lineHeight: 1 }}>{clientData.nutritionFatG ?? "?"}g</div>
+                      <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.52rem", color: "var(--outline)", textTransform: "uppercase" }}>Fat</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
+                <div>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.55rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.08rem" }}>Water</div>
+                  <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.78rem", color: "var(--info)" }}>{clientData.dailyWaterTarget}L</div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.55rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.08rem" }}>Steps / day</div>
+                  <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.78rem", color: "var(--accent)" }}>{clientData.dailyStepsTarget?.toLocaleString()}</div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      )}
 
-      {selectedClient && (
-        <div className="card" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 480px)", minHeight: "400px" }}>
-          <div style={{ flex: 1, overflowY: "auto", paddingRight: "0.5rem" }}>
-            {messages.length === 0 && (
-              <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "3rem", color: "var(--primary)", opacity: 0.3, display: "block", marginBottom: "1rem" }}>smart_toy</span>
-                <h3 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", margin: "0 0 0.5rem" }}>
-                  Start a conversation with CoachOS AI
-                </h3>
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--outline)", marginBottom: "1.25rem" }}>
-                  Ask about nutrition, workouts, progress, or get a full analysis of {selectedClient.fullName.split(" ")[0]}'s data.
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.5rem" }}>?? Workout Plans</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", justifyContent: "center" }}>
-                      {QUICK_PROMPTS.workout.map((wp) => (
-                        <button key={wp.label} className="btn-ghost btn-sm" onClick={() => sendPrompt(wp.prompt)} style={{ padding: "0.4rem 0.75rem", border: "1.5px solid var(--outline-variant)", borderRadius: "var(--r-lg)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 500, color: "var(--primary)", cursor: "pointer", background: "var(--primary-light)", transition: "all 0.15s ease" }}>
-                          {wp.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.5rem" }}>??? Nutrition Plans</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", justifyContent: "center" }}>
-                      {QUICK_PROMPTS.nutrition.map((np) => (
-                        <button key={np.label} className="btn-ghost btn-sm" onClick={() => sendPrompt(np.prompt)} style={{ padding: "0.4rem 0.75rem", border: "1.5px solid var(--outline-variant)", borderRadius: "var(--r-lg)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 500, color: "var(--accent)", cursor: "pointer", background: "var(--accent-light)", transition: "all 0.15s ease" }}>
-                          {np.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+          <div>
+            <div className="card-glass" style={{ padding: "1.15rem", marginBottom: "1rem" }}>
+              <form onSubmit={handleSubmit}>
+                <div style={{ position: "relative" }}>
+                  <span className="material-symbols-outlined" style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", color: "var(--primary)", fontSize: "1.15rem", pointerEvents: "none" }}>
+                    smart_toy
+                  </span>
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={`Ask anything about ${firstName}...`}
+                    style={{
+                      width: "100%",
+                      padding: "0.72rem 3.25rem 0.72rem 2.75rem",
+                      borderRadius: "var(--r-full)",
+                      border: "1.5px solid var(--outline-variant)",
+                      background: "var(--surface-container)",
+                      color: "var(--text-primary)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: "0.85rem",
+                      outline: "none",
+                      boxSizing: "border-box",
+                      transition: "border-color 0.2s ease, box-shadow 0.2s ease",
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = "var(--primary)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--primary-container)"; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = "var(--outline-variant)"; e.currentTarget.style.boxShadow = "none"; }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading || !input.trim()}
+                    style={{
+                      position: "absolute",
+                      right: "4px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: "36px",
+                      height: "36px",
+                      borderRadius: "50%",
+                      border: "none",
+                      background: loading || !input.trim() ? "var(--surface-container-high)" : "linear-gradient(135deg, var(--primary-dark), var(--primary))",
+                      color: loading || !input.trim() ? "var(--outline)" : "white",
+                      cursor: loading || !input.trim() ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.2s ease",
+                      boxShadow: loading || !input.trim() ? "none" : "0 2px 12px var(--primary-glow)",
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: "1.05rem" }}>auto_awesome</span>
+                  </button>
                 </div>
-              </div>
-            )}
+              </form>
 
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
-                  marginBottom: "0.75rem",
-                }}
-              >
-                <div
-                  style={{
-                    maxWidth: "80%",
-                    padding: "0.75rem 1rem",
-                    borderRadius: msg.role === "user" ? "var(--r-lg) var(--r-lg) 4px var(--r-lg)" : "var(--r-lg) var(--r-lg) var(--r-lg) 4px",
-                    background: msg.role === "user" ? "var(--primary)" : "var(--surface-container-low)",
-                    color: msg.role === "user" ? "white" : "var(--text-primary)",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "0.82rem",
-                    lineHeight: 1.6,
-                    whiteSpace: "pre-wrap",
-                    border: msg.role === "ai" ? "1px solid var(--outline-variant)" : "none",
-                  }}
-                >
-                  {msg.role === "ai" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.5rem" }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: "1rem", color: "var(--primary)" }}>smart_toy</span>
-                      <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: "var(--primary)" }}>CoachOS AI</span>
-                    </div>
-                  )}
-                  {msg.content}
-                  {msg.role === "ai" && (
-                    <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                      <button className="btn-primary btn-xs" style={{ fontSize: "0.7rem" }}
-                        onClick={async () => {
-                          try {
-                            const plans = await fetchJson<ProgramPlan[]>(`/plans?clientId=${selectedClientId}`);
-                            let planId = (plans[0] as any)?.id;
-                            if (!planId) {
-                              const gen = await fetchJson<ProgramPlan>("/plans/generate", { method: "POST", body: JSON.stringify({ clientId: selectedClientId }) });
-                              planId = (gen as any)?.id;
-                            }
-                            if (!planId) { push("Could not find or create a plan", "error"); return; }
-                            const isNutrition = msg.content.includes("???") || msg.content.includes("MEAL") || msg.content.includes("Meal ");
-                            const isWorkout = msg.content.includes("??") || msg.content.includes("WORKOUT") || msg.content.includes("Bench Press") || msg.content.includes("Squat");
-                            const payload: Record<string, unknown> = {};
-                            if (isNutrition) payload.assignedNutrition = msg.content;
-                            else if (isWorkout) payload.assignedWorkout = msg.content;
-                            else payload.assignedPlan = msg.content;
-                            await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(payload) });
-                            push(`Plan assigned to ${selectedClient.fullName.split(" ")[0]}! Open their profile.`, "success");
-                          } catch { push("Failed to assign plan", "error"); }
-                        }}
-                      >?? Assign to {selectedClient.fullName.split(" ")[0]}</button>
-                      <button className="btn-ghost btn-xs" style={{ fontSize: "0.7rem" }}
-                        onClick={() => { navigator.clipboard.writeText(msg.content); push("Copied", "info"); }}
-                      >?? Copy</button>
-                    </div>
-                  )}
-                </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.7rem" }}>
+                {[
+                  { label: "Weekly Workout", prompt: QUICK_PROMPTS.workout[3].prompt, icon: "fitness_center" },
+                  { label: "Meal Plan", prompt: QUICK_PROMPTS.nutrition[0].prompt, icon: "restaurant" },
+                  { label: "Progress Review", prompt: `Review ${firstName}'s current progress. Analyze their check-in metrics and suggest 3 actionable improvements.`, icon: "trending_up" },
+                  { label: "Medical Diet", prompt: QUICK_PROMPTS.nutrition[3].prompt, icon: "medical_services" },
+                ].map((chip) => (
+                  <button
+                    key={chip.label}
+                    onClick={() => sendPrompt(chip.prompt)}
+                    disabled={loading}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.3rem",
+                      padding: "0.25rem 0.7rem",
+                      borderRadius: "var(--r-full)",
+                      border: "1px solid var(--outline-variant)",
+                      background: "var(--surface-container)",
+                      color: loading ? "var(--outline)" : "var(--on-surface-variant)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: "0.7rem",
+                      fontWeight: 600,
+                      cursor: loading ? "not-allowed" : "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.borderColor = "var(--primary)"; e.currentTarget.style.color = "var(--primary)"; e.currentTarget.style.background = "var(--primary-container)"; } }}
+                    onMouseLeave={(e) => { if (!loading) { e.currentTarget.style.borderColor = "var(--outline-variant)"; e.currentTarget.style.color = "var(--on-surface-variant)"; e.currentTarget.style.background = "var(--surface-container)"; } }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.75rem" }}>{chip.icon}</span>
+                    {chip.label}
+                  </button>
+                ))}
               </div>
-            ))}
+            </div>
 
             {loading && (
-              <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "0.75rem" }}>
-                <div style={{ padding: "0.75rem 1rem", borderRadius: "var(--r-lg)", background: "var(--surface-container-low)", border: "1px solid var(--outline-variant)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <div className="spinner" style={{ width: "16px", height: "16px", borderWidth: "2px" }} />
-                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--outline)" }}>Analysing client data...</span>
+              <div className="card-glass" style={{ padding: "1.5rem", animation: "fadeIn 0.3s ease", marginBottom: "0.75rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", marginBottom: "1rem" }}>
+                  <div className="spinner" style={{ width: "20px", height: "20px", borderWidth: "2px" }} />
+                  <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)" }}>
+                    Analysing {firstName}'s profile...
+                  </span>
+                </div>
+                <div style={{ height: "10px", borderRadius: "var(--r-full)", background: "linear-gradient(90deg, var(--surface-container) 0%, var(--surface-container-high) 50%, var(--surface-container) 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease infinite", marginBottom: "0.45rem" }} />
+                <div style={{ height: "10px", borderRadius: "var(--r-full)", width: "72%", background: "linear-gradient(90deg, var(--surface-container) 0%, var(--surface-container-high) 50%, var(--surface-container) 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease infinite", animationDelay: "0.15s", marginBottom: "0.45rem" }} />
+                <div style={{ height: "10px", borderRadius: "var(--r-full)", width: "45%", background: "linear-gradient(90deg, var(--surface-container) 0%, var(--surface-container-high) 50%, var(--surface-container) 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease infinite", animationDelay: "0.3s" }} />
+              </div>
+            )}
+
+            {!loading && lastAi && (
+              <div ref={resultCardRef} className="card-glass" style={{ padding: "1.5rem", animation: "fadeIn 0.4s ease", marginBottom: "0.75rem", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: "-30%", right: "-10%", width: "140px", height: "140px", background: "var(--primary-glow)", borderRadius: "50%", filter: "blur(40px)", pointerEvents: "none", opacity: 0.4 }} />
+                <div style={{ position: "relative", zIndex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", paddingBottom: "0.65rem", borderBottom: "1px solid var(--border)" }}>
+                    <span style={{ width: "28px", height: "28px", borderRadius: "var(--r-md)", background: "linear-gradient(135deg, var(--primary-dark), var(--primary))", display: "grid", placeItems: "center" }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "white" }}>smart_toy</span>
+                    </span>
+                    <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>CoachOS AI</span>
+                    <span style={{ marginLeft: "auto", fontFamily: "Inter, sans-serif", fontSize: "0.62rem", color: "var(--outline)", background: "var(--surface-container)", padding: "0.12rem 0.5rem", borderRadius: "var(--r-full)", fontWeight: 600 }}>Generated</span>
+                  </div>
+                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: "380px", overflowY: "auto" }}>
+                    {lastAi.content}
+                  </div>
+                  <div style={{ display: "flex", gap: "0.45rem", marginTop: "0.9rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+                    <button
+                      className="btn-primary btn-sm"
+                      onClick={() => {
+                        resultCardRef.current?.scrollIntoView({ behavior: "smooth" });
+                        const el = resultCardRef.current;
+                        if (el) {
+                          el.style.boxShadow = "0 0 28px var(--primary-glow)";
+                          el.style.transition = "box-shadow 0.3s ease";
+                          setTimeout(() => { el.style.boxShadow = ""; }, 2000);
+                        }
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>visibility</span>
+                      Review Plan
+                    </button>
+                    <button
+                      className="btn-ghost btn-sm"
+                      onClick={() => { navigator.clipboard.writeText(lastAi.content); push("Copied", "info"); }}
+                      style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>content_copy</span>
+                      Copy
+                    </button>
+                    <button
+                      className="btn-primary btn-sm"
+                      onClick={() => assignPlan(lastAi.content)}
+                      style={{ display: "flex", alignItems: "center", gap: "0.3rem", background: "linear-gradient(135deg, var(--accent-dark), var(--accent))", boxShadow: "0 2px 14px var(--accent-glow)", marginLeft: "auto" }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>push_pin</span>
+                      Assign to {firstName}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
-            <div ref={messagesEndRef} />
+
+            {!loading && messages.length === 0 && (
+              <div className="card-glass" style={{ padding: "2.5rem 2rem", textAlign: "center", animation: "fadeIn 0.4s ease" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "3rem", color: "var(--primary)", opacity: 0.25, display: "block", marginBottom: "0.75rem" }}>smart_toy</span>
+                <h3 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "var(--text-primary)", marginBottom: "0.4rem" }}>
+                  Start generating insights
+                </h3>
+                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.78rem", color: "var(--outline)", maxWidth: "400px", margin: "0 auto" }}>
+                  Ask about {firstName}'s nutrition, workouts, progress, or use the quick action buttons to generate plans instantly.
+                </p>
+              </div>
+            )}
+
+            {aiMessages.length > 1 && (
+              <div>
+                <button
+                  onClick={() => setHistoryOpen(!historyOpen)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.45rem",
+                    padding: "0.6rem 0.9rem",
+                    borderRadius: "var(--r-md)",
+                    border: "1px solid var(--border)",
+                    background: "var(--surface-container)",
+                    color: "var(--on-surface-variant)",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--primary-mid)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: "1rem", transition: "transform 0.2s ease", transform: historyOpen ? "rotate(180deg)" : "rotate(0)" }}>
+                    expand_more
+                  </span>
+                  Previous Generations ({aiMessages.length - 1})
+                </button>
+                {historyOpen && (
+                  <div style={{ marginTop: "0.45rem", display: "flex", flexDirection: "column", gap: "0.4rem", animation: "fadeIn 0.2s ease" }}>
+                    {aiMessages.slice(0, -1).reverse().map((msg, i) => (
+                      <div key={i} className="card-glass" style={{ padding: "0.85rem 1rem" }}>
+                        <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--on-surface-variant)", lineHeight: 1.55, whiteSpace: "pre-wrap", maxHeight: "100px", overflowY: "hidden", position: "relative" }}>
+                          {msg.content.slice(0, 280)}{msg.content.length > 280 ? "..." : ""}
+                        </div>
+                        <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.45rem" }}>
+                          <button className="btn-ghost btn-xs" onClick={() => { navigator.clipboard.writeText(msg.content); push("Copied", "info"); }} style={{ fontSize: "0.62rem", padding: "0.15rem 0.5rem" }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>content_copy</span> Copy
+                          </button>
+                          <button className="btn-ghost btn-xs" onClick={() => assignPlan(msg.content)} style={{ fontSize: "0.62rem", padding: "0.15rem 0.5rem" }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>push_pin</span> Assign
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", gap: "0.5rem", paddingTop: "1rem", borderTop: "1px solid var(--outline-variant)", marginTop: "0.5rem" }}>
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={`Ask about ${selectedClient.fullName.split(" ")[0]}'s nutrition, workouts, progress...`}
-              style={{
-                flex: 1,
-                padding: "0.65rem 0.85rem",
-                borderRadius: "var(--r-lg)",
-                border: "1.5px solid var(--outline-variant)",
-                background: "var(--surface-container)",
-                color: "var(--text-primary)",
-                fontFamily: "Inter, sans-serif",
-                fontSize: "0.85rem",
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.15rem" }}>
+              Quick Actions
+            </div>
+
             <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              style={{
-                padding: "0.65rem 1.25rem",
-                borderRadius: "var(--r-lg)",
-                border: "none",
-                background: loading || !input.trim() ? "var(--surface-container)" : "var(--primary)",
-                color: loading || !input.trim() ? "var(--outline)" : "white",
-                fontFamily: "Manrope, sans-serif",
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                cursor: loading || !input.trim() ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.35rem",
-                transition: "all 0.15s ease",
-              }}
+              className="quick-action"
+              onClick={() => sendPrompt(QUICK_PROMPTS.nutrition[0].prompt)}
+              disabled={loading}
+              style={{ justifyContent: "flex-start", fontSize: "0.75rem", width: "100%", boxSizing: "border-box" }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>send</span>
-              Send
+              <span className="material-symbols-outlined" style={{ fontSize: "0.95rem" }}>restaurant</span>
+              Generate Meal Plan
             </button>
-          </form>
+            <button
+              className="quick-action"
+              onClick={() => sendPrompt(QUICK_PROMPTS.nutrition[1].prompt)}
+              disabled={loading}
+              style={{ justifyContent: "flex-start", fontSize: "0.75rem", width: "100%", boxSizing: "border-box" }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "0.95rem" }}>calendar_month</span>
+              Weekly Meal Plan
+            </button>
+            <button
+              className="quick-action"
+              onClick={() => sendPrompt(QUICK_PROMPTS.workout[0].prompt)}
+              disabled={loading}
+              style={{ justifyContent: "flex-start", fontSize: "0.75rem", width: "100%", boxSizing: "border-box" }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "0.95rem" }}>fitness_center</span>
+              Generate Workout
+            </button>
+            <button
+              className="quick-action"
+              onClick={() => sendPrompt(QUICK_PROMPTS.nutrition[3].prompt)}
+              disabled={loading}
+              style={{ justifyContent: "flex-start", fontSize: "0.75rem", width: "100%", boxSizing: "border-box" }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "0.95rem" }}>medical_services</span>
+              Medical Diet Analysis
+            </button>
+            <button
+              className="quick-action"
+              onClick={() => sendPrompt(QUICK_PROMPTS.nutrition[4].prompt)}
+              disabled={loading}
+              style={{ justifyContent: "flex-start", fontSize: "0.75rem", width: "100%", boxSizing: "border-box" }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "0.95rem" }}>bakery_dining</span>
+              Cheat Meal Plan
+            </button>
+
+            <div style={{ height: "1px", background: "var(--border)", margin: "0.35rem 0" }} />
+
+            <button
+              className="quick-action"
+              onClick={() => sendPrompt(`Send a personalised habit nudge to ${firstName}. Encourage them to stay on track with their daily habits. Make it motivational and specific to their goals.`)}
+              disabled={loading}
+              style={{ justifyContent: "flex-start", fontSize: "0.75rem", width: "100%", boxSizing: "border-box" }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "0.95rem" }}>notifications</span>
+              Send Habit Nudge
+            </button>
+            <button
+              className="quick-action"
+              onClick={() => sendPrompt(`Write a motivational message for ${firstName}. Acknowledge their recent effort, celebrate small wins, and inspire them to keep pushing toward their goal: ${clientData.goal || "better health"}.`)}
+              disabled={loading}
+              style={{ justifyContent: "flex-start", fontSize: "0.75rem", width: "100%", boxSizing: "border-box" }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "0.95rem" }}>bolt</span>
+              Send Motivation Nudge
+            </button>
+          </div>
+        </div>
+      ) : selectedClient && !clientData ? (
+        <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
+          <div className="spinner" style={{ margin: "0 auto 1rem" }} />
+          <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.85rem", color: "var(--outline)" }}>Loading client data...</p>
+        </div>
+      ) : (
+        <div className="card" style={{ textAlign: "center", padding: "3.5rem 2rem" }}>
+          <span className="material-symbols-outlined" style={{ fontSize: "3.5rem", color: "var(--primary)", opacity: 0.25, display: "block", marginBottom: "1rem" }}>smart_toy</span>
+          <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.15rem", color: "var(--text-primary)", marginBottom: "0.4rem" }}>Select a client to begin</h2>
+          <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--outline)", maxWidth: "400px", margin: "0 auto" }}>
+            Choose a client from the dropdown above to access AI-powered coaching insights, generate workout plans, meal plans, and more.
+          </p>
         </div>
       )}
     </div>
