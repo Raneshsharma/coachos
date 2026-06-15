@@ -330,25 +330,20 @@ function Sidebar({
       )}
 
       <nav className="sidebar-nav">
-        <span className="nav-section-label">Overview</span>
-        {nav("dashboard", "◎", "Coach Dashboard", atRiskCount || undefined)}
+        {nav("dashboard", "◉", "Dashboard", atRiskCount || undefined)}
 
-        <span className="nav-section-label">Clients</span>
+        <span className="nav-section-label">Core</span>
         {nav("clients", "⊞", "All Clients")}
-        {nav("portal", "⊡", "Client Portal")}
-        {nav("calendar", "▦", "Calendar")}
         {nav("plans", "✦", "AI Plans")}
-        {nav("habits", "◉", "Habits")}
-        {nav("groups", "⬡", "Group Programs")}
+        {nav("calendar", "▦", "Calendar")}
+        {nav("habits", "◈", "Habits")}
 
-        <span className="nav-section-label">Preview</span>
+        <span className="nav-section-label">Tools</span>
         {nav("exercises", "⬢", "Exercise Library")}
-        {nav("recipes", "◈", "Recipe Browser")}
+        {nav("recipes", "⬡", "Recipe Browser")}
 
         <span className="nav-section-label">Business</span>
         {nav("billing", "£", "Billing & MRR")}
-        {nav("competitors", "⊕", "Competitors")}
-        {nav("migration", "⇄", "Migration")}
         {nav("settings", "⚙", "Workspace")}
       </nav>
 
@@ -490,264 +485,311 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
   onOpenClientNotes: () => void;
   onAddClient: () => void;
 }) {
-  const { dashboard, workspace, clients } = session;
+  const { dashboard, clients } = session;
   const mrrGbp = session.subscriptions
     .filter(s => s.status === "active")
     .reduce((sum, s) => sum + s.amountGbp, 0);
 
   const today = new Date();
   const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
-  const dateStr = today.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const dateStr = today.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 
-  // Upcoming renewals for the right panel
-  const upcomingRenewals = session.subscriptions
-    .filter(s => s.status === "active" || s.status === "past_due")
-    .sort((a, b) => a.renewalDate.localeCompare(b.renewalDate))
-    .slice(0, 3);
+  const atRiskCount = dashboard.atRiskClients.length;
+
+  const todayStr = today.toISOString().split("T")[0];
+
+  const todaySessions = useMemo(() => {
+    const sessions: Array<{ time: string; clientId: string; clientName: string; type: string; isAtRisk: boolean }> = [];
+    const renewalClients = session.subscriptions
+      .filter(s => s.renewalDate === todayStr && s.status === "active")
+      .map(s => clients.find(c => c.id === s.clientId))
+      .filter(Boolean) as ClientProfile[];
+    renewalClients.forEach((_, i) => {
+      if (i < 3) sessions.push({
+        time: `${9 + i * 2}:00`,
+        clientId: clients[i]?.id ?? "",
+        clientName: clients[i]?.fullName ?? "",
+        type: "Renewal check-in",
+        isAtRisk: dashboard.atRiskClients.some(a => a.clientId === clients[i]?.id),
+      });
+    });
+    if (sessions.length === 0 && clients.length > 0) {
+      const morningHours = ["10:00", "14:00"];
+      clients.slice(0, Math.min(2, clients.length)).forEach((c, i) => {
+        sessions.push({
+          time: morningHours[i] ?? "10:00",
+          clientId: c.id,
+          clientName: c.fullName,
+          type: c.status === "trial" ? "Trial review" : "Check-in",
+          isAtRisk: dashboard.atRiskClients.some(a => a.clientId === c.id),
+        });
+      });
+    }
+    return sessions;
+  }, [session.subscriptions, clients, dashboard.atRiskClients, todayStr]);
+
+  const attentionClients = useMemo(() => {
+    return clients
+      .map(c => {
+        const risk = dashboard.atRiskClients.find(a => a.clientId === c.id);
+        const daysSinceCheckIn = c.lastCheckInDate
+          ? Math.floor((Date.now() - new Date(c.lastCheckInDate).getTime()) / 86400000)
+          : 999;
+        let priority = 0;
+        let reason = "";
+        let action = "View";
+        let severity: "high" | "medium" | "low" = "low";
+        if (risk) {
+          priority = risk.severity === "high" ? 100 : risk.severity === "medium" ? 70 : 30;
+          reason = risk.reasons[0] ?? "Needs attention";
+          action = risk.recommendedAction ?? "Nudge";
+          severity = risk.severity;
+        } else if (c.status === "trial" && !c.lastCheckInDate) {
+          priority = 60;
+          reason = "Trial ending soon — no check-in yet";
+          action = "Follow up";
+          severity = "medium";
+        } else if (c.adherenceScore < 50) {
+          priority = 55;
+          reason = `Adherence at ${c.adherenceScore}%`;
+          action = "Review";
+          severity = "medium";
+        } else if (daysSinceCheckIn > 7) {
+          priority = 40;
+          reason = daysSinceCheckIn > 99 ? "No check-in yet" : `No check-in for ${daysSinceCheckIn} days`;
+          action = "Nudge";
+          severity = "low";
+        } else if (daysSinceCheckIn > 4) {
+          priority = 20;
+          reason = `Last check-in ${daysSinceCheckIn} days ago`;
+          action = "Check in";
+          severity = "low";
+        }
+        return { ...c, priority, reason, action, severity };
+      })
+      .filter(c => c.priority > 0)
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, 8);
+  }, [clients, dashboard.atRiskClients]);
+
+  const totalClients = clients.length;
+
+  const getInitials = (name: string) => name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
+  const statusLabel = (s: string) => s === "at_risk" ? "At risk" : s === "trial" ? "Trial" : s === "trialing" ? "Trial" : "Active";
+  const statusColor = (s: string) => s === "at_risk" ? "var(--danger)" : s === "trial" || s === "trialing" ? "var(--warning)" : "var(--primary)";
 
   return (
     <div className="page-view">
-      {/* Editorial Hero */}
-      <div className="editorial-hero">
-        <div>
-          <div className="editorial-hero-eyebrow">
-            <span className="editorial-hero-date">{dayName}, {dateStr}</span>
-          </div>
-          <h1 className="editorial-hero-greeting">Good morning, {session.coach.firstName}.</h1>
-          <p className="editorial-hero-message">{workspace.heroMessage}</p>
-          <div className="inline" style={{ marginTop: "1.5rem" }}>
-            <button onClick={() => onNav("calendar")} style={{ padding: "0.6rem 1.25rem", borderRadius: "9999px", background: "#181c1c", color: "white", border: "none", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.4rem", boxShadow: "0 4px 16px rgba(24,28,28,0.15)" }}>
-              <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>calendar_month</span>
-              View Schedule
-            </button>
-            <button onClick={onOpenClientNotes} style={{ padding: "0.6rem 1.25rem", borderRadius: "9999px", background: "white", color: "#181c1c", border: "1.5px solid #e8e7f0", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-              Client Notes
-            </button>
-          </div>
+      {/* ── GREETING BANNER ───────────────── */}
+      <div className="dash-greeting">
+        <div className="dash-greeting-left">
+          <h1>Good morning, {session.coach.firstName}.</h1>
+          <p>{dayName}, {dateStr} &middot; <span style={{ color: "var(--primary)", fontWeight: 600 }}>{totalClients} clients</span> on your roster</p>
+          {atRiskCount > 0 && (
+            <div className="dash-attention-badge">
+              <span className="material-symbols-outlined" style={{ fontSize: "0.85rem" }}>warning</span>
+              {atRiskCount} client{atRiskCount !== 1 ? "s" : ""} need{atRiskCount === 1 ? "s" : ""} your attention today
+            </div>
+          )}
         </div>
-        <div className="editorial-hero-right">
-          {/* Coach mascot based on gender */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div style={{
-              width: 168, height: 168, borderRadius: "50%", background: workspace.brandColor, display: "grid", placeItems: "center",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.2)", flexShrink: 0,
-            }}>
-              {session.coach.gender === "female" ? (
-                /* Female coach mascot */
-                <svg width="108" height="108" viewBox="0 0 36 36" fill="none">
-                  <circle cx="18" cy="12" r="7" fill="white" opacity="0.95"/>
-                  <path d="M8 28 C8 20 28 20 28 28" fill="white" opacity="0.9"/>
-                  <circle cx="15" cy="11" r="1.2" fill="#123f2d"/>
-                  <circle cx="21" cy="11" r="1.2" fill="#123f2d"/>
-                  <path d="M16 14 Q18 16 20 14" stroke="#123f2d" strokeWidth="1" fill="none" strokeLinecap="round"/>
-                  <path d="M10 9 Q12 5 16 6 Q18 4 20 6 Q24 5 26 9" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
-                </svg>
-              ) : (
-                /* Male coach mascot */
-                <svg width="108" height="108" viewBox="0 0 36 36" fill="none">
-                  <circle cx="18" cy="13" r="7" fill="white" opacity="0.95"/>
-                  <path d="M9 28 C9 21 27 21 27 28" fill="white" opacity="0.9"/>
-                  <circle cx="15" cy="12" r="1.2" fill="#123f2d"/>
-                  <circle cx="21" cy="12" r="1.2" fill="#123f2d"/>
-                  <path d="M16 15 Q18 17 20 15" stroke="#123f2d" strokeWidth="1" fill="none" strokeLinecap="round"/>
-                  <rect x="14" y="8" width="8" height="3" rx="1" fill="white" opacity="0.9"/>
-                  <rect x="14" y="7.5" width="8" height="1.5" rx="0.5" fill="white" opacity="0.85"/>
-                </svg>
-              )}
+      </div>
+
+      {/* ── TODAY'S SESSIONS + STATS ROW ──── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "2rem", marginBottom: "2rem", alignItems: "start" }}>
+        <div className="card">
+          <div className="flex items-center justify-between mb-md">
+            <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0 }}>Today's Sessions</h2>
+            <button className="btn-ghost btn-xs" onClick={() => onNav("calendar")}>
+              <span className="material-symbols-outlined" style={{ fontSize: "0.85rem" }}>calendar_month</span>
+              Calendar
+            </button>
+          </div>
+          {todaySessions.length > 0 ? (
+            <div className="flex-col" style={{ gap: "0.25rem" }}>
+              {todaySessions.map((s, i) => (
+                <div key={i} className="session-row" style={{ cursor: "pointer" }} onClick={() => { onNav("clients"); }}>
+                  <span className="session-time">{s.time}</span>
+                  <span className="session-name">{s.clientName}</span>
+                  <span className="session-type">{s.type}</span>
+                  {s.isAtRisk && <span className="badge badge-warning">Risk</span>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No sessions scheduled today.</p>
+          )}
+          <button className="btn-secondary btn-sm" style={{ marginTop: "0.75rem", width: "100%" }} onClick={() => onNav("calendar")}>
+            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>add</span>
+            Book Session
+          </button>
+        </div>
+
+        <div className="card" style={{ minWidth: "240px" }}>
+          <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: "0 0 1rem" }}>Quick Stats</h2>
+          <div className="stats-strip" style={{ flexDirection: "column", gap: "1rem" }}>
+            <div className="stat-chip">
+              <span className="stat-chip-label">Active Clients</span>
+              <span className="stat-chip-value">{dashboard.activeClients}</span>
+            </div>
+            <div className="stat-chip">
+              <span className="stat-chip-label">MRR</span>
+              <span className="stat-chip-value">£{mrrGbp.toLocaleString()}</span>
+            </div>
+            <div className="stat-chip">
+              <span className="stat-chip-label">At-Risk</span>
+              <span className="stat-chip-value" style={{ color: atRiskCount > 0 ? "var(--warning)" : "var(--primary)" }}>{atRiskCount}</span>
+            </div>
+            <div className="stat-chip">
+              <span className="stat-chip-label">Checked In Today</span>
+              <span className="stat-chip-value">{dashboard.checkedInToday}/{totalClients}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bento Stat Grid */}
-      <div className="bento-grid">
-        <div className="bento-card">
-          <div className="bento-icon-wrap">
-            <span className="material-symbols-outlined bento-icon">diversity_3</span>
+      {/* ── WHO NEEDS ATTENTION ────────────── */}
+      {attentionClients.length > 0 && (
+        <div style={{ marginBottom: "2rem" }}>
+          <div className="flex items-center justify-between mb-md">
+            <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0 }}>Who Needs Attention</h2>
+            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-muted)" }}>{attentionClients.length} client{attentionClients.length !== 1 ? "s" : ""} · scroll →</span>
           </div>
-          <div className="bento-label">Active Clients</div>
-          <div className="bento-value">{dashboard.activeClients}</div>
-          <div className="bento-trend">{clients.length} total clients</div>
-        </div>
-        <div className="bento-card">
-          <div className="bento-icon-wrap">
-            <span className="material-symbols-outlined bento-icon">payments</span>
+          <div className="h-scroll">
+            {attentionClients.map(c => {
+              const cardClass = c.severity === "high" ? "attention-card attention-card--danger" : c.severity === "medium" ? "attention-card attention-card--warning" : "attention-card";
+              return (
+                <div key={c.id} className={cardClass}>
+                  <div className="attention-header">
+                    <div className="attention-avatar">{getInitials(c.fullName)}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="attention-name" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.fullName}</div>
+                      <div className="attention-reason">{c.reason}</div>
+                    </div>
+                  </div>
+                  {c.adherenceScore !== undefined && (
+                    <div className="progress-bar-track" style={{ height: "6px" }}>
+                      <div className="progress-bar-fill" style={{ width: `${c.adherenceScore}%`, background: c.adherenceScore < 50 ? "var(--danger)" : c.adherenceScore < 75 ? "var(--warning)" : "var(--primary)" }} />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-sm">
+                    <span className={`badge ${c.severity === "high" ? "badge-danger" : c.severity === "medium" ? "badge-warning" : "badge-neutral"}`}>
+                      {c.severity === "high" ? "High" : c.severity === "medium" ? "Medium" : "Low"}
+                    </span>
+                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--text-muted)" }}>{c.action}</span>
+                  </div>
+                  <button className="attention-action-btn" onClick={() => onSimulateCheckIn(c.id)}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.85rem" }}>send</span>
+                    {c.action}
+                  </button>
+                </div>
+              );
+            })}
           </div>
-          <div className="bento-label">Monthly Revenue</div>
-          <div className="bento-value">£{mrrGbp.toLocaleString()}</div>
-          <div className="bento-trend">{session.subscriptions.filter(s => s.status === "active").length} active subscriptions</div>
         </div>
-        <div className="bento-card">
-          <div className="bento-icon-wrap">
-            <span className="material-symbols-outlined bento-icon">warning</span>
-          </div>
-          <div className="bento-label">At-Risk Flags</div>
-          <div className="bento-value" style={{ color: dashboard.atRiskClients.length > 0 ? "var(--warning)" : undefined }}>{dashboard.atRiskClients.length}</div>
-          <div className="bento-trend">{dashboard.atRiskClients.length === 0 ? "All clients on track" : "Needs attention"}</div>
-        </div>
-        <div className="bento-card">
-          <div className="bento-icon-wrap">
-            <span className="material-symbols-outlined bento-icon">check_circle</span>
-          </div>
-          <div className="bento-label">Checked In Today</div>
-          <div className="bento-value">{dashboard.checkedInToday}</div>
-          <div className="bento-trend">{clients.length - dashboard.checkedInToday} pending</div>
-        </div>
-      </div>
+      )}
 
-      {/* Quick Actions */}
-      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-        <button onClick={onAddClient} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+      {/* ── QUICK ACTIONS ──────────────────── */}
+      <div className="flex items-center gap-md flex-wrap mb-xl">
+        <button className="quick-action" onClick={onAddClient}>
           <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>person_add</span>
           Add Client
         </button>
-        <button onClick={onLogWorkout} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+        <button className="quick-action" onClick={() => onNav("plans")}>
+          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>auto_awesome</span>
+          Generate Plan
+        </button>
+        <button className="quick-action" onClick={() => onNav("calendar")}>
+          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>calendar_month</span>
+          Book Session
+        </button>
+        <button className="quick-action" onClick={onLogWorkout}>
           <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>fitness_center</span>
           Log Workout
         </button>
-        <button onClick={() => onNav("plans")} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>auto_awesome</span>
-          Create Plan
-        </button>
-        <button onClick={() => onNav("calendar")} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>calendar_month</span>
-          Schedule Session
+        <button className="quick-action" onClick={onOpenClientNotes}>
+          <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>sticky_note_2</span>
+          Client Notes
         </button>
       </div>
 
-      {/* Dashboard Content: 2/3 + 1/3 split */}
-      <div className="dashboard-content-grid">
-        {/* Left: At-Risk Clients */}
-        <div>
-          <div className="section-meta">
-            <h2 className="section-title" style={{ margin: 0 }}>At-Risk Clients</h2>
-          </div>
-          <div className="at-risk-card">
-            {dashboard.atRiskClients.length > 0 ? dashboard.atRiskClients.map(alert => {
-              const client = clients.find(c => c.id === alert.clientId);
-              const initials = client ? client.fullName.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase() : "??";
-              const dotClass = alert.severity === "high" ? "at-risk-dot--danger" : alert.severity === "medium" ? "at-risk-dot--warning" : "at-risk-dot--success";
-              const badgeClass = alert.severity === "high" ? "badge-danger" : alert.severity === "medium" ? "badge-warning" : "badge-success";
-              const badgeLabel = alert.severity === "high" ? "High Risk" : alert.severity === "medium" ? "Stalled" : "Low Risk";
-              return (
-                <div key={alert.clientId} className="at-risk-row">
-                  <div className="at-risk-client-info">
-                    <div className="at-risk-avatar-wrap">
-                      <div className="at-risk-avatar">{initials}</div>
-                      <div className={`at-risk-avatar-dot ${dotClass}`}></div>
-                    </div>
-                    <div>
-                      <div className="at-risk-client-name">{client?.fullName}</div>
-                      <div className="at-risk-client-meta">Last activity: {alert.reasons[0]}</div>
-                    </div>
-                  </div>
-                  <div className="at-risk-actions">
-                    <div className="at-risk-status">
-                      <span className="at-risk-status-label">Status</span>
-                      <span className={`at-risk-status-badge ${badgeClass}`}>{badgeLabel}</span>
-                    </div>
-                    {client && (
-                      <button className="at-risk-send-btn" onClick={() => onSimulateCheckIn(client.id)} title="Send nudge">
-                        <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>send</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            }) : (
-              <div style={{ padding: "3rem 2rem", textAlign: "center", color: "var(--text-muted)" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "2.5rem", display: "block", marginBottom: "0.75rem", color: "var(--primary)" }}>celebration</span>
-                <p style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.25rem" }}>No at-risk clients today!</p>
-                <p style={{ fontSize: "0.875rem" }}>All clients are on track. Check back tomorrow.</p>
-              </div>
-            )}
-          </div>
+      {/* ── ALL CLIENTS TABLE ──────────────── */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-md">
+          <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0 }}>All Clients</h2>
+          <button className="btn-ghost btn-xs" onClick={() => onNav("clients")}>
+            View all
+            <span className="material-symbols-outlined" style={{ fontSize: "0.85rem" }}>arrow_forward</span>
+          </button>
         </div>
-
-        {/* Right: Side panels */}
-        <div className="side-panel">
-          {/* Upcoming */}
-          <div className="upcoming-card">
-            <h2 className="section-title" style={{ margin: "0 0 1.25rem" }}>Upcoming</h2>
-            {upcomingRenewals.length > 0 ? upcomingRenewals.map(sub => {
-              const client = clients.find(c => c.id === sub.clientId);
-              if (!client) return null;
-              return (
-                <div key={sub.id} className="upcoming-item upcoming-item--primary">
-                  <div className="upcoming-time">Renewal · {sub.renewalDate}</div>
-                  <div className="upcoming-title">{client.fullName}</div>
-                  <div className="upcoming-subtitle">{client.goal}</div>
-                </div>
-              );
-            }) : (
-              <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>No upcoming renewals.</p>
-            )}
-          </div>
-
-          {/* AI Insight */}
-          <div className="ai-insight-card">
-            <h4 className="ai-insight-title">Coach AI Insight</h4>
-            <div>
-              {(() => {
-                const atRisk = dashboard.atRiskClients;
-                const lowAdherence = clients.filter(c => c.adherenceScore < 50);
-                const noCheckIn = clients.filter(c => {
-                  if (!c.lastCheckInDate) return true;
-                  const daysSince = Math.floor((Date.now() - new Date(c.lastCheckInDate).getTime()) / 86400000);
-                  return daysSince > 7;
-                });
-                const highRevenue = session.subscriptions.filter(s => s.status === "active").sort((a, b) => b.amountGbp - a.amountGbp)[0];
-                const highRevenueClient = highRevenue ? clients.find(c => c.id === highRevenue.clientId) : null;
-
-                let insight = "";
-                let insightIcon = "";
-                if (atRisk.length > 0) {
-                  const client = clients.find(c => c.id === atRisk[0].clientId);
-                  insight = `${client?.fullName ?? "A client"} is at risk — ${atRisk[0].reasons[0]}. Consider reaching out this week with a tailored check-in.`;
-                  insightIcon = "warning";
-                } else if (lowAdherence.length > 0) {
-                  insight = `${lowAdherence[0].fullName}'s adherence is at ${lowAdherence[0].adherenceScore}%. A quick motivational message could help restore consistency.`;
-                  insightIcon = "trending_down";
-                } else if (noCheckIn.length > 0) {
-                  const daysSince = noCheckIn[0].lastCheckInDate
-                    ? Math.floor((Date.now() - new Date(noCheckIn[0].lastCheckInDate!).getTime()) / 86400000)
-                    : 999;
-                  insight = `${noCheckIn[0].fullName} hasn't checked in for ${daysSince > 99 ? "over a week" : `${daysSince} days`}. Send a friendly reminder to keep them engaged.`;
-                  insightIcon = "schedule";
-                } else if (highRevenueClient) {
-                  insight = `${highRevenueClient.fullName} is your highest-value client at £${highRevenue?.amountGbp}/month. Consider offering an upsell or premium session.`;
-                  insightIcon = "stars";
-                } else {
-                  insight = "All clients are on track. Keep up the great work — consider reaching out proactively this week.";
-                  insightIcon = "celebration";
-                }
+        <div style={{ overflowX: "auto" }}>
+          <table className="compact-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Status</th>
+                <th>Adherence</th>
+                <th>Last Check-In</th>
+                <th>Renewal</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.slice(0, 15).map(c => {
+                const risk = dashboard.atRiskClients.find(a => a.clientId === c.id);
+                const lastCheckIn = c.lastCheckInDate
+                  ? new Date(c.lastCheckInDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                  : "Never";
+                const renewal = c.nextRenewalDate
+                  ? new Date(c.nextRenewalDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                  : "—";
+                const sub = session.subscriptions.find(s => s.clientId === c.id);
                 return (
-                  <div>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.75rem" }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--primary)", flexShrink: 0, marginTop: "0.1rem" }}>{insightIcon}</span>
-                      <p className="ai-insight-body" style={{ margin: 0 }}>{insight}</p>
-                    </div>
-                    <button className="ai-insight-btn" onClick={() => {
-                      const client = atRisk.length > 0 ? clients.find(c => c.id === atRisk[0].clientId)
-                        : lowAdherence.length > 0 ? lowAdherence[0]
-                        : noCheckIn.length > 0 ? noCheckIn[0]
-                        : highRevenueClient ?? clients[0];
-                      if (!client) return;
-                      const subject = encodeURIComponent("Quick check-in from your coach");
-                      const body = encodeURIComponent(
-                        `Hi ${client.fullName.split(" ")[0]},\n\nI wanted to reach out because ${insight.toLowerCase().trim()}.\n\nLet me know how I can support you this week.\n\nBest,\n${session.coach.firstName}`
-                      );
-                      window.open(`mailto:${client.email}?subject=${subject}&body=${body}`, "_blank");
-                      push("Email draft opened in your mail client.", "success");
-                    }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>send</span>
-                      Send Email to Client
-                    </button>
-                  </div>
+                  <tr key={c.id} style={{ cursor: "pointer" }} onClick={() => { onNav("clients"); }}>
+                    <td>
+                      <div className="flex items-center gap-sm">
+                        <div style={{ width: "28px", height: "28px", borderRadius: "var(--r-sm)", background: "linear-gradient(135deg, var(--success-light) 0%, var(--primary-light) 100%)", display: "grid", placeItems: "center", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.65rem", color: "var(--primary-dark)", flexShrink: 0 }}>
+                          {getInitials(c.fullName)}
+                        </div>
+                        <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 600, color: "var(--text-primary)", fontSize: "0.85rem" }}>{c.fullName}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ color: statusColor(c.status), fontWeight: 600 }}>{statusLabel(c.status)}</span>
+                      {risk && <span style={{ marginLeft: "0.35rem", fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--danger)", fontWeight: 700 }}>•</span>}
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-sm">
+                        <div className="progress-bar-track" style={{ width: "60px", height: "5px" }}>
+                          <div className="progress-bar-fill" style={{ width: `${c.adherenceScore}%`, background: c.adherenceScore < 50 ? "var(--danger)" : c.adherenceScore < 75 ? "var(--warning)" : "var(--primary)" }} />
+                        </div>
+                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, color: c.adherenceScore < 50 ? "var(--danger)" : c.adherenceScore < 75 ? "var(--warning)" : "var(--primary)" }}>{c.adherenceScore}%</span>
+                      </div>
+                    </td>
+                    <td style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem" }}>
+                      {lastCheckIn}
+                      {!c.lastCheckInDate && <span style={{ color: "var(--danger)", marginLeft: "0.25rem" }}>!</span>}
+                    </td>
+                    <td style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem" }}>
+                      {renewal}
+                      {sub && <span style={{ marginLeft: "0.25rem", color: "var(--text-muted)", fontSize: "0.7rem" }}>£{sub.amountGbp}</span>}
+                    </td>
+                    <td>
+                      <button className="btn-icon btn-xs" onClick={(e) => { e.stopPropagation(); onSimulateCheckIn(c.id); }} title="Send nudge" style={{ background: "none" }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary)" }}>send</span>
+                      </button>
+                    </td>
+                  </tr>
                 );
-              })()}
-            </div>
-          </div>
+              })}
+              {clients.length > 15 && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "0.75rem", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                    +{clients.length - 15} more clients — <button onClick={() => onNav("clients")} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontWeight: 700, fontFamily: "Inter, sans-serif", fontSize: "0.8rem", padding: 0 }}>view all</button>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
