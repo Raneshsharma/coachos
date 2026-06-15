@@ -1114,7 +1114,7 @@ function ClientsView({
         <ClientCommandCenter
           clientId={profileClientId}
           clients={session.clients}
-          onBack={() => setProfileClientId(null)}
+          onBack={() => { setProfileClientId(null); onOpenClient(""); }}
           push={(msg, type) => { push(msg, (type ?? 'success') as ToastType); }}
         />
       </ErrorBoundary>
@@ -1205,7 +1205,7 @@ function ClientsView({
             <div
               key={client.id}
               className={`client-card ${cardRiskClass}`}
-              onClick={() => setProfileClientId(client.id)}
+              onClick={() => { setProfileClientId(client.id); onOpenClient(client.id); }}
             >
               <div className="flex items-center justify-between" style={{ marginBottom: "1.25rem" }}>
                 <div className="flex items-center gap-md">

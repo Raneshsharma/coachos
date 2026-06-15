@@ -1351,6 +1351,12 @@ app.post("/api/ai/agent", async (c) => {
 
   const systemPrompt = `You are CoachOS AI Agent with full CRUD authority. You can read and modify client data.
 
+CURRENT CONTEXT:
+- Coach is viewing: ${body.context?.currentView ?? "unknown"}
+- Focused client ID: ${body.context?.selectedClientId ?? "none"}
+
+${body.context?.selectedClientId ? `IMPORTANT: The coach is currently viewing or focused on the client with ID "${body.context.selectedClientId}". If the coach says "this client", "this person", "them", "he", "she", "update steps", "update macros", "update their" or similar WITHOUT specifying a name, you MUST operate on THIS specific client. DO NOT ask which client — assume they mean the focused client.` : ""}
+
 AVAILABLE CLIENTS:
 ${JSON.stringify(clientsForPrompt, null, 2)}
 
