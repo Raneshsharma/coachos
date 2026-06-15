@@ -1199,6 +1199,75 @@ app.post("/api/habits/:habitId/complete", async (c) => {
 app.post("/api/nutrition/swap", async (c) => c.json(await suggestNutritionSwap(await c.req.json())));
 app.post("/api/nutrition/swap/apply", async (c) => c.json({ success: true, swap: {} }));
 
+app.post("/api/ai/coach", async (c) => {
+  const body = await c.req.json<{ clientId: string; prompt: string }>();
+  if (!body.clientId?.trim()) return c.json({ message: "clientId is required." }, 400);
+  if (!body.prompt?.trim()) return c.json({ message: "prompt is required." }, 400);
+
+  const client = await getClient(body.clientId);
+  if (!client) return c.json({ message: "Client not found." }, 404);
+
+  const checkIns = await listCheckIns({ clientId: body.clientId });
+
+  const context = {
+    name: client.fullName,
+    email: client.email,
+    goal: client.goal,
+    status: client.status,
+    adherence: client.adherenceScore,
+    health_conditions: client.healthConditions,
+    daily_water_target: client.dailyWaterTarget,
+    daily_steps_target: client.dailyStepsTarget,
+    supplements: client.supplements,
+    nutrition_calories: client.nutritionCalories,
+    nutrition_protein_g: client.nutritionProteinG,
+    nutrition_fat_g: client.nutritionFatG,
+    nutrition_carbs_g: client.nutritionCarbsG,
+    nutrition_coach_note: client.nutritionCoachNote,
+    check_ins: checkIns.map((ci) => ({
+      date: ci.submittedAt,
+      weightKg: ci.progress.weightKg,
+      energyScore: ci.progress.energyScore,
+      steps: ci.progress.steps,
+      waistCm: ci.progress.waistCm,
+      adherenceScore: ci.progress.adherenceScore,
+      notes: ci.progress.notes,
+    })),
+  };
+
+  const systemPrompt = `You are CoachOS AI, an elite health and fitness coaching assistant. Here is the full client data:\n\n${JSON.stringify(context, null, 2)}\n\nBased on this data, provide personalized, actionable coaching advice. Consider the client's medical conditions, nutrition needs, workout history, goals, and check-in progress. Be specific and reference the actual data values. Keep responses concise and practical.`;
+
+  try {
+    const response = await fetch("https://api.bytez.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${getEnv("BYTEZ_API_KEY") ?? ""}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-v3-pro",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: body.prompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "Unknown error");
+      return c.json({ message: `Bytez API error: ${errText}` }, 502);
+    }
+
+    const data = await response.json() as Record<string, unknown>;
+    const content = (data as any)?.choices?.[0]?.message?.content ?? "";
+    return c.json({ content });
+  } catch (err) {
+    return c.json({ message: `AI request failed: ${err instanceof Error ? err.message : String(err)}` }, 500);
+  }
+});
+
 export default {
   fetch(request: Request, env: Record<string, string>) {
     initEnv(env);
