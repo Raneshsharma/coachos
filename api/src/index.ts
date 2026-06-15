@@ -116,15 +116,16 @@ function mapClient(row: Record<string, unknown>): ClientProfile {
 }
 
 function mapPlan(row: Record<string, unknown>): ProgramPlan {
+  const lv = row.latest_version as Record<string, unknown> | undefined;
   return {
     id: row.id as string,
     clientId: row.client_id as string,
     title: row.title as string,
-    status: row.status as ProgramPlan["status"],
+    status: "approved",
     latestVersion: {
-      workouts: (row.workouts as string[]) ?? [],
-      nutrition: (row.nutrition as string[]) ?? [],
-      explanation: (row.explanation as string[]) ?? [],
+      workouts: (lv?.workouts as string[]) ?? [],
+      nutrition: (lv?.nutrition as string[]) ?? [],
+      explanation: (lv?.explanation as string[]) ?? [],
     },
   };
 }
@@ -272,7 +273,6 @@ async function createClient(body: {
 
 async function listPlans(opts: { status?: string; clientId?: string } = {}) {
   let q = getSupabase().from("plans").select("*");
-  if (opts.status) q = q.eq("status", opts.status);
   if (opts.clientId) q = q.eq("client_id", opts.clientId);
   const { data } = await q;
   return (data ?? []).map(mapPlan);
@@ -294,12 +294,18 @@ async function generatePlan(clientId: string) {
     .maybeSingle();
 
   if (existing) {
+    const planVersionId = `plan_${Date.now()}_v1`;
+    const newVersion = {
+      id: planVersionId, planId: existing.id, versionNumber: 1, status: "draft",
+      workouts: ["Mobility Assessment", "Strength Base", "Conditioning", "Recovery Walk", "Full Programme"],
+      nutrition: ["Moderate calorie target", "High protein focus", "Timing around training"],
+      explanation: ["AI-generated draft based on client profile and goals."],
+      updatedAt: new Date().toISOString(),
+    };
     const { data } = await getSupabase()
       .from("plans")
       .update({
-        status: "draft",
-        workouts: ["Mobility Assessment", "Strength Base", "Conditioning", "Recovery Walk", "Full Programme"],
-        explanation: ["Auto-adjusted based on recent check-ins."],
+        latest_version: newVersion,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id)
@@ -308,15 +314,23 @@ async function generatePlan(clientId: string) {
     return data ? mapPlan(data) : null;
   }
 
+  const planId = `plan_${Date.now()}`;
+  const planVersionId = `${planId}_v1`;
+  const newVersion = {
+    id: planVersionId, planId, versionNumber: 1, status: "draft",
+    workouts: ["Mobility Assessment", "Strength Base", "Conditioning", "Recovery Walk", "Full Programme"],
+    nutrition: ["Moderate calorie target", "High protein focus", "Timing around training"],
+    explanation: ["AI-generated draft based on client profile and goals."],
+    updatedAt: new Date().toISOString(),
+  };
   const { data } = await getSupabase()
     .from("plans")
     .insert({
+      id: planId,
       client_id: clientId,
+      coach_id: "coach_1",
       title: `${client.goal.split(",")[0]} Programme`,
-      status: "draft",
-      workouts: ["Mobility Assessment", "Strength Base", "Conditioning", "Recovery Walk", "Full Programme"],
-      nutrition: ["Moderate calorie target", "High protein focus", "Timing around training"],
-      explanation: ["AI-generated draft based on client profile and goals."],
+      latest_version: newVersion,
     })
     .select()
     .single();
@@ -324,9 +338,13 @@ async function generatePlan(clientId: string) {
 }
 
 async function approvePlan(id: string) {
+  const existing = await getSupabase().from("plans").select("*").eq("id", id).single();
+  if (!existing.data) return null;
+  const lv = existing.data.latest_version as Record<string, unknown>;
+  const updatedVersion = { ...lv, status: "approved", updatedAt: new Date().toISOString() };
   const { data } = await getSupabase()
     .from("plans")
-    .update({ status: "approved" })
+    .update({ latest_version: updatedVersion, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()
     .single();
@@ -341,9 +359,11 @@ async function listCheckIns(opts: { clientId?: string } = {}) {
 }
 
 async function submitCheckIn(body: { clientId: string; submittedAt?: string; progress: CheckIn["progress"] }) {
+  const checkInId = `checkin_${Date.now()}`;
   const { data } = await getSupabase()
     .from("check_ins")
     .insert({
+      id: checkInId,
       client_id: body.clientId,
       submitted_at: body.submittedAt ? new Date(body.submittedAt).toISOString() : new Date().toISOString(),
       weight_kg: body.progress.weightKg,
@@ -502,9 +522,10 @@ async function listHabits(clientId?: string) {
 }
 
 async function createHabit(body: { clientId: string; title: string; target: number; frequency: string }) {
+  const habitId = `habit_${Date.now()}`;
   const { data } = await getSupabase()
     .from("habits")
-    .insert({ client_id: body.clientId, title: body.title, target: body.target, frequency: body.frequency })
+    .insert({ id: habitId, client_id: body.clientId, title: body.title, target: body.target, frequency: body.frequency })
     .select()
     .single();
   if (!data) return null;
@@ -531,9 +552,10 @@ async function toggleHabitCompletion(habitId: string, date: string) {
     return { completion: { habitId, completed: false, date } };
   }
 
+  const hcId = `hc_${Date.now()}`;
   const { data } = await getSupabase()
     .from("habit_completions")
-    .insert({ habit_id: habitId, date, completed: true })
+    .insert({ id: hcId, habit_id: habitId, date, completed: true })
     .select()
     .single();
   return { completion: { habitId, completed: true, date } };
@@ -545,9 +567,11 @@ async function createBookedSession(body: {
 }) {
   const coach = await getCoach();
   if (!coach) return null;
+  const sessionId = `bs_${Date.now()}`;
   const { data, error } = await getSupabase()
     .from("booked_sessions")
     .insert({
+      id: sessionId,
       client_id: body.clientId,
       coach_id: coach.id,
       session_type: body.sessionType,
@@ -874,11 +898,15 @@ app.patch("/api/plans/:planId", async (c) => {
     nutrition?: string[];
     explanation?: string[];
   }>();
-  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const existing = await getSupabase().from("plans").select("*").eq("id", planId).single();
+  if (!existing.data) return c.json({ message: "Plan not found." }, 404);
+  const lv = (existing.data.latest_version as Record<string, unknown>) || {};
+  if (patch.workouts !== undefined) lv.workouts = patch.workouts;
+  if (patch.nutrition !== undefined) lv.nutrition = patch.nutrition;
+  if (patch.explanation !== undefined) lv.explanation = patch.explanation;
+  lv.updatedAt = new Date().toISOString();
+  const updates: Record<string, unknown> = { latest_version: lv, updated_at: new Date().toISOString() };
   if (patch.title !== undefined) updates.title = patch.title;
-  if (patch.workouts !== undefined) updates.workouts = patch.workouts;
-  if (patch.nutrition !== undefined) updates.nutrition = patch.nutrition;
-  if (patch.explanation !== undefined) updates.explanation = patch.explanation;
   const { data, error } = await getSupabase()
     .from("plans")
     .update(updates)
@@ -923,9 +951,10 @@ app.post("/api/messages", async (c) => {
   if (!clientId?.trim() || !content?.trim()) return c.json({ message: "clientId and content are required." }, 400);
   const coach = await getCoach();
   if (!coach) return c.json({ message: "Coach not found." }, 404);
+  const msgId = `msg_${Date.now()}`;
   const { data, error } = await getSupabase()
     .from("messages")
-    .insert({ coach_id: coach.id, client_id: clientId, content: content.trim(), sender: "coach", sent_at: new Date().toISOString() })
+    .insert({ id: msgId, coach_id: coach.id, client_id: clientId, content: content.trim(), sender: "coach", sent_at: new Date().toISOString() })
     .select()
     .single();
   if (error) return c.json({ message: "Failed to send message." }, 500);
@@ -947,9 +976,10 @@ app.post("/api/clients/:clientId/notes", async (c) => {
   if (!content?.trim()) return c.json({ message: "Content is required." }, 400);
   const coach = await getCoach();
   if (!coach) return c.json({ message: "Coach not found." }, 404);
+  const noteId = `cn_${Date.now()}`;
   const { data, error } = await getSupabase()
     .from("client_notes")
-    .insert({ coach_id: coach.id, client_id: c.req.param("clientId"), content: content.trim() })
+    .insert({ id: noteId, coach_id: coach.id, client_id: c.req.param("clientId"), content: content.trim() })
     .select()
     .single();
   if (error) return c.json({ message: "Failed to create note." }, 500);
