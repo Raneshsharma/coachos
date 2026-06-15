@@ -5601,11 +5601,11 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                           }
                           if (planId) {
                             await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(planData) });
-                            push(`Plan assigned to ${firstName}! Open their profile → Meal Planner → the data will auto-populate.`, "success");
-                            if (typeof (window as any).__coachosPendingMealPlan === "undefined") (window as any).__coachosPendingMealPlan = {};
-                            (window as any).__coachosPendingMealPlan[selectedClientId] = lastAi.content;
                           }
-                        } catch { push("Failed to assign", "error"); }
+                          localStorage.setItem(`coachos_pending_meal_${selectedClientId}`, lastAi.content);
+                          localStorage.setItem("coachos_open_meal_planner", selectedClientId);
+                          push(`Meal plan ready! Open ${firstName}'s profile to review.`, "success");
+                        } catch { push("Failed to store plan", "error"); }
                       }}
                       style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
                     >

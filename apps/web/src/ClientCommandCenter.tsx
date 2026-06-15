@@ -255,7 +255,14 @@ export function ClientCommandCenter({
         });
       })
       .catch(() => push("Failed to load client data", "error"))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        const openPlannerFor = localStorage.getItem("coachos_open_meal_planner");
+        if (openPlannerFor === clientId) {
+          localStorage.removeItem("coachos_open_meal_planner");
+          setTimeout(() => setShowMealModal(true), 300);
+        }
+      });
   }, [clientId]);
 
   const getDayMeals = (day: string) => {
@@ -1720,7 +1727,7 @@ export function ClientCommandCenter({
             setWeekMeals(weekPlanData);
             await saveMeals();
           }}
-          initialPlan={(typeof window !== "undefined" && (window as any).__coachosPendingMealPlan?.[clientId]) ?? null}
+          initialPlan={(typeof window !== "undefined" ? localStorage.getItem(`coachos_pending_meal_${clientId}`) : null) ?? null}
           push={(msg: string, t?: string) => push(msg, (t ?? "info") as any)}
         />
       )}
