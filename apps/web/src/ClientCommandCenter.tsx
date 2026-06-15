@@ -41,6 +41,30 @@ type WorkoutPlanDay = {
 };
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MEAL_SLOTS = ["breakfast","snack1","lunch","snack2","dinner","cheat"] as const;
+const SLOT_LABELS: Record<string,string> = {breakfast:"☀️ Breakfast",snack1:"🥜 Morning Snack",lunch:"🥗 Lunch",snack2:"🍎 Afternoon Snack",dinner:"🍗 Dinner",cheat:"🍕 Cheat Meal"};
+type MealSlotData = {dish:string;time:string;ingredients:string;calories:number;proteinG:number;carbsG:number;fatG:number};
+type WeekMealMap = Record<string,Record<string,MealSlotData>>;
+const emptySlot = ():MealSlotData=>({dish:"",time:"",ingredients:"",calories:0,proteinG:0,carbsG:0,fatG:0});
+
+function MealPlannerModal({clientName,macroTargets,onClose,onSave,push}:{clientName:string;macroTargets:{calories:number;proteinG:number;fatG:number;carbsG:number};onClose:()=>void;onSave:(d:WeekMealMap)=>Promise<void>;push:(m:string,t?:string)=>void}){
+  const [day,setDay]=useState(DAYS[0]);const [edit,setEdit]=useState<string|null>(null);const [saving,setSaving]=useState(false);
+  const [data,setData]=useState<WeekMealMap>(()=>{const m:WeekMealMap={};DAYS.forEach(d=>{m[d]={};MEAL_SLOTS.forEach(s=>m[d][s]=emptySlot())});return m});
+  const dayData=data[day]??{};
+  const totals=(()=>{let c=0,p=0,cb=0,f=0;MEAL_SLOTS.forEach(s=>{const x=dayData[s];if(x){  c+=x.calories||0;p+=x.proteinG||0;cb+=x.carbsG||0;f+=x.fatG||0}});return{cal:c,pro:p,carb:cb,fat:f}})();
+  const upd=(slot:string,field:keyof MealSlotData,val:string|number)=>setData(p=>({...p,[day]:{...p[day],[slot]:{...(p[day]?.[slot]??emptySlot()),[field]:val}}}));
+  const handleSave=async()=>{setSaving(true);try{await onSave(data);push("Week meal plan saved!","success");onClose()}catch{push("Failed to save","error")}finally{setSaving(false)}};
+  return (<div className="fullscreen-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="fullscreen-modal" style={{maxWidth:"960px"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
+      <div><h2 style={{fontFamily:"var(--font-heading)",fontWeight:800,fontSize:"1.3rem",color:"var(--text-primary)",margin:0}}>🍽️ Meal Planner — {clientName}</h2><p style={{fontFamily:"var(--font-body)",fontSize:"0.8rem",color:"var(--text-secondary)",margin:"0.25rem 0 0 0"}}>Daily Target: {macroTargets.calories}kcal · {macroTargets.proteinG}g P · {macroTargets.carbsG}g C · {macroTargets.fatG}g F</p></div>
+      <button className="btn-ghost" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+    </div>
+    <div style={{display:"flex",gap:"0.35rem",marginBottom:"1.5rem",flexWrap:"wrap"}}>{DAYS.map(d=><button key={d} onClick={()=>{setDay(d);setEdit(null)}} style={{padding:"0.55rem 1.1rem",borderRadius:"var(--r-full)",border:`2px solid ${day===d?"var(--primary)":"var(--border)"}`,background:day===d?"var(--primary-light)":"var(--bg-card)",color:day===d?"var(--primary-dark)":"var(--text-secondary)",fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.82rem",cursor:"pointer"}}>{d}</button>)}</div>
+    <div style={{display:"flex",flexDirection:"column",gap:"0.75rem",marginBottom:"1rem"}}>{MEAL_SLOTS.map(s=>{const m=dayData[s]??emptySlot();const e=edit===s;return(<div key={s} className="card" style={{padding:"1rem",border:e?"1px solid var(--primary)":"1px solid var(--border)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:e?"0.75rem":"0"}}><div style={{display:"flex",alignItems:"center",gap:"0.5rem",flex:1,flexWrap:"wrap"}}><span style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--text-primary)"}}>{SLOT_LABELS[s]}</span>{!e&&m.dish&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.78rem",color:"var(--primary)",fontWeight:600}}>{m.dish}</span>}{!e&&m.time&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.7rem",color:"var(--text-muted)"}}>⏰{m.time}</span>}{!e&&m.calories>0&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.72rem",color:"var(--text-secondary)",marginLeft:"auto"}}>{m.calories}kcal · {m.proteinG}gP · {m.carbsG}gC · {m.fatG}gF</span>}</div><button className="btn-ghost btn-xs" onClick={()=>setEdit(e?null:s)}><span className="material-symbols-outlined" style={{fontSize:"0.9rem"}}>{e?"close":"edit"}</span></button></div>{e&&(<div style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}}><div><label className="input-label">Dish Name</label><input className="input" value={m.dish} onChange={e=>upd(s,"dish",e.target.value)} placeholder="e.g. Overnight Oats"/></div><div><label className="input-label">Time</label><input className="input" value={m.time} onChange={e=>upd(s,"time",e.target.value)} placeholder="e.g. 7:30 AM"/></div></div><div><label className="input-label">Ingredients</label><input className="input" value={m.ingredients} onChange={e=>upd(s,"ingredients",e.target.value)} placeholder="e.g. 80g oats, 150g yogurt"/></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"0.5rem"}}>{(["calories","proteinG","carbsG","fatG"]as const).map(k=><div key={k}><label className="input-label">{k==="proteinG"?"Protein(g)":k==="fatG"?"Fat(g)":k==="carbsG"?"Carbs(g)":"Calories"}</label><input className="input" type="number" min="0" value={m[k]||""} onChange={e=>upd(s,k,Number(e.target.value))}/></div>)}</div></div>)}</div>)})}</div>
+    <div className="card" style={{padding:"0.75rem 1rem",marginBottom:"1rem",background:"var(--primary-light)",border:"1px solid var(--primary-mid)"}}><div style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--primary-dark)"}}>📊 {day} TOTALS: {totals.cal}kcal · {totals.pro}gP · {totals.carb}gC · {totals.fat}gF</div></div>
+    <div style={{display:"flex",gap:"0.75rem"}}><button className="btn-primary" onClick={handleSave} disabled={saving} style={{flex:1}}>{saving?"Saving...":"💾 Save Week Plan"}</button><button className="btn-ghost" onClick={()=>{push("Open AI Coach to generate meal plan","info");onClose()}}>🤖 AI Generate</button></div>
+  </div></div>);
+}
 
 export function ClientCommandCenter({
   clientId,
@@ -69,6 +93,7 @@ export function ClientCommandCenter({
   const [assignedNutrition, setAssignedNutrition] = useState<string | null>(null);
   const [assignedWorkout, setAssignedWorkout] = useState<string | null>(null);
 
+  const [showMealModal, setShowMealModal] = useState(false);
   const [savingMeals, setSavingMeals] = useState(false);
   const [savingWorkouts, setSavingWorkouts] = useState(false);
   const [savingMacros, setSavingMacros] = useState(false);
@@ -396,72 +421,63 @@ export function ClientCommandCenter({
 
   return (
     <div className="page-view">
-      {/* HEADER BAR — RICH CLIENT CARD */}
-      <div className="card" style={{ marginBottom: "1.25rem", padding: "1.5rem", background: "linear-gradient(135deg, var(--bg-card) 0%, rgba(99,102,241,0.05) 100%)", border: "1px solid var(--border)", borderRadius: "var(--r-xl)" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", justifyContent: "space-between" }}>
-          {/* Left: Avatar + Identity */}
-          <div style={{ display: "flex", gap: "1rem", alignItems: "center", flex: "1 1 300px" }}>
-            <button className="btn-ghost btn-sm" onClick={onBack} style={{ border: "none", padding: "0.3rem", flexShrink: 0 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: "1.2rem" }}>arrow_back</span>
+      {/* HEADER BAR */}
+      <div className="card" style={{ marginBottom: "1.25rem", padding: "1rem 1.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <button
+              className="btn-ghost btn-sm"
+              onClick={onBack}
+              style={{ border: "none", padding: "0.4rem 0.75rem" }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: "1.1rem" }}>arrow_back</span>
+              Back
             </button>
-            <div style={{ width: "56px", height: "56px", borderRadius: "var(--r-lg)", background: `linear-gradient(135deg, ${client.status === 'at_risk' ? 'var(--danger-light)' : client.status === 'trial' ? 'var(--warning-light)' : 'var(--primary-light)'} 0%, ${client.status === 'at_risk' ? 'var(--danger-text)' : client.status === 'trial' ? 'var(--warning-text)' : 'var(--primary-dark)'} 100%)`, display: "grid", placeItems: "center", fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1rem", color: "white", flexShrink: 0 }}>
-              {initials(client.fullName)}
-            </div>
-            <div>
-              <h1 style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1.35rem", color: "var(--text-primary)", letterSpacing: "-0.02em", margin: "0 0 0.25rem 0" }}>{client.fullName}</h1>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.35rem" }}>
-                <span className={`badge ${statusBadgeClass}`} style={{ fontSize: "0.65rem" }}>{statusLabel}</span>
-                <span className="badge badge-accent" style={{ fontSize: "0.65rem" }}>
-                  {plan ? plan.title ?? "No Plan" : "No Plan"}
-                </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "var(--r-md)",
+                  background: "linear-gradient(135deg, var(--success-light) 0%, var(--primary-light) 100%)",
+                  display: "grid",
+                  placeItems: "center",
+                  fontFamily: "Manrope, sans-serif",
+                  fontWeight: 800,
+                  fontSize: "0.85rem",
+                  color: "var(--primary-dark)",
+                }}
+              >
+                {initials(client.fullName)}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", fontFamily: "var(--font-body)", fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>mail</span>
-                  {client.email}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Stats Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, auto)", gap: "1rem 1.5rem", flex: "0 1 auto" }}>
-            {[
-              { label: "Adherence", value: `${client.adherenceScore}%`, color: adhColor, icon: "trending_up" },
-              { label: "MRR", value: `£${client.monthlyPriceGbp}`, color: "var(--text-primary)", icon: "payments", sub: "/mo" },
-              { label: "Goal", value: (client.goal ?? "—").length > 25 ? (client.goal ?? "—").substring(0, 25) + "…" : (client.goal ?? "—"), color: "var(--text-primary)", icon: "flag" },
-              { label: "Renews", value: client.nextRenewalDate ?? "—", color: "var(--text-primary)", icon: "calendar_today" },
-            ].map((stat, i) => (
-              <div key={i} style={{ textAlign: "center", minWidth: "80px" }}>
-                <div style={{ fontFamily: "var(--font-body)", fontSize: "0.6rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.2rem" }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: "0.7rem", verticalAlign: "middle", marginRight: "0.15rem" }}>{stat.icon}</span>
-                  {stat.label}
+              <div>
+                <h1
+                  style={{
+                    fontFamily: "Manrope, sans-serif",
+                    fontWeight: 800,
+                    fontSize: "1.2rem",
+                    color: "var(--text-primary)",
+                    letterSpacing: "-0.02em",
+                    margin: 0,
+                  }}
+                >
+                  {client.fullName}
+                </h1>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.1rem" }}>
+                  <span className={`badge ${statusBadgeClass}`} style={{ fontSize: "0.65rem" }}>
+                    {statusLabel}
+                  </span>
+                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)" }}>
+                    Adh:{" "}
+                    <span style={{ fontWeight: 700, color: adhColor }}>{client.adherenceScore}%</span>
+                  </span>
+                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)" }}>
+                    £{client.monthlyPriceGbp}
+                    <span style={{ color: "var(--text-muted)" }}>/mo</span>
+                  </span>
                 </div>
-                <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1rem", color: stat.color, lineHeight: 1.2 }}>
-                  {stat.value}
-                  {stat.sub && <span style={{ fontSize: "0.65rem", fontWeight: 500, color: "var(--text-muted)" }}>{stat.sub}</span>}
-                </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom detail row */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
-          <button className="btn-primary btn-sm" onClick={() => { push(`Open Calendar to book session for ${client.fullName}`, "info"); }}>
-            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>event</span>
-            Book Session
-          </button>
-          <button className="btn-ghost btn-sm" onClick={() => { navigator.clipboard.writeText(client.email); push("Email copied", "info"); }}>
-            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>content_copy</span>
-            Copy Email
-          </button>
-          <div style={{ flex: 1 }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "0.65rem", fontWeight: 600, color: "var(--outline)" }}>Last check-in:</span>
-            <span style={{ fontFamily: "var(--font-body)", fontSize: "0.72rem", color: "var(--text-primary)", fontWeight: 600 }}>
-              {latestCi ? new Date(latestCi.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }) : "Never"}
-            </span>
+            </div>
           </div>
         </div>
       </div>
@@ -722,6 +738,10 @@ export function ClientCommandCenter({
               restaurant
             </span>
             Meal Planner
+            <button className="btn-ghost btn-xs" onClick={() => setShowMealModal(true)} style={{ marginLeft: "auto", fontSize: "0.65rem" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>open_in_full</span>
+              Open Full Planner
+            </button>
           </h3>
           <div className="tabs" style={{ marginBottom: 0 }}>
             <button
@@ -1620,6 +1640,15 @@ export function ClientCommandCenter({
           </div>
         )}
       </div>
+      {showMealModal && (
+        <MealPlannerModal
+          clientName={client?.fullName ?? "Client"}
+          macroTargets={{ calories: macroDraft.calories, proteinG: macroDraft.proteinG, fatG: macroDraft.fatG, carbsG: macroDraft.carbsG }}
+          onClose={() => setShowMealModal(false)}
+          onSave={async () => { await saveMeals(); }}
+          push={(msg: string, t?: string) => push(msg, (t ?? "info") as any)}
+        />
+      )}
     </div>
   );
 }
