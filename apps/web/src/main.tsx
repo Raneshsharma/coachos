@@ -1520,11 +1520,7 @@ function ClientsView({
         <div className="card">
           <div className="flex items-center gap-md flex-wrap">
             <button className="btn-primary" onClick={() => {
-              if (onStartSession) {
-                onStartSession({ id: profileClient.id, fullName: profileClient.fullName });
-              } else {
                 setBookingClient({ id: profileClient.id, fullName: profileClient.fullName });
-              }
             }}>
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>event</span>
               Book Session
@@ -4878,7 +4874,7 @@ function CalendarView({ session, onNav, bookedSessions, onUpdateSessions, push, 
             onUpdateSessions(prev => [...prev, s]);
             push(`Session booked with ${s.clientName}`, 'success');
           }}
-          push={(msg, type) => {}}
+          push={(msg: string, type?: string) => { push(msg, type as any); }}
         />
       )}
     </div>

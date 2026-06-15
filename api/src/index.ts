@@ -377,6 +377,7 @@ async function submitCheckIn(body: { clientId: string; submittedAt?: string; pro
       submitted_at: body.submittedAt ? new Date(body.submittedAt).toISOString() : new Date().toISOString(),
       progress: progressJson,
       photo_count: 0,
+      created_at: new Date().toISOString(),
     })
     .select()
     .single();
@@ -528,9 +529,10 @@ async function listHabits(clientId?: string) {
 
 async function createHabit(body: { clientId: string; title: string; target: number; frequency: string }) {
   const habitId = `habit_${Date.now()}`;
+  const now = new Date().toISOString();
   const { data } = await getSupabase()
     .from("habits")
-    .insert({ id: habitId, client_id: body.clientId, title: body.title, target: body.target, frequency: body.frequency })
+    .insert({ id: habitId, client_id: body.clientId, title: body.title, target: body.target, frequency: body.frequency, created_at: now })
     .select()
     .single();
   if (!data) return null;
