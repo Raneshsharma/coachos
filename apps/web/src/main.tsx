@@ -38,7 +38,7 @@ type Toast = {
   action?: ToastAction;
   duration: number;
 };
-type NavId = "dashboard"|"clients"|"plans"|"calendar"|"habits"|"exercises"|"recipes"|"business"|"settings"|"ai";
+type NavId = "dashboard"|"clients"|"calendar"|"habits"|"exercises"|"recipes"|"business"|"settings"|"ai";
 type CheckInWithDelta = CheckIn & { weightDelta: number | null; energyDelta: number | null; adherenceDelta: number | null };
 type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceGbp: number; status: "active"|"archived"|"upcoming"; createdAt: string };
 type NutritionSwap = { id: string; planId: string; originalFood: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string }; swapSuggestion: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; reasoning: string }; appliedAt: string | null };
@@ -335,7 +335,6 @@ function Sidebar({
         {nav("dashboard", "\u25C9", "Dashboard", atRiskCount || undefined)}
         {nav("clients", "\u229E", "Clients")}
         {nav("ai", "\u2727", "AI Coach")}
-        {nav("plans", "\u2726", "Plans")}
         {nav("calendar", "\u25A6", "Calendar")}
         {nav("habits", "\u25C8", "Habits")}
         {nav("exercises", "\u2B22", "Exercises")}
@@ -708,7 +707,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
           <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>person_add</span>
           Add Client
         </button>
-        <button className="quick-action" onClick={() => onNav("plans")}>
+        <button className="quick-action" onClick={() => onNav("ai")}>
           <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>auto_awesome</span>
           Generate Plan
         </button>
@@ -2423,7 +2422,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
               <div className="meal-architect">
                 <div className="meal-architect-label">Meal Architect</div>
                 <div className="meal-architect-actions">
-                  <button className="meal-architect-btn" onClick={() => { push("AI generating personalized meal plan for this week...", "info"); onNav("plans"); }}>
+                  <button className="meal-architect-btn" onClick={() => { push("AI generating personalized meal plan for this week...", "info"); onNav("ai"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem", fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
                     <span>AI Generate</span>
                   </button>
@@ -5724,9 +5723,6 @@ function App() {
         )}
         {activeNav === "clients" && (
           <ClientsView session={session} onOpenClient={id => switchClient(id)} onAddClient={() => setShowAddClientModal(true)} onStartSession={(client) => { push(`Session booked with ${client.fullName}`, 'success'); }} push={push} />
-        )}
-        {activeNav === "plans" && (
-          <PlansView session={session} onNav={handleNav} />
         )}
         {activeNav === "habits" && (
           <HabitsView session={session} />
