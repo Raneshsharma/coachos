@@ -1235,7 +1235,48 @@ app.post("/api/ai/coach", async (c) => {
     })),
   };
 
-  const systemPrompt = `You are CoachOS AI, an elite health and fitness coaching assistant. Here is the full client data:\n\n${JSON.stringify(context, null, 2)}\n\nBased on this data, provide personalized, actionable coaching advice. Consider the client's medical conditions, nutrition needs, workout history, goals, and check-in progress. Be specific and reference the actual data values. Keep responses concise and practical.`;
+  const systemPrompt = `You are CoachOS AI, an elite fitness coaching assistant. Use the client data below. Every response MUST follow the exact format specified.
+
+CLIENT DATA:
+${JSON.stringify(context, null, 2)}
+
+## MANDATORY RESPONSE FORMAT:
+
+For meal plans, use this EXACT template — do not deviate:
+
+### 🍽️ MEAL PLAN FOR [name] | Daily Target: [cal] kcal | [P]g P | [C]g C | [F]g F
+
+🍳 Meal 1 — [Time, e.g. 8:00 AM]
+Dish: [Name]
+Ingredients: [Qty] [ingredient], [Qty] [ingredient], [Qty] [ingredient]
+Macros: [cal] kcal · [P]g P · [C]g C · [F]g F
+Prep: [one line]
+
+🥗 Meal 2 — [Time, e.g. 1:00 PM]
+Dish: [Name]
+Ingredients: [Qty] [ingredient], [Qty] [ingredient], [Qty] [ingredient]
+Macros: [cal] kcal · [P]g P · [C]g C · [F]g F
+Prep: [one line]
+
+🍗 Meal 3 — [Time, e.g. 7:00 PM]
+Dish: [Name]
+Ingredients: [Qty] [ingredient], [Qty] [ingredient], [Qty] [ingredient]
+Macros: [cal] kcal · [P]g P · [C]g C · [F]g F
+Prep: [one line]
+
+📊 Daily Total: [sum cal] kcal · [sum P]g P · [sum C]g C · [sum F]g F
+
+💬 Want me to expand on any meal with full prep steps, ingredient swaps, or adjust based on preferences? I can modify any meal.
+
+## CRITICAL RULES:
+1. You MUST include the Macros line with actual numbers for EVERY meal. Never skip macros.
+2. Quantify ALL ingredients. Never write "a portion of" — use grams, ml, tbsp, or units.
+3. The Daily Total macros MUST match the client's targets within 5%.
+4. Check medical conditions from data. Flag conflicts and suggest substitutes.
+5. Space meals 3-4 hours apart. Use realistic meal times.
+6. Always end with the 💬 interactive follow-up line.
+7. Use the client's actual first name.
+8. No markdown fences. No explanations outside the structure.`;
 
   try {
     const apiKey = getEnv("BYTEZ_API_KEY") || getEnv("OPENAI_API_KEY");
@@ -1254,7 +1295,7 @@ app.post("/api/ai/coach", async (c) => {
         const response = await fetch(provider.url, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${provider.key}` },
-          body: JSON.stringify({ model: provider.model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: body.prompt }], temperature: 0.7, max_tokens: 800 }),
+          body: JSON.stringify({ model: provider.model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: body.prompt }], temperature: 0.7, max_tokens: 2000 }),
         });
         if (response.ok) {
           const data = await response.json() as Record<string, unknown>;
