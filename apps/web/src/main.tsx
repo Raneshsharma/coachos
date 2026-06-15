@@ -480,7 +480,7 @@ function SessionBookingModal({ client, onClose, onSuccess, push }: {
 }
 
 // ── DASHBOARD VIEW ──────────────────────
-function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push, onLogWorkout, onOpenClientNotes }: {
+function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push, onLogWorkout, onOpenClientNotes, onAddClient }: {
   session: CoachSession;
   onNav: (id: NavId) => void;
   onSimulateCheckIn: (clientId: string) => Promise<void>;
@@ -488,6 +488,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
   push: (message: string, type?: "success"|"error"|"info") => void;
   onLogWorkout: () => void;
   onOpenClientNotes: () => void;
+  onAddClient: () => void;
 }) {
   const { dashboard, workspace, clients } = session;
   const mrrGbp = session.subscriptions
@@ -596,7 +597,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
 
       {/* Quick Actions */}
       <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-        <button onClick={() => onNav("clients")} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+        <button onClick={onAddClient} style={{ padding: "0.6rem 1rem", borderRadius: "var(--r-lg)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}>
           <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>person_add</span>
           Add Client
         </button>
@@ -1750,233 +1751,283 @@ function ClientsView({
   );
 }
 
-// ── PLANS VIEW (AI Chat) ──────────────────────
-type ChatMessage = { id: number; role: "user" | "ai"; text: string };
-
+// ── PLANS VIEW (AI Plan Generator) ──────────────────────
 function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavId) => void }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const counter = useRef(0);
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [activePlan, setActivePlan] = useState<ProgramPlan | null>(null);
+  const [editingWorkoutIdx, setEditingWorkoutIdx] = useState<number | null>(null);
+  const [editingNutritionIdx, setEditingNutritionIdx] = useState<number | null>(null);
+  const [editedWorkouts, setEditedWorkouts] = useState<string[]>([]);
+  const [editedNutrition, setEditedNutrition] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [approving, setApproving] = useState(false);
 
-  const curations = [
-    {
-      title: "Create a meal plan",
-      desc: "Build a structured weekly nutrition program for your client",
-      icon: "restaurant",
-      tag: "Nutrition",
-      color: "#d1fae5",
-      iconColor: "#059669",
-    },
-    {
-      title: "Design 4-week fat loss plan",
-      desc: "Progressive overload program with cardio and nutrition targets",
-      icon: "fitness_center",
-      tag: "Training",
-      color: "#fef3c7",
-      iconColor: "#d97706",
-    },
-    {
-      title: "Analyze biometric trends",
-      desc: "Review client's progress photos, weight, and adherence scores",
-      icon: "show_chart",
-      tag: "Analytics",
-      color: "#e0e7ff",
-      iconColor: "#4f46e5",
-    },
-    {
-      title: "Draft a monthly check-in report",
-      desc: "Summarize progress, wins, and next steps for your client",
-      icon: "description",
-      tag: "Reporting",
-      color: "#fce7f3",
-      iconColor: "#db2777",
-    },
-  ];
-
-  const quickGoals = [
-    { label: "Current Focus", value: "Client Retention", accent: "#f97316" },
-    { label: "Weekly Goal", value: "12 New Plans", accent: "#008767" },
-    { label: "Open Tickets", value: "3", accent: "#4f46e5" },
-  ];
+  const sortedClients = useMemo(() =>
+    [...session.clients].sort((a, b) => a.fullName.localeCompare(b.fullName)),
+    [session.clients]
+  );
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!activePlan) return;
+    setEditedWorkouts([...activePlan.latestVersion.workouts]);
+    setEditedNutrition([...activePlan.latestVersion.nutrition]);
+    setEditingWorkoutIdx(null);
+    setEditingNutritionIdx(null);
+  }, [activePlan]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim()) return;
-    const userMsg: ChatMessage = { id: ++counter.current, role: "user", text: text.trim() };
-    setMessages(m => [...m, userMsg]);
-    setInput("");
-    setIsTyping(true);
-
-    await new Promise(r => setTimeout(r, 1400));
-
-    const aiResponses = [
-      "I've analyzed your client roster and identified Marcus as a prime candidate for a progressive overload program. Based on his recent adherence scores, I'd recommend a 4-week mesocycle with incremental load increases of 2.5–5% weekly. Want me to draft the full plan?",
-      "Great question. For Ava's fat loss goal, I'm seeing consistent results over the past 6 weeks. Her current weekly calorie target of 1,800 kcal is well-calibrated. I can generate a refined meal plan with higher protein density if that aligns with your strategy.",
-      "I've cross-referenced the latest check-in data. 4 of your 7 active clients are showing suboptimal adherence this week — likely due to the holiday period. I'd suggest a targeted re-engagement sequence. Shall I draft personalized check-in templates for each?",
-      "Here's a structured monthly report for Marcus covering Week 1–4 of his transformation program. His body composition has shifted positively: -2.3kg body fat, +1.1kg lean mass. Adherence averaged 84%. Next phase recommendation: introduce deload week.",
-    ];
-
-    const aiMsg: ChatMessage = { id: ++counter.current, role: "ai", text: aiResponses[messages.length % aiResponses.length] };
-    setIsTyping(false);
-    setMessages(m => [...m, aiMsg]);
+  const handleGenerate = async () => {
+    if (!selectedClientId) return;
+    setGenerating(true);
+    try {
+      const plan = await fetchJson<ProgramPlan>(`/plans/generate`, {
+        method: "POST",
+        body: JSON.stringify({ clientId: selectedClientId }),
+      });
+      setActivePlan(plan);
+    } catch {
+      alert("Failed to generate plan. Is the API running?");
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const handleCuration = (title: string) => {
-    sendMessage(`I want to ${title.toLowerCase()}. Can you help me build this?`);
+  const handleApprove = async () => {
+    if (!activePlan) return;
+    setApproving(true);
+    try {
+      const approved = await fetchJson<ProgramPlan>(`/plans/${activePlan.id}/approve`, { method: "POST" });
+      setActivePlan(approved);
+    } catch {
+      alert("Failed to approve plan.");
+    } finally {
+      setApproving(false);
+    }
   };
+
+  const handleSave = async () => {
+    if (!activePlan) return;
+    setSaving(true);
+    try {
+      const updated = await fetchJson<ProgramPlan>(`/plans/${activePlan.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ workouts: editedWorkouts, nutrition: editedNutrition }),
+      });
+      setActivePlan(updated);
+      setEditingWorkoutIdx(null);
+      setEditingNutritionIdx(null);
+    } catch {
+      alert("Failed to save changes.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hasChanges = activePlan && (
+    JSON.stringify(editedWorkouts) !== JSON.stringify(activePlan.latestVersion.workouts) ||
+    JSON.stringify(editedNutrition) !== JSON.stringify(activePlan.latestVersion.nutrition)
+  );
+
+  const isDraft = activePlan?.latestVersion.status === "draft";
+  const statusBadge = activePlan
+    ? { draft: { bg: "#fef3c7", color: "#d97706", text: "Draft" }, approved: { bg: "#d1fae5", color: "#059669", text: "Approved" } }[activePlan.latestVersion.status]
+    : null;
 
   return (
     <div className="page-view plans-chat-view">
-      {/* Main chat container */}
-      <div className="plans-chat-layout">
-        {/* Left: Chat Area */}
-        <div className="plans-chat-main">
-          {/* Header */}
-          <div className="plans-chat-header">
-            <div>
-              <h1 className="plans-chat-title">
-                Welcome to AuraCoach, Coach <span className="plans-name-highlight">{session.coach.firstName}</span>.
-              </h1>
-              <p className="plans-chat-subtitle">Your digital curator is ready. What shall we design today?</p>
-            </div>
-          </div>
+      <div style={{ padding: "2rem 2rem 0", maxWidth: "900px", margin: "0 auto" }}>
+        <div className="plans-chat-header">
+          <h1 className="plans-chat-title">
+            AI Plan Generator
+          </h1>
+          <p className="plans-chat-subtitle">Select a client and let DeepSeek draft a training &amp; nutrition plan.</p>
+        </div>
 
-          {/* Messages Area */}
-          <div className="plans-messages">
-            {messages.length === 0 && (
-              <div className="plans-empty-hint">
-                <span className="material-symbols-outlined plans-empty-icon">psychology</span>
-                <p>Ask me anything about meal plans, workouts, biometrics, or client strategy.</p>
-              </div>
-            )}
-            {messages.map(msg => (
-              <div key={msg.id} className={`plans-msg plans-msg--${msg.role}`}>
-                {msg.role === "ai" && (
-                  <div className="plans-msg-avatar">
-                    <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
-                      <circle cx="14" cy="14" r="14" fill="#008767"/>
-                      <path d="M8 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M14 8v2M14 18v2M8 14H6M22 14h-2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                )}
-                <div className="plans-msg-bubble">
-                  {msg.text}
-                </div>
-                {msg.role === "user" && (
-                  <div className="plans-msg-avatar plans-msg-avatar--user">
-                    {session.coach.firstName[0]}{session.coach.lastName[0]}
-                  </div>
-                )}
-              </div>
-            ))}
-            {isTyping && (
-              <div className="plans-msg plans-msg--ai">
-                <div className="plans-msg-avatar">
-                  <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
-                    <circle cx="14" cy="14" r="14" fill="#008767"/>
-                    <path d="M8 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                    <path d="M14 8v2M14 18v2M8 14H6M22 14h-2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                </div>
-                <div className="plans-msg-bubble plans-msg-bubble--typing">
-                  <span className="plans-typing-dot"></span>
-                  <span className="plans-typing-dot"></span>
-                  <span className="plans-typing-dot"></span>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
+        {/* Client Selector */}
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", marginBottom: "1.5rem" }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", fontWeight: 600, color: "var(--on-surface-variant)", display: "block", marginBottom: "0.35rem" }}>Client</label>
+            <select
+              value={selectedClientId}
+              onChange={e => { setSelectedClientId(e.target.value); setActivePlan(null); }}
+              style={{ width: "100%", padding: "0.6rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "white", fontFamily: "Inter, sans-serif", fontSize: "0.85rem", color: "var(--text-primary)", boxSizing: "border-box" }}
+            >
+              <option value="">— Select a client —</option>
+              {sortedClients.map(c => (
+                <option key={c.id} value={c.id}>{c.fullName} — {c.goal}</option>
+              ))}
+            </select>
           </div>
+          <button
+            onClick={handleGenerate}
+            disabled={!selectedClientId || generating}
+            style={{ padding: "0.6rem 1.5rem", borderRadius: "var(--r-md)", border: "none", background: generating ? "var(--outline)" : "var(--primary)", color: "white", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.85rem", cursor: (!selectedClientId || generating) ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: (!selectedClientId || generating) ? 0.6 : 1 }}
+          >
+            {generating ? "Generating..." : "Generate AI Plan"}
+            <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle", marginLeft: "0.35rem" }}>auto_awesome</span>
+          </button>
+        </div>
 
-          {/* Input Bar */}
-          <div className="plans-input-area">
-            <div className="plans-input-card">
-              <div className="plans-input-icon">
-                <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
-                  <circle cx="14" cy="14" r="14" fill="#008767"/>
-                  <path d="M8 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M14 8v2M14 18v2M8 14H6M22 14h-2" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
+        {/* Plan Display */}
+        {activePlan && (
+          <div style={{ background: "white", border: "1px solid rgba(0,0,0,0.06)", borderRadius: "16px", padding: "1.5rem", marginBottom: "1.5rem", boxShadow: "0 4px 16px rgba(24,28,28,0.04)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <h2 style={{ fontFamily: "Manrope, sans-serif", fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>{activePlan.title}</h2>
+                {statusBadge && (
+                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "0.15rem 0.5rem", borderRadius: "9999px", background: statusBadge.bg, color: statusBadge.color }}>
+                    {statusBadge.text}
+                  </span>
+                )}
               </div>
-              <input
-                type="text"
-                className="plans-input"
-                placeholder="How can Aura AI help you today?"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && sendMessage(input)}
-              />
-              <button
-                className="plans-ask-btn"
-                onClick={() => sendMessage(input)}
-                disabled={!input.trim() || isTyping}
-              >
-                Ask
-                <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>arrow_forward</span>
-              </button>
+              <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--on-surface-variant)" }}>
+                v{activePlan.latestVersion.versionNumber} &middot; {new Date(activePlan.latestVersion.updatedAt).toLocaleDateString()}
+              </span>
             </div>
 
-            {/* Suggested Curations */}
-            <div className="plans-curations">
-              <p className="plans-curations-label">Suggested Curations</p>
-              <div className="plans-curations-grid">
-                {curations.map(c => (
-                  <button key={c.title} className="plans-curation-card" onClick={() => handleCuration(c.title)}>
-                    <div className="plans-curation-icon-wrap" style={{ background: c.color }}>
-                      <span className="material-symbols-outlined" style={{ color: c.iconColor, fontSize: "1.25rem" }}>{c.icon}</span>
-                    </div>
-                    <div className="plans-curation-text">
-                      <span className="plans-curation-tag" style={{ color: c.iconColor }}>{c.tag}</span>
-                      <p className="plans-curation-title">{c.title}</p>
-                    </div>
-                  </button>
+            {activePlan.latestVersion.explanation.length > 0 && (
+              <div style={{ background: "var(--surface-container)", borderRadius: "var(--r-md)", padding: "0.75rem 1rem", marginBottom: "1.25rem" }}>
+                {activePlan.latestVersion.explanation.map((line, i) => (
+                  <p key={i} style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-primary)", margin: i === 0 ? 0 : "0.35rem 0 0 0", lineHeight: 1.5 }}>{line}</p>
                 ))}
               </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+              {/* Workouts */}
+              <div>
+                <h3 style={{ fontFamily: "Manrope, sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 0.75rem 0", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--primary)" }}>fitness_center</span>
+                  Workouts
+                </h3>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {editedWorkouts.map((w, i) => (
+                    <li key={i} style={{ marginBottom: "0.5rem" }}>
+                      {editingWorkoutIdx === i ? (
+                        <div style={{ display: "flex", gap: "0.35rem" }}>
+                          <input
+                            autoFocus
+                            value={w}
+                            onChange={e => setEditedWorkouts(prev => prev.map((x, j) => j === i ? e.target.value : x))}
+                            onKeyDown={e => { if (e.key === "Enter") setEditingWorkoutIdx(null); if (e.key === "Escape") { setEditedWorkouts([...activePlan.latestVersion.workouts]); setEditingWorkoutIdx(null); } }}
+                            style={{ flex: 1, padding: "0.35rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--primary)", background: "white", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-primary)" }}
+                          />
+                          <button onClick={() => setEditingWorkoutIdx(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0 0.25rem" }}><span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>check</span></button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => setEditingWorkoutIdx(i)}
+                          style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", padding: "0.4rem 0.6rem", borderRadius: "var(--r-sm)", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-primary)", lineHeight: 1.4, background: "var(--surface-container)", border: "1px solid transparent", transition: "border-color 0.15s" }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary-light)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "transparent"; }}
+                          title="Click to edit"
+                        >
+                          <span style={{ color: "var(--outline)", flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                          <span>{w}</span>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                  <li>
+                    <button
+                      onClick={() => { setEditedWorkouts(prev => [...prev, ""]); setEditingWorkoutIdx(editedWorkouts.length); }}
+                      style={{ background: "none", border: "1.5px dashed var(--outline-variant)", borderRadius: "var(--r-sm)", padding: "0.35rem 0.6rem", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--on-surface-variant)", width: "100%", textAlign: "left" }}
+                    >
+                      + Add workout line
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Nutrition */}
+              <div>
+                <h3 style={{ fontFamily: "Manrope, sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "var(--text-primary)", margin: "0 0 0.75rem 0", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--primary)" }}>restaurant</span>
+                  Nutrition
+                </h3>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {editedNutrition.map((n, i) => (
+                    <li key={i} style={{ marginBottom: "0.5rem" }}>
+                      {editingNutritionIdx === i ? (
+                        <div style={{ display: "flex", gap: "0.35rem" }}>
+                          <input
+                            autoFocus
+                            value={n}
+                            onChange={e => setEditedNutrition(prev => prev.map((x, j) => j === i ? e.target.value : x))}
+                            onKeyDown={e => { if (e.key === "Enter") setEditingNutritionIdx(null); if (e.key === "Escape") { setEditedNutrition([...activePlan.latestVersion.nutrition]); setEditingNutritionIdx(null); } }}
+                            style={{ flex: 1, padding: "0.35rem 0.5rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--primary)", background: "white", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-primary)" }}
+                          />
+                          <button onClick={() => setEditingNutritionIdx(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", padding: "0 0.25rem" }}><span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>check</span></button>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => setEditingNutritionIdx(i)}
+                          style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", padding: "0.4rem 0.6rem", borderRadius: "var(--r-sm)", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-primary)", lineHeight: 1.4, background: "var(--surface-container)", border: "1px solid transparent", transition: "border-color 0.15s" }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary-light)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "transparent"; }}
+                          title="Click to edit"
+                        >
+                          <span style={{ color: "var(--outline)", flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                          <span>{n}</span>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                  <li>
+                    <button
+                      onClick={() => { setEditedNutrition(prev => [...prev, ""]); setEditingNutritionIdx(editedNutrition.length); }}
+                      style={{ background: "none", border: "1.5px dashed var(--outline-variant)", borderRadius: "var(--r-sm)", padding: "0.35rem 0.6rem", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--on-surface-variant)", width: "100%", textAlign: "left" }}
+                    >
+                      + Add nutrition line
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+              <button
+                onClick={handleSave}
+                disabled={!hasChanges || saving}
+                style={{ padding: "0.55rem 1.25rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "white", color: (!hasChanges || saving) ? "var(--outline)" : "var(--text-primary)", fontFamily: "Manrope, sans-serif", fontWeight: 600, fontSize: "0.8rem", cursor: (!hasChanges || saving) ? "not-allowed" : "pointer" }}
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+              {isDraft && (
+                <button
+                  onClick={handleApprove}
+                  disabled={approving}
+                  style={{ padding: "0.55rem 1.75rem", borderRadius: "var(--r-md)", border: "none", background: approving ? "var(--outline)" : "var(--primary)", color: "white", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.8rem", cursor: approving ? "not-allowed" : "pointer" }}
+                >
+                  {approving ? "Approving..." : "Approve Plan"}
+                  <span className="material-symbols-outlined" style={{ fontSize: "1rem", verticalAlign: "middle", marginLeft: "0.35rem" }}>verified</span>
+                </button>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Right: Goals Sidebar */}
-        <div className="plans-sidebar">
-          <div className="plans-sidebar-card">
-            <h3 className="plans-sidebar-title">Current Session</h3>
-            {quickGoals.map(item => (
-              <div key={item.label} className="plans-goal-item">
-                <div className="plans-goal-accent" style={{ background: item.accent }}></div>
-                <div className="plans-goal-body">
-                  <span className="plans-goal-label">{item.label}</span>
-                  <span className="plans-goal-value">{item.value}</span>
-                </div>
-              </div>
-            ))}
+        {!activePlan && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "3rem 2rem", textAlign: "center", background: "white", border: "1px solid rgba(0,0,0,0.06)", borderRadius: "16px" }}>
+            <span className="material-symbols-outlined" style={{ fontSize: "3rem", color: "var(--primary)", opacity: 0.3, marginBottom: "1rem" }}>auto_awesome</span>
+            <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.9rem", color: "var(--on-surface-variant)", margin: 0, maxWidth: "400px" }}>
+              Choose a client from the dropdown above and click "Generate AI Plan" to create a personalised training and nutrition programme.
+            </p>
           </div>
+        )}
 
-          <div className="plans-sidebar-card">
-            <h3 className="plans-sidebar-title">Active Clients</h3>
-            {session.clients.slice(0, 5).map(client => (
-              <div key={client.id} className="plans-client-item">
-                <div className="plans-client-avatar">{client.fullName.split(" ").map(p => p[0]).slice(0, 2).join("")}</div>
-                <div>
-                  <p className="plans-client-name">{client.fullName}</p>
-                  <p className="plans-client-goal">{client.goal}</p>
-                </div>
-              </div>
-            ))}
+        {/* Quick nav to client portal */}
+        {activePlan && (
+          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+            <button
+              onClick={() => onNav("portal")}
+              style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--primary)", fontWeight: 600 }}
+            >
+              Open Client Portal to assign plan &rarr;
+            </button>
           </div>
-        </div>
-      </div>
-
-      {/* Footer Tagline */}
-      <div className="plans-footer">
-        <div className="plans-footer-line"></div>
-        <p className="plans-footer-text">Empowering Human Coaching with Intelligence</p>
-        <div className="plans-footer-line"></div>
+        )}
       </div>
     </div>
   );
@@ -5909,6 +5960,7 @@ function App() {
             push={push}
             onLogWorkout={() => setShowWorkoutLogger(true)}
             onOpenClientNotes={() => setShowClientNotesModal(true)}
+            onAddClient={() => setShowAddClientModal(true)}
           />
         )}
         {activeNav === "clients" && (
