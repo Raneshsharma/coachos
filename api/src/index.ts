@@ -1,10 +1,10 @@
 /**
- * Cloudflare Workers API — backed by getSupabase() PostgreSQL.
+ * Cloudflare Workers API — backed by Supabase PostgreSQL.
  * All routes mirror the original in-memory API so the frontend is unchanged.
  */
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { getSupabase } from "./getSupabase()";
+import { getSupabase } from "./supabase";
 
 // ── Domain types ───────────────────────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ interface CoachUser {
 // ── DB → API shape helpers ────────────────────────────────────────────────────
 
 function mapClient(row: Record<string, unknown>): ClientProfile {
-  // Normalize getSupabase() status values to match frontend domain types
+  // Normalize Supabase status values to match frontend domain types
   const rawStatus = row.status as string;
   const status = (rawStatus === "trialing" ? "trial" : rawStatus) as ClientProfile["status"];
   return {
@@ -465,9 +465,9 @@ async function getAnalytics() {
 
 async function getRuntimeInfo() {
   return {
-    storage: "getSupabase()",
-    getSupabase()Url: process.env.getSupabase()_URL ?? "not configured",
-    services: { planGeneration: "getSupabase()", billing: "getSupabase()" },
+    storage: "supabase",
+    supabaseUrl: process.env.SUPABASE_URL ?? "not configured",
+    services: { planGeneration: "supabase", billing: "supabase" },
   };
 }
 
@@ -799,7 +799,7 @@ app.use("/*", cors({
   allowHeaders: ["Content-Type"],
 }));
 
-app.get("/api/health", (c) => c.json({ ok: true, service: "coachos-api", db: "getSupabase()" }));
+app.get("/api/health", (c) => c.json({ ok: true, service: "coachos-api", db: "supabase" }));
 
 app.get("/api/runtime", async (c) => c.json(await getRuntimeInfo()));
 
@@ -1079,7 +1079,7 @@ app.patch("/api/coach/profile", async (c) => {
 });
 
 app.post("/api/admin/state/reset", async (c) =>
-  c.json({ ok: true, message: "Reset not implemented — use getSupabase() dashboard." })
+  c.json({ ok: true, message: "Reset not implemented — use Supabase dashboard." })
 );
 
 app.get("/api/group-programs", async (c) => c.json(await listGroupPrograms()));
@@ -1192,4 +1192,3 @@ app.post("/api/nutrition/swap", async (c) => c.json(await suggestNutritionSwap(a
 app.post("/api/nutrition/swap/apply", async (c) => c.json({ success: true, swap: {} }));
 
 export default { fetch: app.fetch };
-
