@@ -5196,13 +5196,22 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
 
   const selectedClient = session.clients.find((c) => c.id === selectedClientId) ?? null;
 
-  const QUICK_PROMPTS = [
-    "Analyze nutrition for medical conditions",
-    "Suggest workout adjustments",
-    "Weekly meal plan",
-    "Progress review",
-    "Customize a plan",
-  ];
+  const QUICK_PROMPTS = {
+    workout: [
+      { label: "3-Day Split Plan", prompt: "Create a 3-day workout split plan for this week with exercises, sets, reps, and rest periods. Consider their medical conditions and fitness level." },
+      { label: "Push/Pull/Legs", prompt: "Design a push/pull/legs routine with 4 exercises per day. Specify sets, reps, and any modifications needed for their conditions." },
+      { label: "Home Workout", prompt: "Create a bodyweight-only home workout plan. No equipment needed. 5 exercises per session with progressions." },
+      { label: "Weekly Schedule", prompt: "Create a full weekly workout schedule with rest days, cardio, and strength training balanced across the week." },
+      { label: "Rehab Focus", prompt: "Design a workout plan that works around their medical conditions and injuries. Focus on safe, therapeutic exercises." },
+    ],
+    nutrition: [
+      { label: "3-Meal Plan", prompt: "Create a 3-meal nutrition plan for today with quantified ingredients, macros per meal, and prep notes." },
+      { label: "Weekly Meal Plan", prompt: "Create a 7-day meal plan with 3 meals per day. Each meal must have quantified ingredients and full macro breakdown." },
+      { label: "Pre/Post Workout", prompt: "Suggest optimal pre-workout and post-workout meals with timing, ingredients, and macro breakdown." },
+      { label: "Medical Diet", prompt: "Analyze their medical conditions and create a tailored meal plan that addresses those conditions with specific foods to eat and avoid." },
+      { label: "Cheat Meal Plan", prompt: "Create a cheat-meal friendly 3-meal plan that stays within their macro targets. Make it satisfying but balanced." },
+    ],
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -5348,28 +5357,27 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                 <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--outline)", marginBottom: "1.25rem" }}>
                   Ask about nutrition, workouts, progress, or get a full analysis of {selectedClient.fullName.split(" ")[0]}'s data.
                 </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "center" }}>
-                  {QUICK_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      className="btn-ghost btn-sm"
-                      onClick={() => sendPrompt(prompt)}
-                      style={{
-                        padding: "0.45rem 0.85rem",
-                        border: "1.5px solid var(--outline-variant)",
-                        borderRadius: "var(--r-lg)",
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: "0.75rem",
-                        fontWeight: 500,
-                        color: "var(--primary)",
-                        cursor: "pointer",
-                        background: "var(--primary-light)",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {prompt}
-                    </button>
-                  ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.5rem" }}>💪 Workout Plans</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", justifyContent: "center" }}>
+                      {QUICK_PROMPTS.workout.map((wp) => (
+                        <button key={wp.label} className="btn-ghost btn-sm" onClick={() => sendPrompt(wp.prompt)} style={{ padding: "0.4rem 0.75rem", border: "1.5px solid var(--outline-variant)", borderRadius: "var(--r-lg)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 500, color: "var(--primary)", cursor: "pointer", background: "var(--primary-light)", transition: "all 0.15s ease" }}>
+                          {wp.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.5rem" }}>🍽️ Nutrition Plans</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", justifyContent: "center" }}>
+                      {QUICK_PROMPTS.nutrition.map((np) => (
+                        <button key={np.label} className="btn-ghost btn-sm" onClick={() => sendPrompt(np.prompt)} style={{ padding: "0.4rem 0.75rem", border: "1.5px solid var(--outline-variant)", borderRadius: "var(--r-lg)", fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 500, color: "var(--accent)", cursor: "pointer", background: "var(--accent-light)", transition: "all 0.15s ease" }}>
+                          {np.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
