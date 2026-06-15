@@ -4,7 +4,7 @@
  */
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { getSupabase } from "./supabase";
+import { getSupabase, initEnv, getEnv } from "./supabase";
 
 // ── Domain types ───────────────────────────────────────────────────────────────
 
@@ -191,7 +191,7 @@ async function getCoach(): Promise<CoachUser | null> {
 }
 
 async function listClients(opts: { status?: string; search?: string } = {}) {
-  let q = getSupabase().from("clients").select("*").eq("workspace_id", "ws_1");
+  let q = getSupabase().from("clients").select("*");
   if (opts.status) q = q.eq("status", opts.status);
   if (opts.search) {
     q = q.or(`full_name.ilike.%${opts.search}%,email.ilike.%${opts.search}%`);
@@ -466,7 +466,7 @@ async function getAnalytics() {
 async function getRuntimeInfo() {
   return {
     storage: "supabase",
-    supabaseUrl: process.env.SUPABASE_URL ?? "not configured",
+    supabaseUrl: getEnv("SUPABASE_URL") ?? "not configured",
     services: { planGeneration: "supabase", billing: "supabase" },
   };
 }
@@ -1191,4 +1191,9 @@ app.post("/api/habits/:habitId/complete", async (c) => {
 app.post("/api/nutrition/swap", async (c) => c.json(await suggestNutritionSwap(await c.req.json())));
 app.post("/api/nutrition/swap/apply", async (c) => c.json({ success: true, swap: {} }));
 
-export default { fetch: app.fetch };
+export default {
+  fetch(request: Request, env: Record<string, string>) {
+    initEnv(env);
+    return app.fetch(request, env);
+  }
+};

@@ -46,3 +46,4 @@ stitch_tools.txt
 
 .wrangler/
 .vercel
+wrangler.toml
