@@ -25,6 +25,7 @@ firebase-debug.*.log
 .env.*.local
 .env.production
 .env.staging
+api/.dev.vars
 # Only .env.example is committed (it has no real values)
 
 # ─── Test coverage ──────────────────────────────

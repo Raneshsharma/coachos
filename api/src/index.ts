@@ -466,7 +466,7 @@ async function getAnalytics() {
 async function getRuntimeInfo() {
   return {
     storage: "supabase",
-    supabaseUrl: "https://jmbrinamojsgfkfwgsce.supabase.co",
+    supabaseUrl: process.env.SUPABASE_URL ?? "not configured",
     services: { planGeneration: "supabase", billing: "supabase" },
   };
 }
