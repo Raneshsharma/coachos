@@ -1409,49 +1409,53 @@ If no data changes are needed, return empty actions array [].`;
 
   if (aiContent) {
     try {
-      const clean = aiContent.replace(/```json|```/g, "").trim();
+      let clean = aiContent.trim();
+      clean = clean.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      const jsonStart = clean.indexOf("{");
+      const jsonEnd = clean.lastIndexOf("}");
+      if (jsonStart >= 0 && jsonEnd > jsonStart) {
+        clean = clean.substring(jsonStart, jsonEnd + 1);
+      }
       parsed = JSON.parse(clean);
     } catch {
       parsed = { reply: aiContent, actions: [] };
     }
-  } else {
+  }
+
+  // Fallback: regex-based command parsing when AI doesn't return structured JSON
+  if (!parsed.actions?.length) {
     const cmdLower = body.command.toLowerCase();
-    const allergyMatch = cmdLower.match(/allergic to (\w+)/i) || cmdLower.match(/(\w+) allergy/i);
-    const allergen = allergyMatch?.[1]?.toLowerCase();
+    const targetClientId = body.context?.selectedClientId;
 
-    let matchingClients: typeof clientsForPrompt = [];
-    if (allergen) {
-      matchingClients = clientsForPrompt.filter((cl) =>
-        cl.health_conditions?.some((h: { label: string; note: string }) => h.label.toLowerCase().includes(allergen))
-      );
-    }
-
-    const wantsUpdate = /\b(update|assign|change|set|modify|include|add)\b/i.test(cmdLower);
-    const supplementMatch = cmdLower.match(/supplements?\s*(?:to\s*)?(?:include\s*)?(.+)/i);
-    const supplementItems = supplementMatch?.[1]
-      ?.split(/,|and/)
-      .map((s) => s.trim().replace(/["\[\]]/g, ""))
-      .filter(Boolean) ?? [];
+    // Detect update intent
+    const wantsUpdate = /\b(update|assign|change|set|modify|increase|decrease|add)\b/i.test(cmdLower);
+    const stepsMatch = cmdLower.match(/(\d{3,6})\s*(?:steps?|k)/i) || cmdLower.match(/steps?\s*(?:to\s*)?(\d{3,6})/i);
+    const waterMatch = cmdLower.match(/(\d+(?:\.\d+)?)\s*(?:liters?|L)/i) || cmdLower.match(/water\s*(?:to\s*)?(\d+(?:\.\d+)?)/i);
+    const calorieMatch = cmdLower.match(/(\d{3,5})\s*(?:cal|kcal|calories)/i) || cmdLower.match(/(?:calories|cal)\s*(?:to\s*)?(\d{3,5})/i);
+    const proteinMatch = cmdLower.match(/(\d{2,3})\s*(?:g\s*)?(?:protein)/i) || cmdLower.match(/protein\s*(?:to\s*)?(\d{2,3})/i);
+    const goalMatch = cmdLower.match(/(?:goal|target)\s*(?:to\s*)?["']?([^"']+?)["']?(?:\s*$|\.)/i);
 
     const actions: { type: string; clientId: string; patch: Record<string, unknown> }[] = [];
+    const selectedClients = targetClientId ? [targetClientId] : clientsForPrompt.map(c => c.id);
+    const patch: Record<string, unknown> = {};
 
-    if (wantsUpdate && matchingClients.length > 0 && supplementItems.length > 0) {
-      for (const cl of matchingClients) {
-        const existing = cl.supplements ?? [];
-        const merged = [...new Set([...existing, ...supplementItems])];
-        actions.push({ type: "update", clientId: cl.id, patch: { supplements: merged } });
+    if (stepsMatch && wantsUpdate) patch.dailyStepsTarget = parseInt(stepsMatch[1]);
+    if (waterMatch && wantsUpdate) patch.dailyWaterTarget = parseFloat(waterMatch[1]);
+    if (calorieMatch && wantsUpdate) patch.nutritionCalories = parseInt(calorieMatch[1]);
+    if (proteinMatch && wantsUpdate) patch.nutritionProteinG = parseInt(proteinMatch[1]);
+    if (goalMatch && wantsUpdate) patch.goal = goalMatch[1].trim();
+
+    if (Object.keys(patch).length > 0) {
+      for (const cid of selectedClients) {
+        actions.push({ type: "update", clientId: cid, patch });
       }
+      parsed.actions = actions;
+      const clientName = clientsForPrompt.find(c => c.id === targetClientId)?.name ?? "client";
+      const fieldsChanged = Object.keys(patch).join(", ");
+      parsed.reply = `Updated ${fieldsChanged} for ${targetClientId ? clientName : `${selectedClients.length} clients`}.`;
+    } else if (!parsed.reply) {
+      parsed.reply = aiContent || "I received your request but need more specific details to make changes.";
     }
-
-    const names = matchingClients.map((c) => c.name).join(", ");
-    parsed = {
-      reply: allergen
-        ? wantsUpdate
-          ? `I found ${matchingClients.length} client(s) with ${allergen} allergy: ${names}. I've updated their supplements to include: ${supplementItems.join(", ")}. [fallback mode — no AI API key configured]`
-          : `I found ${matchingClients.length} client(s) with ${allergen} allergy: ${names}. [fallback mode — no AI API key configured]`
-        : `I received your command but could not process it. Please configure a valid AI API key (OPENAI_API_KEY or BYTEZ_API_KEY) for full agent capabilities.`,
-      actions,
-    };
   }
 
   const executedActions: { type: string; clientId: string; patch: Record<string, unknown>; result: string }[] = [];
@@ -1459,8 +1463,34 @@ If no data changes are needed, return empty actions array [].`;
 
   for (const action of parsed.actions ?? []) {
     if (action.type === "update" && action.clientId && action.patch) {
+      // Normalize field names: AI might send snake_case, shorthand, or nested objects
+      const normalized: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(action.patch)) {
+        // Handle nested macros object
+        if (key === "macros" && typeof value === "object" && value !== null) {
+          const m = value as Record<string, unknown>;
+          if (m.calories !== undefined) normalized.nutritionCalories = Number(m.calories);
+          if (m.protein !== undefined || m.protein_g !== undefined) normalized.nutritionProteinG = Number(m.protein ?? m.protein_g);
+          if (m.fat !== undefined || m.fat_g !== undefined) normalized.nutritionFatG = Number(m.fat ?? m.fat_g);
+          if (m.carbs !== undefined || m.carbs_g !== undefined) normalized.nutritionCarbsG = Number(m.carbs ?? m.carbs_g);
+          continue;
+        }
+        const mapped: Record<string, string> = {
+          steps_target: "dailyStepsTarget", steps: "dailyStepsTarget", daily_steps: "dailyStepsTarget",
+          water_target: "dailyWaterTarget", water: "dailyWaterTarget", daily_water: "dailyWaterTarget",
+          calories: "nutritionCalories", calorie_target: "nutritionCalories", cal: "nutritionCalories",
+          protein: "nutritionProteinG", protein_target: "nutritionProteinG",
+          fat: "nutritionFatG", fat_target: "nutritionFatG",
+          carbs: "nutritionCarbsG", carb_target: "nutritionCarbsG",
+          full_name: "fullName", supplements: "supplements", health_conditions: "healthConditions",
+          monthly_price: "monthlyPriceGbp", price: "monthlyPriceGbp", monthly_price_gbp: "monthlyPriceGbp",
+          coach_note: "nutritionCoachNote", nutrition_note: "nutritionCoachNote",
+        };
+        const camelKey = mapped[key] || key;
+        normalized[camelKey] = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
+      }
       try {
-        const updated = await updateClient(action.clientId, action.patch as Partial<ClientProfile>);
+        const updated = await updateClient(action.clientId, normalized as Partial<ClientProfile>);
         executedActions.push({ type: "update", clientId: action.clientId, patch: action.patch, result: updated ? "success" : "client not found" });
         if (updated) affectedClients.push(action.clientId);
       } catch (err) {
