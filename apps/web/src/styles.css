@@ -5,15 +5,15 @@
    Fresh, clean, light-theme fitness SaaS
    ====================================================================== */
 :root {
-  --bg-base:           #f5faf7;
+  --bg-base:           #f8fcf9;
   --bg-page:           #ffffff;
-  --bg-card:           #ffffff;
-  --bg-card-hover:     #f0faf4;
-  --bg-elevated:       #f0faf4;
+  --bg-card:           #ECFFF6;
+  --bg-card-hover:     #dffaeb;
+  --bg-elevated:       #f2fdf6;
   --bg-sidebar:        #1A2A25;
   --bg-sidebar-hover:  #243530;
   --bg-sidebar-active: #2e403b;
-  --bg-input:          #f5faf7;
+  --bg-input:          #f5fdf8;
 
   --primary:           #28A745;
   --primary-light:     #d4f5e0;
@@ -22,19 +22,19 @@
   --primary-text:      #ffffff;
   --primary-container:  rgba(40,167,69,0.1);
   --primary-glow:       rgba(40,167,69,0.25);
-  --surface-container: #f5faf7;
-  --surface-container-low: #ecfaf2;
+  --surface-container: #ECFFF6;
+  --surface-container-low: #e6fbef;
   --surface-container-lowest: #ffffff;
-  --surface-container-high: #e8f6ed;
-  --surface-dim:       #e0efe5;
+  --surface-container-high: #dff7e9;
+  --surface-dim:       #d4f2e0;
 
   --secondary:         #A3E4D7;
-  --secondary-fixed:   #c5f1e3;
+  --secondary-fixed:   #C5F1E3;
 
   --accent:            #0E7C4A;
   --accent-light:      #d4f5e0;
   --accent-mid:        #34b868;
-  --accent-dark:       #0a5c36;
+  --accent-dark:       #095a36;
   --accent-glow:        rgba(14,124,74,0.2);
 
   --tertiary:          #28A745;
@@ -67,10 +67,10 @@
   --on-surface:        #1A2A25;
   --on-surface-variant: #3d5a4e;
   --outline:           #8ab89a;
-  --outline-variant:   #c5e0ce;
+  --outline-variant:   #C5F1E3;
 
-  --border:            #d8ece0;
-  --border-light:      #e8f5ec;
+  --border:            #C5F1E3;
+  --border-light:      #d4f5e7;
 
   --shadow-xs:   0 1px 2px rgba(26,42,37,0.06);
   --shadow-sm:   0 2px 8px rgba(26,42,37,0.08);
