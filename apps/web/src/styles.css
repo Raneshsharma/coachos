@@ -1,86 +1,86 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* ======================================================================
-   CoachOS Design Tokens — Sunny Peach
-   Warm, energetic, premium fitness SaaS
+   CoachOS Design Tokens — Mint Blossom
+   Fresh, clean, light-theme fitness SaaS
    ====================================================================== */
 :root {
-  --bg-base:           #1a1410;
-  --bg-page:           #1a1410;
-  --bg-card:           #241c16;
-  --bg-card-hover:     #2e241c;
-  --bg-elevated:       #2e241c;
-  --bg-sidebar:        #14100c;
-  --bg-sidebar-hover:  #1e1814;
-  --bg-sidebar-active: #281e18;
-  --bg-input:          #1e1814;
+  --bg-base:           #f5faf7;
+  --bg-page:           #ffffff;
+  --bg-card:           #ffffff;
+  --bg-card-hover:     #f0faf4;
+  --bg-elevated:       #f0faf4;
+  --bg-sidebar:        #1A2A25;
+  --bg-sidebar-hover:  #243530;
+  --bg-sidebar-active: #2e403b;
+  --bg-input:          #f5faf7;
 
-  --primary:           #FF7A59;
-  --primary-light:     #3d1a0e;
-  --primary-mid:       #ff9469;
-  --primary-dark:      #e05a3a;
+  --primary:           #28A745;
+  --primary-light:     #d4f5e0;
+  --primary-mid:       #5cc97a;
+  --primary-dark:      #1a7a32;
   --primary-text:      #ffffff;
-  --primary-container:  rgba(255,122,89,0.15);
-  --primary-glow:       rgba(255,122,89,0.3);
-  --surface-container: #241c16;
-  --surface-container-low: #1e1814;
-  --surface-container-lowest: #241c16;
-  --surface-container-high: #2e241c;
-  --surface-dim:       #1a1410;
+  --primary-container:  rgba(40,167,69,0.1);
+  --primary-glow:       rgba(40,167,69,0.25);
+  --surface-container: #f5faf7;
+  --surface-container-low: #ecfaf2;
+  --surface-container-lowest: #ffffff;
+  --surface-container-high: #e8f6ed;
+  --surface-dim:       #e0efe5;
 
-  --secondary:         #FFD166;
-  --secondary-fixed:   #3d2e0a;
+  --secondary:         #A3E4D7;
+  --secondary-fixed:   #c5f1e3;
 
-  --accent:            #FF4D4D;
-  --accent-light:      #3d0a0a;
-  --accent-mid:        #ff7070;
-  --accent-dark:       #cc3030;
-  --accent-glow:        rgba(255,77,77,0.3);
+  --accent:            #0E7C4A;
+  --accent-light:      #d4f5e0;
+  --accent-mid:        #34b868;
+  --accent-dark:       #0a5c36;
+  --accent-glow:        rgba(14,124,74,0.2);
 
-  --tertiary:          #FFD166;
-  --tertiary-fixed:    #3d2e0a;
-  --tertiary-fixed-dim: #c9a040;
+  --tertiary:          #28A745;
+  --tertiary-fixed:    #d4f5e0;
+  --tertiary-fixed-dim: #a0e4c0;
 
-  --success:           #4ade80;
-  --success-light:     #052e16;
-  --success-text:      #bbf7d0;
+  --success:           #28A745;
+  --success-light:     #d4f5e0;
+  --success-text:      #0e5c2e;
 
-  --danger:            #ef4444;
-  --danger-light:      #450a0a;
-  --danger-text:       #fecaca;
+  --danger:            #e53e3e;
+  --danger-light:      #ffe5e5;
+  --danger-text:       #c53030;
 
-  --warning:           #FFD166;
-  --warning-light:     #3d2e0a;
-  --warning-text:      #fde68a;
+  --warning:           #d69e2e;
+  --warning-light:     #fffaf0;
+  --warning-text:      #975a16;
 
-  --info:              #60a5fa;
-  --info-light:        #172554;
-  --info-text:         #bfdbfe;
+  --info:              #3182ce;
+  --info-light:        #e3f2fd;
+  --info-text:         #1a56a0;
 
-  --error-container:   #450a0a;
-  --on-secondary-container: #1e1b4b;
+  --error-container:   #ffe5e5;
+  --on-secondary-container: #1A2A25;
 
-  --text-primary:      #f8fafc;
-  --text-secondary:    #cbd5e1;
-  --text-muted:        #94a3b8;
-  --text-disabled:     #64748b;
-  --on-surface:        #f8fafc;
-  --on-surface-variant: #cbd5e1;
-  --outline:           #94a3b8;
-  --outline-variant:   #475569;
+  --text-primary:      #1A2A25;
+  --text-secondary:    #3d5a4e;
+  --text-muted:        #6b8a78;
+  --text-disabled:     #a0bca8;
+  --on-surface:        #1A2A25;
+  --on-surface-variant: #3d5a4e;
+  --outline:           #8ab89a;
+  --outline-variant:   #c5e0ce;
 
-  --border:            #3a2a20;
-  --border-light:      #4a382c;
+  --border:            #d8ece0;
+  --border-light:      #e8f5ec;
 
-  --shadow-xs:   0 1px 2px rgba(0,0,0,0.3);
-  --shadow-sm:   0 2px 8px rgba(0,0,0,0.4);
-  --shadow-md:   0 4px 16px rgba(0,0,0,0.5);
-  --shadow-lg:   0 8px 32px rgba(0,0,0,0.6);
-  --shadow-xl:   0 16px 48px rgba(0,0,0,0.7);
+  --shadow-xs:   0 1px 2px rgba(26,42,37,0.06);
+  --shadow-sm:   0 2px 8px rgba(26,42,37,0.08);
+  --shadow-md:   0 4px 16px rgba(26,42,37,0.1);
+  --shadow-lg:   0 8px 32px rgba(26,42,37,0.12);
+  --shadow-xl:   0 16px 48px rgba(26,42,37,0.15);
   --shadow-primary: 0 4px 20px var(--primary-glow);
-  --shadow-danger:  0 4px 20px rgba(239,68,68,0.25);
+  --shadow-danger:  0 4px 20px rgba(229,62,62,0.2);
   --shadow-accent:  0 4px 20px var(--accent-glow);
-  --shadow-editorial: 0 40px 60px -20px rgba(0,0,0,0.5);
+  --shadow-editorial: 0 40px 60px -20px rgba(26,42,37,0.08);
 
   --sidebar-w: 240px;
 
