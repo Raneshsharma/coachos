@@ -1101,7 +1101,7 @@ function ClientsView({
   if (profileClientId) {
     if (profileError) {
       return (
-        <div className="page-view">
+    <div className="page-view ai-coach-bg">
           <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
             <p style={{ color: "var(--danger)", fontFamily: "Inter, sans-serif", marginBottom: "1rem" }}>Error loading profile: {profileError}</p>
             <button className="btn-ghost" onClick={() => { setProfileClientId(null); setProfileError(null); }}>? Back to Clients</button>
