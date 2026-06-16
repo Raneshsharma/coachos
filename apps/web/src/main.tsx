@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState, useCallback } from "react";
+﻿import { FormEvent, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import type {
@@ -16,7 +16,7 @@ import { ClientCommandCenter } from "./ClientCommandCenter";
 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 type Dashboard = {
   activeClients: number; checkedInToday: number; dueRenewals: number;
-  revenueSnapshotGbp: number;
+  revenueSnapshotUsd: number;
   atRiskClients: Array<{ clientId: string; severity: "low"|"medium"|"high"; reasons: string[]; recommendedAction: string }>;
 };
 type CoachSession = { workspace: CoachWorkspace; coach: CoachUser; clients: ClientProfile[]; plans: ProgramPlan[]; subscriptions: PaymentSubscription[]; dashboard: Dashboard };
@@ -40,7 +40,7 @@ type Toast = {
 };
 type NavId = "dashboard"|"clients"|"calendar"|"habits"|"exercises"|"recipes"|"business"|"settings"|"ai";
 type CheckInWithDelta = CheckIn & { weightDelta: number | null; energyDelta: number | null; adherenceDelta: number | null };
-type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceGbp: number; status: "active"|"archived"|"upcoming"; createdAt: string };
+type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceUsd: number; status: "active"|"archived"|"upcoming"; createdAt: string };
 type NutritionSwap = { id: string; planId: string; originalFood: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string }; swapSuggestion: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; reasoning: string }; appliedAt: string | null };
 type SwapSuggestion = { original: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string }; suggestion: { name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; reasoning: string } | null };
 type Habit = { id: string; clientId: string; title: string; target: number; frequency: "daily"|"weekly"; createdAt: string };
@@ -139,7 +139,7 @@ function useToast() {
 function csvToRows(csv: string) {
   const [, ...lines] = csv.trim().split("\n");
   return lines.map(l => l.split(",")).filter(p => p.length >= 4)
-    .map(([name, email, goal, price]) => ({ name: name.trim(), email: email.trim(), goal: goal.trim(), monthlyPriceGbp: Number(price.trim()) }));
+    .map(([name, email, goal, price]) => ({ name: name.trim(), email: email.trim(), goal: goal.trim(), monthlyPriceUsd: Number(price.trim()) }));
 }
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -543,13 +543,15 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
   onAddClient: () => void;
 }) {
   const { dashboard, clients } = session;
-  const mrrGbp = session.subscriptions
+  const mrrUsd = session.subscriptions
     .filter(s => s.status === "active")
-    .reduce((sum, s) => sum + s.amountGbp, 0);
+    .reduce((sum, s) => sum + s.amountUsd, 0);
 
   const today = new Date();
   const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
   const dateStr = today.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+  const hour = today.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   const atRiskCount = dashboard.atRiskClients.length;
 
@@ -640,7 +642,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
       {/* â”€â”€ GREETING BANNER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="dash-greeting">
         <div className="dash-greeting-left">
-          <h1>Good morning, {session.coach.firstName}.</h1>
+          <h1>{greeting}, {session.coach.firstName}.</h1>
           <p>{dayName}, {dateStr} &middot; <span style={{ color: "var(--primary)", fontWeight: 600 }}>{totalClients} clients</span> on your roster</p>
           {atRiskCount > 0 && (
             <div className="dash-attention-badge">
@@ -690,7 +692,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
             </div>
             <div className="stat-chip">
               <span className="stat-chip-label">MRR</span>
-              <span className="stat-chip-value">Â£{mrrGbp.toLocaleString()}</span>
+              <span className="stat-chip-value">${mrrUsd.toLocaleString()}</span>
             </div>
             <div className="stat-chip">
               <span className="stat-chip-label">At-Risk</span>
@@ -828,7 +830,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                     </td>
                     <td style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem" }}>
                       {renewal}
-                      {sub && <span style={{ marginLeft: "0.25rem", color: "var(--text-muted)", fontSize: "0.7rem" }}>Â£{sub.amountGbp}</span>}
+                      {sub && <span style={{ marginLeft: "0.25rem", color: "var(--text-muted)", fontSize: "0.7rem" }}>${sub.amountUsd}</span>}
                     </td>
                     <td>
                       <button className="btn-icon btn-xs" onClick={(e) => { e.stopPropagation(); onSimulateCheckIn(c.id); }} title="Send nudge" style={{ background: "none" }}>
@@ -871,7 +873,7 @@ function AddClientModal({
     fullName: "",
     email: "",
     goal: "",
-    monthlyPriceGbp: "",
+    monthlyPriceUsd: "",
     nextRenewalDate: "",
     status: "trialing" as "active" | "at_risk" | "trialing",
   });
@@ -898,9 +900,9 @@ function AddClientModal({
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = "Enter a valid email address.";
     if (!form.goal.trim()) errs.goal = "Goal is required.";
     else if (form.goal.trim().length < 3) errs.goal = "Goal must be at least 3 characters.";
-    if (!form.monthlyPriceGbp) errs.monthlyPriceGbp = "Monthly price is required.";
-    else if (isNaN(Number(form.monthlyPriceGbp)) || Number(form.monthlyPriceGbp) < 0)
-      errs.monthlyPriceGbp = "Enter a valid price (0 or more).";
+    if (!form.monthlyPriceUsd) errs.monthlyPriceUsd = "Monthly price is required.";
+    else if (isNaN(Number(form.monthlyPriceUsd)) || Number(form.monthlyPriceUsd) < 0)
+      errs.monthlyPriceUsd = "Enter a valid price (0 or more).";
     return errs;
   };
 
@@ -918,7 +920,7 @@ function AddClientModal({
           fullName: form.fullName.trim(),
           email: form.email.trim().toLowerCase(),
           goal: form.goal.trim(),
-          monthlyPriceGbp: Number(form.monthlyPriceGbp),
+          monthlyPriceUsd: Number(form.monthlyPriceUsd),
           nextRenewalDate: form.nextRenewalDate || undefined,
           status: form.status,
         }),
@@ -1028,21 +1030,21 @@ function AddClientModal({
 
             {/* Monthly Price */}
             <div className="form-field">
-              {label("Monthly Price (GBP) *")}
+              {label("Monthly Price (USD) *")}
               <div className="input-prefix-wrap">
-                <span className="input-prefix">Â£</span>
+                <span className="input-prefix">$</span>
                 <input
                   id="ac-price"
-                  className={`form-input input-prefix-field${errors.monthlyPriceGbp ? " form-input--error" : ""}`}
+                  className={`form-input input-prefix-field${errors.monthlyPriceUsd ? " form-input--error" : ""}`}
                   type="number"
                   min="0"
                   step="1"
                   placeholder="149"
-                  value={form.monthlyPriceGbp}
-                  onChange={set("monthlyPriceGbp")}
+                  value={form.monthlyPriceUsd}
+                  onChange={set("monthlyPriceUsd")}
                 />
               </div>
-              {fieldError("monthlyPriceGbp")}
+              {fieldError("monthlyPriceUsd")}
             </div>
 
             {/* Next Renewal Date */}
@@ -1138,7 +1140,7 @@ function ClientsView({
     : 0;
   const mrr = session.subscriptions
     .filter(s => s.status === "active")
-    .reduce((s, sub) => s + sub.amountGbp, 0);
+    .reduce((s, sub) => s + sub.amountUsd, 0);
 
   const [profileClientId, setProfileClientId] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -1262,7 +1264,7 @@ function ClientsView({
                   </div>
                 </div>
                 <div style={{ fontFamily: "Inter, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)", textAlign: "right" }}>
-                  Â£{client.monthlyPriceGbp}<span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: "0.7rem" }}>/mo</span>
+                  ${client.monthlyPriceUsd}<span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: "0.7rem" }}>/mo</span>
                 </div>
               </div>
 
@@ -1315,7 +1317,7 @@ function ClientsView({
           <div style={{ display: "flex", gap: "3rem" }}>
             <div>
               <div className="stat-chip-label" style={{ marginBottom: "0.25rem" }}>Total Monthly Revenue</div>
-              <div className="stat-chip-value">Â£{mrr.toLocaleString()}</div>
+              <div className="stat-chip-value">${mrr.toLocaleString()}</div>
             </div>
             <div>
               <div className="stat-chip-label" style={{ marginBottom: "0.25rem" }}>Avg. Adherence</div>
@@ -1824,7 +1826,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
       setEditDraft({
         goal: clientPortal.client.goal,
         status: clientPortal.client.status,
-        monthlyPriceGbp: clientPortal.client.monthlyPriceGbp,
+        monthlyPriceUsd: clientPortal.client.monthlyPriceUsd,
         nextRenewalDate: clientPortal.client.nextRenewalDate
       });
     }
@@ -2869,12 +2871,12 @@ function BillingView({ session, onToggleBilling }: {
   onToggleBilling: (clientId: string, status: "active"|"past_due"|"cancelled") => Promise<void>;
 }) {
   const subs = session.subscriptions;
-  const mrrGbp = subs.filter(s => s.status === "active").reduce((sum, s) => sum + s.amountGbp, 0);
+  const mrrUsd = subs.filter(s => s.status === "active").reduce((sum, s) => sum + s.amountUsd, 0);
   const churnCount = subs.filter(s => s.status === "past_due").length;
   const trialingCount = subs.filter(s => s.status === "trialing").length;
 
   const vatRate = 0.20;
-  const totalTaxGbp = mrrGbp * vatRate;
+  const totalTaxUsd = mrrUsd * vatRate;
 
   return (
     <div className="page-view">
@@ -2885,11 +2887,11 @@ function BillingView({ session, onToggleBilling }: {
       <div className="stat-grid" style={{ marginBottom: "2rem" }}>
         <div className="stat-card stat-card--accent card-glass">
           <div className="stat-card__label">Monthly Recurring Revenue</div>
-          <div className="stat-card__value">Â£{mrrGbp}</div>
+          <div className="stat-card__value">${mrrUsd}</div>
         </div>
         <div className="stat-card card-glass" style={{ borderLeft: "3px solid var(--primary)" }}>
           <div className="stat-card__label">Est. VAT Collected (20%)</div>
-          <div className="stat-card__value">Â£{totalTaxGbp.toFixed(2)}</div>
+          <div className="stat-card__value">${totalTaxUsd.toFixed(2)}</div>
         </div>
         <div className="stat-card stat-card--danger card-glass">
           <div className="stat-card__label">Past Due</div>
@@ -2909,8 +2911,8 @@ function BillingView({ session, onToggleBilling }: {
         <div className="stack compact">
           {subs.map(sub => {
             const client = session.clients.find(c => c.id === sub.clientId);
-            const subVat = sub.amountGbp * vatRate;
-            const subNet = sub.amountGbp - subVat;
+            const subVat = sub.amountUsd * vatRate;
+            const subNet = sub.amountUsd - subVat;
             return (
               <div key={sub.id} className="row-line" style={{ background: "var(--surface-container-low)" }}>
                 <div className="inline">
@@ -2922,8 +2924,8 @@ function BillingView({ session, onToggleBilling }: {
                 </div>
                 <div className="inline" style={{ gap: "1.5rem" }}>
                   <div style={{ textAlign: "right", display: "flex", flexDirection: "column" }}>
-                    <span style={{ fontWeight: 700, color: "var(--on-surface)" }}>Â£{sub.amountGbp.toFixed(2)}/mo</span>
-                    <span className="muted text-xs">Net: Â£{subNet.toFixed(2)} + VAT: Â£{subVat.toFixed(2)}</span>
+                    <span style={{ fontWeight: 700, color: "var(--on-surface)" }}>${sub.amountUsd.toFixed(2)}/mo</span>
+                    <span className="muted text-xs">Net: ${subNet.toFixed(2)} + VAT: ${subVat.toFixed(2)}</span>
                   </div>
                   <span className={`pill ${sub.status === "past_due" ? "pill-danger" : sub.status === "trialing" ? "pill-warning" : "pill-success"}`}>
                     {sub.status}
@@ -2948,7 +2950,7 @@ function BillingView({ session, onToggleBilling }: {
 
 // â”€â”€ MIGRATION VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
-  const [csvRows, setCsvRows] = useState("Name,Email,Goal,MonthlyPriceGbp\nEmma Walker,emma@example.com,Drop 6kg before wedding,179\nNoah Reed,noah@example.com,Improve strength and reduce body fat,149");
+  const [csvRows, setCsvRows] = useState("Name,Email,Goal,MonthlyPriceUsd\nEmma Walker,emma@example.com,Drop 6kg before wedding,179\nNoah Reed,noah@example.com,Improve strength and reduce body fat,149");
   const [preview, setPreview] = useState<any>(null);
   const [restoreJson, setRestoreJson] = useState("");
   const [loading, setLoading] = useState<string|null>(null);
@@ -3051,19 +3053,27 @@ function SettingsView({ session, onSave }: {
     coachFirstName: coach.firstName,
     coachLastName: coach.lastName,
     coachEmail: coach.email,
+    coachGender: coach.gender as "male" | "female",
+    defaultDailyWater: 3,
+    defaultDailySteps: 10000,
+    defaultTrialDays: 14,
+    plan: "Starter" as "Starter" | "Pro" | "Elite",
   });
-  const [saving, setSaving] = useState(false);
+  const [savingWs, setSavingWs] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingDefaults, setSavingDefaults] = useState(false);
 
-  const mrrGbp = subscriptions
+  const mrrUsd = subscriptions
     .filter(s => s.status === "active")
-    .reduce((sum, s) => sum + s.amountGbp, 0);
+    .reduce((sum, s) => sum + s.amountUsd, 0);
 
   const activeSubs = subscriptions.filter(s => s.status === "active").length;
   const trialSubs = subscriptions.filter(s => s.status === "trialing").length;
+  const churnRisk = session.dashboard.atRiskClients.length;
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSaveWorkspace = async (e: FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSavingWs(true);
     try {
       await onSave({
         name: draft.name,
@@ -3072,102 +3082,207 @@ function SettingsView({ session, onSave }: {
         heroMessage: draft.heroMessage,
         stripeConnected: draft.stripeConnected,
       });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSavingWs(false); }
+  };
+
+  const handleSaveProfile = async (e: FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      await onSave({
+        coachFirstName: draft.coachFirstName,
+        coachLastName: draft.coachLastName,
+        coachEmail: draft.coachEmail,
+        coachGender: draft.coachGender,
+      });
+    } finally { setSavingProfile(false); }
+  };
+
+  const handleSaveDefaults = async (e: FormEvent) => {
+    e.preventDefault();
+    setSavingDefaults(true);
+    try {
+      await onSave({
+        defaultDailyWater: draft.defaultDailyWater,
+        defaultDailySteps: draft.defaultDailySteps,
+        defaultTrialDays: draft.defaultTrialDays,
+      });
+    } finally { setSavingDefaults(false); }
   };
 
   return (
     <div className="page-view">
       <p className="eyebrow">Settings</p>
       <h1 className="page-title">Workspace & Profile</h1>
-      <p className="page-subtitle">Manage your brand, coach profile, and subscription info.</p>
+      <p className="page-subtitle">Manage your brand, coach profile, client defaults, and subscription info.</p>
 
-      <div className="content-grid">
-        <div className="panel">
-          <div className="panel-header">
-            <div>
-              <h2 className="panel-title">Workspace Settings</h2>
-              <p className="panel-body-text">Brand identity and messaging.</p>
-            </div>
-          </div>
-          <form className="stack" onSubmit={handleSubmit}>
-            <label>
-              Workspace name
-              <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
-            </label>
-            <label>
-              Hero message
-              <textarea value={draft.heroMessage} onChange={e => setDraft(d => ({ ...d, heroMessage: e.target.value }))} />
-            </label>
-            <div className="two-col">
-              <label>
-                Brand color
-                <input type="color" value={draft.brandColor} onChange={e => setDraft(d => ({ ...d, brandColor: e.target.value }))} style={{ padding: '0.25rem 0.5rem', height: '2.5rem' }} />
-              </label>
-              <label>
-                Accent color
-                <input type="color" value={draft.accentColor} onChange={e => setDraft(d => ({ ...d, accentColor: e.target.value }))} style={{ padding: '0.25rem 0.5rem', height: '2.5rem' }} />
-              </label>
-            </div>
-            <label className="toggle">
-              <input type="checkbox" checked={draft.stripeConnected} onChange={e => setDraft(d => ({ ...d, stripeConnected: e.target.checked }))} />
-              Stripe connected (GBP)
-            </label>
-            <div>
-              <button type="submit" disabled={saving} className="btn-primary">
-                {saving ? "Saving..." : "Save Workspace"}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <div className="panel">
-          <div className="panel-header">
-            <div>
-              <h2 className="panel-title">Coach Profile</h2>
-              <p className="panel-body-text">Your personal info shown to clients.</p>
-            </div>
-          </div>
-          <div className="stack">
-            <label>
-              First name
-              <input value={draft.coachFirstName} onChange={e => setDraft(d => ({ ...d, coachFirstName: e.target.value }))} />
-            </label>
-            <label>
-              Last name
-              <input value={draft.coachLastName} onChange={e => setDraft(d => ({ ...d, coachLastName: e.target.value }))} />
-            </label>
-            <label>
-              Email
-              <input value={draft.coachEmail} onChange={e => setDraft(d => ({ ...d, coachEmail: e.target.value }))} type="email" />
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div className="panel" style={{ maxWidth: '640px' }}>
+      {/* ── WORKSPACE ─────────────────────────── */}
+      <div className="panel">
         <div className="panel-header">
           <div>
-            <h2 className="panel-title">Subscription Overview</h2>
-            <p className="panel-body-text">Your workspace plan and current client subscriptions.</p>
+            <h2 className="panel-title">Workspace</h2>
+            <p className="panel-body-text">Brand identity and messaging.</p>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
-          <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-lg)', padding: '1rem', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: 'var(--primary)' }}>&pound;{mrrGbp}</div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)', marginTop: '0.2rem' }}>Monthly Revenue</div>
+        <form className="stack" onSubmit={handleSaveWorkspace}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <label>
+              Name
+              <input className="input" value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
+            </label>
+            <label>
+              Hero Message
+              <input className="input" value={draft.heroMessage} onChange={e => setDraft(d => ({ ...d, heroMessage: e.target.value }))} />
+            </label>
           </div>
-          <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-lg)', padding: '1rem', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: 'var(--primary)' }}>{activeSubs}</div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)', marginTop: '0.2rem' }}>Active Clients</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", alignItems: "end" }}>
+            <label>
+              Brand Color
+              <input type="color" value={draft.brandColor} onChange={e => setDraft(d => ({ ...d, brandColor: e.target.value }))} style={{ padding: '0.25rem 0.5rem', height: '2.5rem' }} />
+            </label>
+            <label>
+              Accent
+              <input type="color" value={draft.accentColor} onChange={e => setDraft(d => ({ ...d, accentColor: e.target.value }))} style={{ padding: '0.25rem 0.5rem', height: '2.5rem' }} />
+            </label>
+            <label>
+              Stripe Connected
+              <input className="input" value={draft.stripeConnected ? "Enabled" : "Disabled"} readOnly onClick={() => setDraft(d => ({ ...d, stripeConnected: !d.stripeConnected }))} style={{ cursor: "pointer", color: draft.stripeConnected ? "var(--success)" : "var(--text-muted)", fontWeight: 600 }} />
+            </label>
           </div>
-          <div style={{ background: 'var(--surface-container-low)', borderRadius: 'var(--r-lg)', padding: '1rem', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.4rem', color: trialSubs > 0 ? 'var(--warning)' : 'var(--outline)' }}>{trialSubs}</div>
-            <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', color: 'var(--outline)', marginTop: '0.2rem' }}>Trialing</div>
+          <div>
+            <button type="submit" disabled={savingWs} className="btn-primary">
+              {savingWs ? "Saving..." : "Save Workspace"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* ── COACH PROFILE ────────────────────── */}
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <h2 className="panel-title">Coach Profile</h2>
+            <p className="panel-body-text">Your personal info shown to clients.</p>
           </div>
         </div>
-        <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.78rem', color: 'var(--outline)' }}>
+        <form className="stack" onSubmit={handleSaveProfile}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <label>
+              First Name
+              <input className="input" value={draft.coachFirstName} onChange={e => setDraft(d => ({ ...d, coachFirstName: e.target.value }))} />
+            </label>
+            <label>
+              Last Name
+              <input className="input" value={draft.coachLastName} onChange={e => setDraft(d => ({ ...d, coachLastName: e.target.value }))} />
+            </label>
+          </div>
+          <label>
+            Email
+            <input className="input" value={draft.coachEmail} onChange={e => setDraft(d => ({ ...d, coachEmail: e.target.value }))} type="email" />
+          </label>
+          <div>
+            <span style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-primary)" }}>Gender</span>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                type="button"
+                className={draft.coachGender === "male" ? "btn-primary" : "btn-ghost"}
+                style={{ flex: 1 }}
+                onClick={() => setDraft(d => ({ ...d, coachGender: "male" }))}
+              >
+                Male
+              </button>
+              <button
+                type="button"
+                className={draft.coachGender === "female" ? "btn-primary" : "btn-ghost"}
+                style={{ flex: 1 }}
+                onClick={() => setDraft(d => ({ ...d, coachGender: "female" }))}
+              >
+                Female
+              </button>
+            </div>
+          </div>
+          <div>
+            <button type="submit" disabled={savingProfile} className="btn-primary">
+              {savingProfile ? "Saving..." : "Save Profile"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* ── CLIENT DEFAULTS ──────────────────── */}
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <h2 className="panel-title">Client Defaults</h2>
+            <p className="panel-body-text">Default values applied to new clients.</p>
+          </div>
+        </div>
+        <form className="stack" onSubmit={handleSaveDefaults}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" }}>
+            <label>
+              Default Daily Water (L)
+              <input className="input" type="number" min={1} max={10} value={draft.defaultDailyWater} onChange={e => setDraft(d => ({ ...d, defaultDailyWater: parseInt(e.target.value) || 3 }))} />
+            </label>
+            <label>
+              Default Daily Steps
+              <input className="input" type="number" min={1000} max={50000} step={1000} value={draft.defaultDailySteps} onChange={e => setDraft(d => ({ ...d, defaultDailySteps: parseInt(e.target.value) || 10000 }))} />
+            </label>
+            <label>
+              Default Trial Days
+              <input className="input" type="number" min={3} max={90} value={draft.defaultTrialDays} onChange={e => setDraft(d => ({ ...d, defaultTrialDays: parseInt(e.target.value) || 14 }))} />
+            </label>
+          </div>
+          <div>
+            <button type="submit" disabled={savingDefaults} className="btn-primary">
+              {savingDefaults ? "Saving..." : "Save Defaults"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* ── SUBSCRIPTION ─────────────────────── */}
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <h2 className="panel-title">Subscription</h2>
+            <p className="panel-body-text">Your plan and workspace metrics.</p>
+          </div>
+        </div>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <span style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-primary)" }}>Plan</span>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            {(["Starter", "Pro", "Elite"] as const).map(plan => (
+              <button
+                key={plan}
+                type="button"
+                className={draft.plan === plan ? "btn-primary" : "btn-ghost"}
+                style={{ flex: 1 }}
+                onClick={() => setDraft(d => ({ ...d, plan }))}
+              >
+                {plan}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+          <div style={{ background: "var(--surface-container-low)", borderRadius: "var(--r-lg)", padding: "1rem", textAlign: "center" }}>
+            <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.3rem", color: "var(--primary)" }}>{activeSubs}</div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)", marginTop: "0.2rem" }}>Active Clients</div>
+          </div>
+          <div style={{ background: "var(--surface-container-low)", borderRadius: "var(--r-lg)", padding: "1rem", textAlign: "center" }}>
+            <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.3rem", color: "var(--primary)" }}>&pound;{mrrUsd.toLocaleString()}</div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)", marginTop: "0.2rem" }}>MRR</div>
+          </div>
+          <div style={{ background: "var(--surface-container-low)", borderRadius: "var(--r-lg)", padding: "1rem", textAlign: "center" }}>
+            <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.3rem", color: trialSubs > 0 ? "var(--warning)" : "var(--outline)" }}>{trialSubs}</div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)", marginTop: "0.2rem" }}>Trial Clients</div>
+          </div>
+          <div style={{ background: "var(--surface-container-low)", borderRadius: "var(--r-lg)", padding: "1rem", textAlign: "center" }}>
+            <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.3rem", color: churnRisk > 0 ? "var(--danger)" : "var(--outline)" }}>{churnRisk}</div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)", marginTop: "0.2rem" }}>Churn Risk</div>
+          </div>
+        </div>
+        <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.78rem", color: "var(--outline)", marginTop: "1rem" }}>
           Parallel run days left: <strong>{workspace.parallelRunDaysLeft}</strong>
         </p>
       </div>
@@ -3695,11 +3810,11 @@ function GroupsView({ session, onCreate, onUpdate, onArchive }: {
           </div>
           <div className="program-stat">
             <span className="program-stat-label">Price/mo</span>
-            <span className="program-stat-value">Â£{program.monthlyPriceGbp}</span>
+            <span className="program-stat-value">${program.monthlyPriceUsd}</span>
           </div>
           <div className="program-stat">
             <span className="program-stat-label">Revenue/mo</span>
-            <span className="program-stat-value">Â£{program.monthlyPriceGbp * program.memberIds.length}</span>
+            <span className="program-stat-value">${program.monthlyPriceUsd * program.memberIds.length}</span>
           </div>
         </div>
       </div>
@@ -3787,7 +3902,7 @@ function CreateProgramModal({ clients, onSave, onClose }: {
       goal,
       description,
       memberIds: selected,
-      monthlyPriceGbp: price,
+      monthlyPriceUsd: price,
       status: "active",
       createdAt: new Date().toISOString(),
     });
@@ -3803,7 +3918,7 @@ function CreateProgramModal({ clients, onSave, onClose }: {
           <label>Program title<input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Summer Fat-Loss Sprint" /></label>
           <label>Goal<input value={goal} onChange={e => setGoal(e.target.value)} placeholder="e.g. Lose 4kg before summer" /></label>
           <label>Description<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description of the programme..." /></label>
-          <label>Monthly price (Â£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
+          <label>Monthly price ($)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
           <div>
             <label style={{ marginBottom: "0.5rem" }}>Assign clients</label>
             <div className="member-select-list">
@@ -3837,7 +3952,7 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
   const [title, setTitle] = useState(program.title);
   const [goal, setGoal] = useState(program.goal);
   const [description, setDescription] = useState(program.description);
-  const [price, setPrice] = useState(program.monthlyPriceGbp);
+  const [price, setPrice] = useState(program.monthlyPriceUsd);
   const [selected, setSelected] = useState<string[]>(program.memberIds);
 
   const toggle = (id: string) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -3851,7 +3966,7 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
           <label>Program title<input value={title} onChange={e => setTitle(e.target.value)} /></label>
           <label>Goal<input value={goal} onChange={e => setGoal(e.target.value)} /></label>
           <label>Description<textarea value={description} onChange={e => setDescription(e.target.value)} /></label>
-          <label>Monthly price (Â£)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
+          <label>Monthly price ($)<input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} /></label>
           <div>
             <label style={{ marginBottom: "0.5rem" }}>Members</label>
             <div className="member-select-list">
@@ -3870,7 +3985,7 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
           <button className="danger" onClick={onArchive}>Archive Program</button>
           <div className="inline">
             <button className="secondary" onClick={onClose}>Cancel</button>
-            <button onClick={() => onSave({ title, goal, description, memberIds: selected, monthlyPriceGbp: price })}>Save Changes</button>
+            <button onClick={() => onSave({ title, goal, description, memberIds: selected, monthlyPriceUsd: price })}>Save Changes</button>
           </div>
         </div>
       </div>
@@ -4581,8 +4696,8 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   const b = parseInt(brandColor.slice(4, 6), 16);
 
   const vatRate = 0.20;
-  const netAmount = subscription.amountGbp / (1 + vatRate);
-  const vatAmount = subscription.amountGbp - netAmount;
+  const netAmount = subscription.amountUsd / (1 + vatRate);
+  const vatAmount = subscription.amountUsd - netAmount;
   const invoiceNumber = `INV-${new Date().toISOString().slice(0, 7).replace("-", "")}-${client.id}`;
   const today = new Date().toLocaleDateString("en-GB");
 
@@ -4643,8 +4758,8 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setTextColor(40, 40, 40);
   doc.text("Coaching Services â€” Monthly Subscription", 22, y);
   doc.text("1", 123, y);
-  doc.text(`Â£${netAmount.toFixed(2)}`, 140, y);
-  doc.text(`Â£${vatAmount.toFixed(2)}`, 160, y);
+  doc.text(`$${netAmount.toFixed(2)}`, 140, y);
+  doc.text(`$${vatAmount.toFixed(2)}`, 160, y);
 
   // Divider
   y += 6;
@@ -4661,14 +4776,14 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFontSize(10);
   doc.text("TOTAL (inc. VAT)", 133, y + 2);
   doc.setFontSize(12);
-  doc.text(`Â£${subscription.amountGbp.toFixed(2)}`, 160, y + 3);
+  doc.text(`$${subscription.amountUsd.toFixed(2)}`, 160, y + 3);
 
   // VAT summary
   y += 16;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Net amount: Â£${netAmount.toFixed(2)}    VAT rate: 20%    VAT: Â£${vatAmount.toFixed(2)}    Gross: Â£${subscription.amountGbp.toFixed(2)}`, 20, y);
+  doc.text(`Net amount: $${netAmount.toFixed(2)}    VAT rate: 20%    VAT: $${vatAmount.toFixed(2)}    Gross: $${subscription.amountUsd.toFixed(2)}`, 20, y);
 
   // Footer
   doc.setTextColor(150, 150, 150);
@@ -4724,18 +4839,18 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
 
   for (const sub of subscriptions) {
     const client = clients.find(c => c.id === sub.clientId);
-    const net = sub.amountGbp / (1 + vatRate);
-    const vat = sub.amountGbp - net;
-    totalNet += net; totalVat += vat; totalGross += sub.amountGbp;
+    const net = sub.amountUsd / (1 + vatRate);
+    const vat = sub.amountUsd - net;
+    totalNet += net; totalVat += vat; totalGross += sub.amountUsd;
 
     doc.setTextColor(40, 40, 40);
     doc.text(client?.fullName ?? sub.clientId, 22, y);
     doc.setTextColor(sub.status === "active" ? 58 : 255, sub.status === "active" ? 180 : 115, sub.status === "active" ? 80 : 81);
     doc.text(sub.status.toUpperCase(), 80, y);
     doc.setTextColor(40, 40, 40);
-    doc.text(`Â£${net.toFixed(2)}`, 110, y);
-    doc.text(`Â£${vat.toFixed(2)}`, 130, y);
-    doc.text(`Â£${sub.amountGbp.toFixed(2)}`, 155, y);
+    doc.text(`$${net.toFixed(2)}`, 110, y);
+    doc.text(`$${vat.toFixed(2)}`, 130, y);
+    doc.text(`$${sub.amountUsd.toFixed(2)}`, 155, y);
 
     y += 7;
     if (y > 270) { doc.addPage(); y = 20; }
@@ -4753,9 +4868,9 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text("TOTALS", 108, y + 1);
-  doc.text(`Â£${totalNet.toFixed(2)}`, 110, y + 1);
-  doc.text(`Â£${totalVat.toFixed(2)}`, 130, y + 1);
-  doc.text(`Â£${totalGross.toFixed(2)}`, 155, y + 1);
+  doc.text(`$${totalNet.toFixed(2)}`, 110, y + 1);
+  doc.text(`$${totalVat.toFixed(2)}`, 130, y + 1);
+  doc.text(`$${totalGross.toFixed(2)}`, 155, y + 1);
 
   doc.setDocumentProperties({ title: `Tax Report ${today}`, author: workspace.name });
   doc.save(`tax-report-${today}.pdf`);

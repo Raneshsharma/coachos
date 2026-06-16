@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cloudflare Workers API — backed by Supabase PostgreSQL.
  * All routes mirror the original in-memory API so the frontend is unchanged.
  */
@@ -29,7 +29,7 @@ interface ClientProfile {
   email: string;
   status: "active" | "at_risk" | "trial";
   adherenceScore: number;
-  monthlyPriceGbp: number;
+  monthlyPriceUsd: number;
   nextRenewalDate: string;
   goal: string;
   startDate: string;
@@ -63,7 +63,7 @@ interface PaymentSubscription {
   id: string;
   clientId: string;
   status: "active" | "past_due" | "cancelled" | "trialing";
-  amountGbp: number;
+  amountUsd: number;
   renewalDate: string;
 }
 
@@ -97,7 +97,7 @@ function mapClient(row: Record<string, unknown>): ClientProfile {
     email: row.email as string,
     status,
     adherenceScore: row.adherence_score as number,
-    monthlyPriceGbp: row.monthly_price_gbp as number,
+    monthlyPriceUsd: row.monthly_price_usd as number,
     nextRenewalDate: (row.next_renewal_date as string) ?? "",
     goal: (row.goal as string) ?? "",
     startDate: (row.start_date as string) ?? "",
@@ -157,7 +157,7 @@ function mapSubscription(row: Record<string, unknown>): PaymentSubscription {
     id: row.id as string,
     clientId: row.client_id as string,
     status: subStatus,
-    amountGbp: row.amount_gbp as number,
+    amountUsd: row.amount_usd as number,
     renewalDate: (row.renewal_date as string) ?? "",
   };
 }
@@ -220,7 +220,7 @@ async function updateClient(id: string, patch: Partial<ClientProfile>) {
   if (patch.email !== undefined) updates.email = patch.email;
   if (patch.status !== undefined) updates.status = patch.status === "trial" ? "trialing" : patch.status;
   if (patch.adherenceScore !== undefined) updates.adherence_score = patch.adherenceScore;
-  if (patch.monthlyPriceGbp !== undefined) updates.monthly_price_gbp = patch.monthlyPriceGbp;
+  if (patch.monthlyPriceUsd !== undefined) updates.monthly_price_usd = patch.monthlyPriceUsd;
   if (patch.nextRenewalDate !== undefined) updates.next_renewal_date = patch.nextRenewalDate;
   if (patch.goal !== undefined) updates.goal = patch.goal;
   if (patch.healthConditions !== undefined) updates.health_conditions = patch.healthConditions;
@@ -241,7 +241,7 @@ async function createClient(body: {
   fullName: string;
   email: string;
   goal: string;
-  monthlyPriceGbp: number;
+  monthlyPriceUsd: number;
   nextRenewalDate: string;
   status: ClientProfile["status"];
 }) {
@@ -254,7 +254,7 @@ async function createClient(body: {
       full_name: body.fullName,
       email: body.email,
       goal: body.goal,
-      monthly_price_gbp: body.monthlyPriceGbp,
+      monthly_price_usd: body.monthlyPriceUsd,
       next_renewal_date: body.nextRenewalDate,
       status: body.status === "trial" ? "trialing" : body.status,
       adherence_score: 0,
@@ -268,7 +268,7 @@ async function createClient(body: {
   await getSupabase().from("subscriptions").insert({
     client_id: data.id,
     status: "active",
-    amount_gbp: body.monthlyPriceGbp,
+    amount_usd: body.monthlyPriceUsd,
     renewal_date: body.nextRenewalDate,
   });
 
@@ -433,9 +433,9 @@ async function getMorningDashboard() {
     activeClients: clients.filter((c) => c.status === "active").length,
     checkedInToday,
     dueRenewals: (subs ?? []).filter((s) => s.status === "past_due").length,
-    revenueSnapshotGbp: (subs ?? [])
+    revenueSnapshotUsd: (subs ?? [])
       .filter((s) => s.status === "active")
-      .reduce((sum, s) => sum + (s.amount_gbp ?? 0), 0),
+      .reduce((sum, s) => sum + (s.amount_usd ?? 0), 0),
     atRiskClients: atRisk.map((c) => ({
       clientId: c.id,
       severity: c.adherenceScore < 40 ? ("high" as const) : ("medium" as const),
@@ -450,7 +450,7 @@ async function getBillingSummary() {
   const active = (subs ?? []).filter((s) => s.status === "active");
   const pastDue = (subs ?? []).filter((s) => s.status === "past_due");
   return {
-    mrrGbp: active.reduce((sum, s) => sum + (s.amount_gbp ?? 0), 0),
+    mrrUsd: active.reduce((sum, s) => sum + (s.amount_usd ?? 0), 0),
     activeSubscriptions: active.length,
     churnRiskCount: pastDue.length,
     subscriptions: (subs ?? []).map(mapSubscription),
@@ -633,7 +633,7 @@ async function generateProofCard(clientId: string) {
   ];
   if (weightDelta != null) stats.push({ label: "Weight change", value: `${weightDelta > 0 ? "+" : ""}${weightDelta.toFixed(1)}kg` });
   if (client.nutritionCalories != null) stats.push({ label: "Calorie target", value: `${client.nutritionCalories} kcal` });
-  stats.push({ label: "Monthly value", value: `GBP ${client.monthlyPriceGbp}` });
+  stats.push({ label: "Monthly value", value: `USD ${client.monthlyPriceUsd}` });
   if (client.nextRenewalDate) stats.push({ label: "Next review", value: client.nextRenewalDate });
 
   return { clientId, headline, body, stats };
@@ -641,13 +641,13 @@ async function generateProofCard(clientId: string) {
 
 async function updateGroupProgram(programId: string, patch: {
   name?: string; description?: string; goal?: string;
-  monthlyPriceGbp?: number; memberIds?: string[];
+  monthlyPriceUsd?: number; memberIds?: string[];
 }) {
   const updates: Record<string, unknown> = {};
   if (patch.name !== undefined) updates.name = patch.name;
   if (patch.description !== undefined) updates.description = patch.description;
   if (patch.goal !== undefined) updates.goal = patch.goal;
-  if (patch.monthlyPriceGbp !== undefined) updates.monthly_price_gbp = patch.monthlyPriceGbp;
+  if (patch.monthlyPriceUsd !== undefined) updates.monthly_price_usd = patch.monthlyPriceUsd;
   if (patch.memberIds !== undefined) updates.member_ids = patch.memberIds;
   if (Object.keys(updates).length === 0) return null;
   const { data, error } = await getSupabase()
@@ -664,7 +664,7 @@ async function updateGroupProgram(programId: string, patch: {
     description: data.description ?? "",
     goal: data.goal ?? "",
     memberIds: data.member_ids ?? [],
-    monthlyPriceGbp: data.monthly_price_gbp ?? 0,
+    monthlyPriceUsd: data.monthly_price_usd ?? 0,
     status: data.archived ? "archived" : "active",
     createdAt: data.created_at,
   };
@@ -839,14 +839,14 @@ app.post("/api/clients", async (c) => {
   if (!body.email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email))
     return c.json({ message: "A valid email is required." }, 400);
   if (!body.goal?.trim()) return c.json({ message: "Goal is required." }, 400);
-  if (body.monthlyPriceGbp == null || body.monthlyPriceGbp < 0)
+  if (body.monthlyPriceUsd == null || body.monthlyPriceUsd < 0)
     return c.json({ message: "Monthly price must be a non-negative number." }, 400);
 
   const result = await createClient({
     fullName: body.fullName.trim(),
     email: body.email.trim().toLowerCase(),
     goal: body.goal.trim(),
-    monthlyPriceGbp: Number(body.monthlyPriceGbp),
+    monthlyPriceUsd: Number(body.monthlyPriceUsd),
     nextRenewalDate: body.nextRenewalDate ?? new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10),
     status: (body.status === "trial" ? "trialing" : body.status) as "active" | "at_risk" | "trial",
   });
@@ -1103,7 +1103,7 @@ app.patch("/api/group-programs/:programId", async (c) => {
     name: body.name,
     description: body.description,
     goal: body.goal,
-    monthlyPriceGbp: body.monthlyPriceGbp,
+    monthlyPriceUsd: body.monthlyPriceUsd,
     memberIds: body.memberIds,
   });
   return result ? c.json(result) : c.json({ message: "Failed to update program." }, 404);
@@ -1371,7 +1371,7 @@ app.post("/api/ai/agent", async (c) => {
     water_target_L: cl.dailyWaterTarget,
     steps_target: cl.dailyStepsTarget,
     tags: cl.tags,
-    monthly_price_gbp: cl.monthlyPriceGbp,
+    monthly_price_usd: cl.monthlyPriceUsd,
     next_renewal_date: cl.nextRenewalDate,
   }));
 
@@ -1509,7 +1509,7 @@ If no data changes are needed, return empty actions array [].`;
           fat: "nutritionFatG", fat_target: "nutritionFatG",
           carbs: "nutritionCarbsG", carb_target: "nutritionCarbsG",
           full_name: "fullName", supplements: "supplements", health_conditions: "healthConditions",
-          monthly_price: "monthlyPriceGbp", price: "monthlyPriceGbp", monthly_price_gbp: "monthlyPriceGbp",
+          monthly_price: "monthlyPriceUsd", price: "monthlyPriceUsd", monthly_price_usd: "monthlyPriceUsd",
           coach_note: "nutritionCoachNote", nutrition_note: "nutritionCoachNote",
         };
         const camelKey = mapped[key] || key;

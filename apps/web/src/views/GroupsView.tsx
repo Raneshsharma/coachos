@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import type { ClientProfile } from "@coachos/domain";
 import { fetchJson } from "../main";
 
-type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceGbp: number; status: "active"|"archived"|"upcoming"; createdAt: string };
+type GroupProgram = { id: string; coachId: string; title: string; description: string; goal: string; memberIds: string[]; monthlyPriceUsd: number; status: "active"|"archived"|"upcoming"; createdAt: string };
 
 // ── Avatar helper ─────────────────────
 function Avatar({ name }: { name: string }) {
@@ -39,7 +39,7 @@ function CreateProgramModal({ clients, onSave, onClose }: {
       goal,
       description,
       memberIds: selected,
-      monthlyPriceGbp: price,
+      monthlyPriceUsd: price,
       status: "active",
       createdAt: new Date().toISOString(),
     });
@@ -65,7 +65,7 @@ function CreateProgramModal({ clients, onSave, onClose }: {
             <textarea className="form-input form-textarea" value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description of the programme..." rows={2} />
           </label>
           <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.35rem" }}>
-            Monthly price (£)
+            Monthly price ($)
             <input className="form-input" type="number" value={price} onChange={e => setPrice(Number(e.target.value))} />
           </label>
           <div>
@@ -102,7 +102,7 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
   const [title, setTitle] = useState(program.title);
   const [goal, setGoal] = useState(program.goal);
   const [description, setDescription] = useState(program.description);
-  const [price, setPrice] = useState(program.monthlyPriceGbp);
+  const [price, setPrice] = useState(program.monthlyPriceUsd);
   const [selected, setSelected] = useState<string[]>(program.memberIds);
 
   const toggle = (id: string) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -126,7 +126,7 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
             <textarea className="form-input form-textarea" value={description} onChange={e => setDescription(e.target.value)} rows={2} />
           </label>
           <label style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.35rem" }}>
-            Monthly price (£)
+            Monthly price ($)
             <input className="form-input" type="number" value={price} onChange={e => setPrice(Number(e.target.value))} />
           </label>
           <div>
@@ -147,7 +147,7 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
           <button className="danger" onClick={onArchive}>Archive Program</button>
           <div className="inline">
             <button className="secondary" onClick={onClose}>Cancel</button>
-            <button onClick={() => onSave({ title, goal, description, memberIds: selected, monthlyPriceGbp: price })} className="btn-primary">Save Changes</button>
+            <button onClick={() => onSave({ title, goal, description, memberIds: selected, monthlyPriceUsd: price })} className="btn-primary">Save Changes</button>
           </div>
         </div>
       </div>
@@ -232,11 +232,11 @@ export function GroupsView({ session, onCreate, onUpdate, onArchive }: {
           </div>
           <div className="program-stat">
             <span className="program-stat-label">Price/mo</span>
-            <span className="program-stat-value">£{program.monthlyPriceGbp}</span>
+            <span className="program-stat-value">${program.monthlyPriceUsd}</span>
           </div>
           <div className="program-stat">
             <span className="program-stat-label">Revenue/mo</span>
-            <span className="program-stat-value">£{program.monthlyPriceGbp * program.memberIds.length}</span>
+            <span className="program-stat-value">${program.monthlyPriceUsd * program.memberIds.length}</span>
           </div>
         </div>
       </div>

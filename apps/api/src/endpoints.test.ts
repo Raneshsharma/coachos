@@ -1,4 +1,4 @@
-import request from "supertest";
+﻿import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { DemoStore } from "./store";
@@ -15,7 +15,7 @@ describe("POST /api/clients", () => {
       status: "active",
       adherenceScore: 70,
       currentPlanId: null,
-      monthlyPriceGbp: 149,
+      monthlyPriceUsd: 149,
       nextRenewalDate: "2026-05-01",
       lastCheckInDate: null
     });
@@ -47,7 +47,7 @@ describe("POST /api/clients", () => {
       status: "active",
       adherenceScore: 70,
       currentPlanId: null,
-      monthlyPriceGbp: 149,
+      monthlyPriceUsd: 149,
       nextRenewalDate: "2026-05-01",
       lastCheckInDate: null
     });

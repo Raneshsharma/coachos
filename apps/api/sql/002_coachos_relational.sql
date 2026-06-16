@@ -1,4 +1,4 @@
-create table if not exists coachos_workspace (
+﻿create table if not exists coachos_workspace (
   id text primary key,
   name text not null,
   brand_color text not null,
@@ -25,7 +25,7 @@ create table if not exists coachos_client_profile (
   status text not null,
   adherence_score integer not null,
   current_plan_id text null,
-  monthly_price_gbp numeric not null,
+  monthly_price_usd numeric not null,
   next_renewal_date text not null,
   last_checkin_date text null,
   health_conditions jsonb not null default '[]',
@@ -84,7 +84,7 @@ create table if not exists coachos_subscription (
   id text primary key,
   client_id text not null references coachos_client_profile(id) on delete cascade,
   status text not null,
-  amount_gbp numeric not null,
+  amount_usd numeric not null,
   renewal_date text not null
 );
 

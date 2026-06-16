@@ -1,4 +1,4 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -38,7 +38,7 @@ describe("DemoStore persistence", () => {
     const firstStore = await DemoStore.create(repository);
 
     await firstStore.commitImport([
-      { name: "Persisted Client", email: "persisted@example.com", goal: "Keep state across restarts", monthlyPriceGbp: 199 }
+      { name: "Persisted Client", email: "persisted@example.com", goal: "Keep state across restarts", monthlyPriceUsd: 199 }
     ]);
     await firstStore.updateBilling("client_2", "active");
 
@@ -91,7 +91,7 @@ describe("DemoStore persistence", () => {
             id: `billing_${client.id}`,
             clientId: client.id,
             status: "trialing",
-            amountGbp: client.monthlyPriceGbp + 1,
+            amountUsd: client.monthlyPriceUsd + 1,
             renewalDate: client.nextRenewalDate
           };
         },
@@ -103,7 +103,7 @@ describe("DemoStore persistence", () => {
         summarize(subscriptions) {
           return {
             subscriptions,
-            mrrGbp: 999,
+            mrrUsd: 999,
             churnRiskCount: 7
           };
         }
@@ -116,7 +116,7 @@ describe("DemoStore persistence", () => {
 
     expect(generated?.title).toBe("Custom generated plan");
     expect(store.getRuntimeInfo().services.planGeneration).toBe("test-planner");
-    expect(billing.mrrGbp).toBe(999);
+    expect(billing.mrrUsd).toBe(999);
   });
 });
 

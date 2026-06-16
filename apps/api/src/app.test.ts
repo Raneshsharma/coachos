@@ -1,4 +1,4 @@
-import request from "supertest";
+﻿import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { DemoStore } from "./store";
@@ -11,7 +11,7 @@ describe("CoachOS API", () => {
       .post("/api/import/commit")
       .send({
         rows: [
-          { name: "Emma Walker", email: "emma@example.com", goal: "Drop 6kg before wedding", monthlyPriceGbp: 179 }
+          { name: "Emma Walker", email: "emma@example.com", goal: "Drop 6kg before wedding", monthlyPriceUsd: 179 }
         ]
       });
 
@@ -99,17 +99,17 @@ describe("CoachOS API", () => {
       .send({
         goal: "Cut 5kg while keeping squat strength",
         status: "at_risk",
-        monthlyPriceGbp: 219,
+        monthlyPriceUsd: 219,
         nextRenewalDate: "2026-04-21"
       });
 
     expect(updated.status).toBe(200);
     expect(updated.body.goal).toContain("squat strength");
-    expect(updated.body.monthlyPriceGbp).toBe(219);
+    expect(updated.body.monthlyPriceUsd).toBe(219);
 
     const billing = await request(app).get("/api/billing");
     const subscription = billing.body.subscriptions.find((item: { clientId: string }) => item.clientId === "client_1");
-    expect(subscription.amountGbp).toBe(219);
+    expect(subscription.amountUsd).toBe(219);
     expect(subscription.renewalDate).toBe("2026-04-21");
   });
 
@@ -131,7 +131,7 @@ describe("CoachOS API", () => {
       .post("/api/import/commit")
       .send({
         rows: [
-          { name: "Restore Target", email: "restore@example.com", goal: "Validate rollback flow", monthlyPriceGbp: 169 }
+          { name: "Restore Target", email: "restore@example.com", goal: "Validate rollback flow", monthlyPriceUsd: 169 }
         ]
       });
 

@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 export const coachWorkspaceSchema = z.object({
   id: z.string(),
@@ -28,7 +28,7 @@ export const clientProfileSchema = z.object({
   status: z.enum(["active", "at_risk", "trial"]),
   adherenceScore: z.number().min(0).max(100),
   currentPlanId: z.string().nullable(),
-  monthlyPriceGbp: z.number().positive(),
+  monthlyPriceUsd: z.number().positive(),
   nextRenewalDate: z.string(),
   lastCheckInDate: z.string().nullable(),
   // Extended profile fields
@@ -47,7 +47,7 @@ export const clientProfilePatchSchema = z
   .object({
     goal: z.string().min(3).optional(),
     status: z.enum(["active", "at_risk", "trial"]).optional(),
-    monthlyPriceGbp: z.number().positive().optional(),
+    monthlyPriceUsd: z.number().positive().optional(),
     nextRenewalDate: z.string().optional(),
     healthConditions: z.array(z.object({ label: z.string(), note: z.string() })).optional(),
     dailyWaterTarget: z.number().int().nonnegative().optional(),
@@ -103,7 +103,7 @@ export const paymentSubscriptionSchema = z.object({
   id: z.string(),
   clientId: z.string(),
   status: z.enum(["active", "past_due", "trialing", "cancelled"]),
-  amountGbp: z.number().positive(),
+  amountUsd: z.number().positive(),
   renewalDate: z.string()
 });
 
@@ -135,7 +135,7 @@ export const importRowSchema = z.object({
   name: z.string().min(1),
   email: z.email(),
   goal: z.string().min(3),
-  monthlyPriceGbp: z.coerce.number().positive()
+  monthlyPriceUsd: z.coerce.number().positive()
 });
 
 export const groupProgramSchema = z.object({
@@ -145,7 +145,7 @@ export const groupProgramSchema = z.object({
   description: z.string(),
   goal: z.string(),
   memberIds: z.array(z.string()),
-  monthlyPriceGbp: z.number().nonnegative(),
+  monthlyPriceUsd: z.number().nonnegative(),
   status: z.enum(["active", "archived", "upcoming"]),
   createdAt: z.string()
 });
@@ -276,7 +276,7 @@ export function createSeedState(): DemoState {
       status: "active",
       adherenceScore: 84,
       currentPlanId: "plan_1",
-      monthlyPriceGbp: 199,
+      monthlyPriceUsd: 199,
       nextRenewalDate: "2026-04-10",
       lastCheckInDate: "2026-04-02",
       healthConditions: [{ label: "Previous knee injury", note: "Avoid deep squats" }],
@@ -298,7 +298,7 @@ export function createSeedState(): DemoState {
       status: "at_risk",
       adherenceScore: 42,
       currentPlanId: "plan_2",
-      monthlyPriceGbp: 149,
+      monthlyPriceUsd: 149,
       nextRenewalDate: "2026-04-05",
       lastCheckInDate: "2026-03-29",
       healthConditions: [{ label: "Lower back stiffness", note: "Avoid deadlifts until cleared" }],
@@ -320,7 +320,7 @@ export function createSeedState(): DemoState {
       status: "trial",
       adherenceScore: 71,
       currentPlanId: null,
-      monthlyPriceGbp: 129,
+      monthlyPriceUsd: 129,
       nextRenewalDate: "2026-04-18",
       lastCheckInDate: null,
       healthConditions: [{ label: "Post-pregnancy", note: "Clearance needed for core-heavy work" }],
@@ -427,7 +427,7 @@ export function createSeedState(): DemoState {
     id: `sub_${client.id}`,
     clientId: client.id,
     status: client.id === "client_2" ? "past_due" : client.status === "trial" ? "trialing" : "active",
-    amountGbp: client.monthlyPriceGbp,
+    amountUsd: client.monthlyPriceUsd,
     renewalDate: client.nextRenewalDate
   }));
 
@@ -551,9 +551,9 @@ export function summarizeMorningDashboard(state: DemoState) {
     checkedInToday: state.checkIns.filter((checkIn) => checkIn.submittedAt.slice(0, 10) === "2026-04-03").length,
     dueRenewals: state.subscriptions.filter((subscription) => new Date(subscription.renewalDate) <= new Date("2026-04-10")).length,
     atRiskClients: riskAlerts,
-    revenueSnapshotGbp: state.subscriptions
+    revenueSnapshotUsd: state.subscriptions
       .filter((subscription) => subscription.status === "active")
-      .reduce((total, subscription) => total + subscription.amountGbp, 0)
+      .reduce((total, subscription) => total + subscription.amountUsd, 0)
   };
 }
 
@@ -648,7 +648,7 @@ export function createProofCard(client: ClientProfile, latestCheckIn?: CheckIn):
       : "Client has been onboarded and is ready for the first measurable proof milestone.",
     stats: [
       { label: "Adherence", value: `${client.adherenceScore}%` },
-      { label: "Monthly value", value: `£${client.monthlyPriceGbp}` },
+      { label: "Monthly value", value: `$${client.monthlyPriceUsd}` },
       { label: "Next review", value: client.nextRenewalDate }
     ]
   };

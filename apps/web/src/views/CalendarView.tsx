@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 
 type CoachSession = {
   workspace: any; coach: any; clients: any[]; plans: any[]; subscriptions: any[]; dashboard: any
@@ -64,7 +64,7 @@ export function CalendarView({ session, onNav }: { session: CoachSession; onNav:
           type: "billing",
           clientId: sub.clientId,
           clientName: client?.fullName,
-          label: `Payment: £${sub.amountGbp}`,
+          label: `Payment: $${sub.amountUsd}`,
           color: "var(--accent)",
         });
       }

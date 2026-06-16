@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 
 type CoachSession = { workspace: any; coach: any; clients: any[]; plans: any[]; subscriptions: any[]; dashboard: any };
 type DayKey = "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday";
@@ -80,7 +80,7 @@ export function SettingsView({ session, onSave }: {
           </div>
           <label className="toggle" style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}>
             <input type="checkbox" checked={draft.stripeConnected} onChange={e => setDraft(d => ({ ...d, stripeConnected: e.target.checked }))} />
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-primary)" }}>Stripe GBP connected</span>
+            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-primary)" }}>Stripe USD connected</span>
           </label>
           <div>
             <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 600, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.4rem" }}>Coach Mascot Gender</div>

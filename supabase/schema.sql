@@ -1,4 +1,4 @@
--- ============================================================
+﻿-- ============================================================
 -- CoachOS — Full Database Schema
 -- Run this in Supabase Dashboard → SQL Editor
 -- ============================================================
@@ -36,7 +36,7 @@ create table if not exists clients (
   status           text not null default 'active'
                    check (status in ('active', 'at_risk', 'trialing', 'inactive')),
   adherence_score  integer not null default 0,
-  monthly_price_gbp integer not null default 0,
+  monthly_price_usd integer not null default 0,
   next_renewal_date text,
   goal             text,
   start_date       text,
@@ -88,7 +88,7 @@ create table if not exists subscriptions (
   client_id     text not null references clients(id) on delete cascade,
   status        text not null default 'active'
                  check (status in ('active', 'past_due', 'cancelled', 'trialing')),
-  amount_gbp    integer not null default 0,
+  amount_usd    integer not null default 0,
   renewal_date  text
 );
 
@@ -156,7 +156,7 @@ create table if not exists group_programs (
   created_at  timestamptz not null default now(),
   goal        text not null default '',
   member_ids  text[] not null default '{}',
-  monthly_price_gbp integer not null default 0
+  monthly_price_usd integer not null default 0
 );
 
 -- ── Booked Sessions ─────────────────────────────────────────────
@@ -219,7 +219,7 @@ insert into coaches (id, workspace_id, full_name, email, avatar_initials)
 values ('coach_1', 'ws_1', 'Alex Morgan', 'alex@coachos.app', 'AM')
 on conflict (id) do nothing;
 
-insert into clients (id, workspace_id, full_name, email, status, adherence_score, monthly_price_gbp, next_renewal_date, goal, start_date, avatar_initials, tags)
+insert into clients (id, workspace_id, full_name, email, status, adherence_score, monthly_price_usd, next_renewal_date, goal, start_date, avatar_initials, tags)
 values
   ('c_1', 'ws_1', 'Sophie Patel',  'sophie@example.com',  'active',   87, 149, '2026-05-01', 'Lose 6kg, build strength',      '2025-11-01', 'SP', array['fat-loss','strength']),
   ('c_2', 'ws_1', 'Liam Carter',   'liam@example.com',    'at_risk',  41, 199, '2026-04-15', 'Marathon prep',                  '2025-09-15', 'LC', array['endurance','performance']),
@@ -249,7 +249,7 @@ values
   ('ci_3', 'c_3', '2026-04-02T09:00:00Z', 61.5, 9, 11200, null, 78)
 on conflict (id) do nothing;
 
-insert into subscriptions (id, client_id, status, amount_gbp, renewal_date)
+insert into subscriptions (id, client_id, status, amount_usd, renewal_date)
 values
   ('sub_1', 'c_1', 'active',   149, '2026-05-01'),
   ('sub_2', 'c_2', 'past_due', 199, '2026-04-15'),

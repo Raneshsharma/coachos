@@ -1,4 +1,4 @@
-import {
+﻿import {
   createDraftPlan,
   createProofCard,
   type ClientProfile,
@@ -29,7 +29,7 @@ export interface BillingProvider {
   ): PaymentSubscription[];
   summarize(subscriptions: PaymentSubscription[]): {
     subscriptions: PaymentSubscription[];
-    mrrGbp: number;
+    mrrUsd: number;
     churnRiskCount: number;
   };
 }
@@ -92,7 +92,7 @@ export class MockBillingProvider implements BillingProvider {
       id: `sub_${client.id}`,
       clientId: client.id,
       status: "trialing",
-      amountGbp: client.monthlyPriceGbp,
+      amountUsd: client.monthlyPriceUsd,
       renewalDate: client.nextRenewalDate
     };
   }
@@ -110,9 +110,9 @@ export class MockBillingProvider implements BillingProvider {
   summarize(subscriptions: PaymentSubscription[]) {
     return {
       subscriptions,
-      mrrGbp: subscriptions
+      mrrUsd: subscriptions
         .filter((subscription) => subscription.status === "active")
-        .reduce((sum, subscription) => sum + subscription.amountGbp, 0),
+        .reduce((sum, subscription) => sum + subscription.amountUsd, 0),
       churnRiskCount: subscriptions.filter((subscription) => subscription.status === "past_due").length
     };
   }
@@ -130,7 +130,7 @@ export class SimulatedStripeBillingProvider implements BillingProvider {
       id: `sim_sub_${client.id}`,
       clientId: client.id,
       status: "trialing",
-      amountGbp: client.monthlyPriceGbp,
+      amountUsd: client.monthlyPriceUsd,
       renewalDate: client.nextRenewalDate
     };
   }
@@ -148,9 +148,9 @@ export class SimulatedStripeBillingProvider implements BillingProvider {
   summarize(subscriptions: PaymentSubscription[]) {
     return {
       subscriptions,
-      mrrGbp: subscriptions
+      mrrUsd: subscriptions
         .filter((subscription) => subscription.status === "active")
-        .reduce((sum, subscription) => sum + subscription.amountGbp, 0),
+        .reduce((sum, subscription) => sum + subscription.amountUsd, 0),
       churnRiskCount: subscriptions.filter((subscription) => subscription.status === "past_due").length
     };
   }

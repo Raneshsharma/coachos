@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import type { CheckIn, ClientProfile, ProgramPlan } from "@coachos/domain";
 
 type ClientNote = { id: string; coachId: string; clientId: string; content: string; createdAt: string; updatedAt: string };
@@ -692,7 +692,7 @@ export function ClientCommandCenter({
                     <span style={{ fontWeight: 700, color: adhColor }}>{client.adherenceScore}%</span>
                   </span>
                   <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--outline)" }}>
-                    £{client.monthlyPriceGbp}
+                    ${client.monthlyPriceUsd}
                     <span style={{ color: "var(--text-muted)" }}>/mo</span>
                   </span>
                 </div>

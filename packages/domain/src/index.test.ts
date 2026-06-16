@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import {
   approvePlan,
   createDraftPlan,
@@ -25,8 +25,8 @@ describe("CoachOS domain model", () => {
 
   it("previews imports and separates valid from invalid rows", () => {
     const result = previewImport([
-      { name: "Amy", email: "amy@example.com", goal: "Lose fat", monthlyPriceGbp: 149 },
-      { name: "", email: "broken-email", goal: "x", monthlyPriceGbp: -1 }
+      { name: "Amy", email: "amy@example.com", goal: "Lose fat", monthlyPriceUsd: 149 },
+      { name: "", email: "broken-email", goal: "x", monthlyPriceUsd: -1 }
     ]);
 
     expect(result.validRows).toBe(1);
