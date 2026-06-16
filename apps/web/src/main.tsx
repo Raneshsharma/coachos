@@ -5238,6 +5238,13 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
       .catch(() => push("Failed to fetch client data", "error"));
   }, [selectedClientId]);
 
+  // Save chat history when messages change
+  useEffect(() => {
+    if (selectedClientId && messages.length > 0) {
+      localStorage.setItem(`coachos_chat_${selectedClientId}`, JSON.stringify(messages));
+    }
+  }, [messages, selectedClientId]);
+
   const sendPrompt = async (prompt: string) => {
     if (!selectedClientId || !prompt.trim()) return;
     setMessages((prev) => [...prev, { role: "user", content: prompt }]);
@@ -5832,10 +5839,7 @@ function AICopilotPanel({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    if (selectedClientName && messages.length > 0) {
-      localStorage.setItem(`coachos_chat_${selectedClientName}`, JSON.stringify(messages));
-    }
-  }, [messages, selectedClientName]);
+  }, [messages]);
 
   useEffect(() => {
     if (show) setTimeout(() => inputRef.current?.focus(), 100);
