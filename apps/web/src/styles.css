@@ -1,56 +1,56 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* ======================================================================
-   CoachOS Design Tokens � Deep Indigo + Electric Amber
-   Premium dark-mode SaaS, modern & visually striking
+   CoachOS Design Tokens — Sunny Peach
+   Warm, energetic, premium fitness SaaS
    ====================================================================== */
 :root {
-  --bg-base:           #0f0f1a;
-  --bg-page:           #0f0f1a;
-  --bg-card:           #1a1a2e;
-  --bg-card-hover:     #222240;
-  --bg-elevated:       #222240;
-  --bg-sidebar:        #0a0a14;
-  --bg-sidebar-hover:  #161630;
-  --bg-sidebar-active: #1e1e3e;
-  --bg-input:          #13132a;
+  --bg-base:           #1a1410;
+  --bg-page:           #1a1410;
+  --bg-card:           #241c16;
+  --bg-card-hover:     #2e241c;
+  --bg-elevated:       #2e241c;
+  --bg-sidebar:        #14100c;
+  --bg-sidebar-hover:  #1e1814;
+  --bg-sidebar-active: #281e18;
+  --bg-input:          #1e1814;
 
-  --primary:           #6366f1;
-  --primary-light:     #e0e7ff;
-  --primary-mid:       #a5b4fc;
-  --primary-dark:      #4338ca;
+  --primary:           #FF7A59;
+  --primary-light:     #3d1a0e;
+  --primary-mid:       #ff9469;
+  --primary-dark:      #e05a3a;
   --primary-text:      #ffffff;
-  --primary-container:  rgba(99,102,241,0.15);
-  --primary-glow:       rgba(99,102,241,0.3);
-  --surface-container: #1a1a2e;
-  --surface-container-low: #161630;
-  --surface-container-lowest: #1a1a2e;
-  --surface-container-high: #222240;
-  --surface-dim:       #13132a;
+  --primary-container:  rgba(255,122,89,0.15);
+  --primary-glow:       rgba(255,122,89,0.3);
+  --surface-container: #241c16;
+  --surface-container-low: #1e1814;
+  --surface-container-lowest: #241c16;
+  --surface-container-high: #2e241c;
+  --surface-dim:       #1a1410;
 
-  --secondary:         #818cf8;
-  --secondary-fixed:   #c7d2fe;
+  --secondary:         #FFD166;
+  --secondary-fixed:   #3d2e0a;
 
-  --accent:            #f59e0b;
-  --accent-light:      #fef3c7;
-  --accent-mid:        #fcd34d;
-  --accent-dark:       #b45309;
-  --accent-glow:        rgba(245,158,11,0.3);
+  --accent:            #FF4D4D;
+  --accent-light:      #3d0a0a;
+  --accent-mid:        #ff7070;
+  --accent-dark:       #cc3030;
+  --accent-glow:        rgba(255,77,77,0.3);
 
-  --tertiary:          #f97316;
-  --tertiary-fixed:    #fed7aa;
-  --tertiary-fixed-dim: #fdba74;
+  --tertiary:          #FFD166;
+  --tertiary-fixed:    #3d2e0a;
+  --tertiary-fixed-dim: #c9a040;
 
-  --success:           #34d399;
-  --success-light:     #064e3b;
-  --success-text:      #a7f3d0;
+  --success:           #4ade80;
+  --success-light:     #052e16;
+  --success-text:      #bbf7d0;
 
-  --danger:            #f87171;
+  --danger:            #ef4444;
   --danger-light:      #450a0a;
   --danger-text:       #fecaca;
 
-  --warning:           #fbbf24;
-  --warning-light:     #451a03;
+  --warning:           #FFD166;
+  --warning-light:     #3d2e0a;
   --warning-text:      #fde68a;
 
   --info:              #60a5fa;
@@ -69,8 +69,8 @@
   --outline:           #94a3b8;
   --outline-variant:   #475569;
 
-  --border:            #334155;
-  --border-light:      #475569;
+  --border:            #3a2a20;
+  --border-light:      #4a382c;
 
   --shadow-xs:   0 1px 2px rgba(0,0,0,0.3);
   --shadow-sm:   0 2px 8px rgba(0,0,0,0.4);
