@@ -3884,6 +3884,8 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
 function HabitsView({ session }: { session: CoachSession }) {
   const [summaries, setSummaries] = useState<Map<string, HabitSummary[]>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [filterMode, setFilterMode] = useState<"all"|"with"|"without">("all");
+  const [sortMode, setSortMode] = useState<"az"|"za"|"date">("az");
   const [showAddHabit, setShowAddHabit] = useState<string | null>(null);
   const [newHabitTitle, setNewHabitTitle] = useState("");
   const [newHabitFreq, setNewHabitFreq] = useState<"daily"|"weekly">("daily");
@@ -3958,7 +3960,32 @@ function HabitsView({ session }: { session: CoachSession }) {
         <div style={{ display: "grid", placeItems: "center", padding: "4rem" }}><div className="spinner" /></div>
       ) : (
         <div>
-          {session.clients.map(client => {
+          {/* Filter + Sort Bar */}
+          <div className="card" style={{ padding: "0.75rem 1rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "var(--font-body)", fontSize: "0.7rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Filter:</span>
+            {(["all","with","without"] as const).map(f => (
+              <button key={f} onClick={() => setFilterMode(f)}
+                style={{ padding: "0.35rem 0.85rem", borderRadius: "var(--r-full)", border: `1.5px solid ${filterMode===f?"var(--primary)":"var(--border)"}`, background: filterMode===f?"var(--primary-light)":"transparent", color: filterMode===f?"var(--primary-dark)":"var(--text-secondary)", fontFamily: "var(--font-body)", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>
+                {f==="all"?"All":f==="with"?"Has Habits":"No Habits"}
+              </button>
+            ))}
+            <span style={{ fontFamily: "var(--font-body)", fontSize: "0.7rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.06em", marginLeft: "0.5rem" }}>Sort:</span>
+            {(["az","za","date"] as const).map(s => (
+              <button key={s} onClick={() => setSortMode(s)}
+                style={{ padding: "0.35rem 0.7rem", borderRadius: "var(--r-full)", border: `1.5px solid ${sortMode===s?"var(--accent)":"var(--border)"}`, background: sortMode===s?"var(--accent-light)":"transparent", color: sortMode===s?"var(--accent-dark)":"var(--text-secondary)", fontFamily: "var(--font-body)", fontSize: "0.72rem", fontWeight: 600, cursor: "pointer" }}>
+                {s==="az"?"A-Z":s==="za"?"Z-A":"By Date"}
+              </button>
+            ))}
+          </div>
+          {useMemo(() => {
+            let list = [...session.clients];
+            if (filterMode === "with") list = list.filter(c => (summaries.get(c.id) ?? []).length > 0);
+            if (filterMode === "without") list = list.filter(c => (summaries.get(c.id) ?? []).length === 0);
+            if (sortMode === "az") list.sort((a,b) => a.fullName.localeCompare(b.fullName));
+            if (sortMode === "za") list.sort((a,b) => b.fullName.localeCompare(a.fullName));
+            if (sortMode === "date") list.sort((a,b) => (a.nextRenewalDate||"").localeCompare(b.nextRenewalDate||""));
+            return list;
+          }, [filterMode, sortMode, summaries, session.clients]).map(client => {
             const items = summaries.get(client.id) ?? [];
             const rate = completionRate(client.id);
             return (
