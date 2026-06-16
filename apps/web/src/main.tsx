@@ -364,17 +364,20 @@ function Sidebar({
 
 
 // â”€â”€ SESSION BOOKING MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push }: {
+function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push, clients }: {
   client: { id: string; fullName: string };
   onClose: () => void;
   onSuccess: () => void;
   onBookSession?: (session: BookedSession) => void;
   push: (msg: string, type?: string) => void;
+  clients?: ClientProfile[];
 }) {
   const [sessionType, setSessionType] = useState<'virtual' | 'in_person'>('virtual');
+  const [selectedClientId, setSelectedClientId] = useState(client.id || "");
+  const [isBlockTime, setIsBlockTime] = useState(false);
   const [date, setDate] = useState(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 3);
+    d.setDate(d.getDate() + 1);
     return d.toISOString().split('T')[0];
   });
   const [time, setTime] = useState('10:00');
@@ -382,35 +385,55 @@ function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push }
   const [notes, setNotes] = useState('');
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
+  const clientList = clients || [client];
+  const selectedClient = clientList.find(c => c.id === selectedClientId);
+  const displayName = isBlockTime ? "Blocked Time" : (selectedClient?.fullName || client.fullName);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSending(true);
     try {
-      await fetchJson(`/clients/${client.id}/sessions`, {
-        method: 'POST',
-        body: JSON.stringify({ sessionType, date, time, duration: Number(duration), notes }),
-      });
-      if (onBookSession) {
-        onBookSession({
-          id: `bs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          clientId: client.id,
-          clientName: client.fullName,
-          sessionType,
-          date,
-          time,
-          duration: Number(duration),
-          notes,
-          status: 'upcoming',
-          sessionNotes: '',
-          completedAt: null,
-          createdAt: new Date().toISOString(),
+      if (!isBlockTime && selectedClientId) {
+        await fetchJson(`/clients/${selectedClientId}/sessions`, {
+          method: 'POST',
+          body: JSON.stringify({ sessionType, date, time, duration: Number(duration), notes }),
         });
+        if (onBookSession) {
+          onBookSession({
+            id: `bs_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            clientId: selectedClientId,
+            clientName: selectedClient?.fullName || client.fullName,
+            sessionType,
+            date, time,
+            duration: Number(duration),
+            notes,
+            status: 'upcoming',
+            sessionNotes: '',
+            completedAt: null,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      } else {
+        if (onBookSession) {
+          onBookSession({
+            id: `block_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            clientId: "blocked",
+            clientName: "⛔ Blocked",
+            sessionType: 'virtual',
+            date, time,
+            duration: Number(duration),
+            notes: notes || "Time blocked",
+            status: 'cancelled' as any,
+            sessionNotes: '',
+            completedAt: null,
+            createdAt: new Date().toISOString(),
+          });
+        }
       }
       setSuccess(true);
-      setTimeout(() => { onSuccess(); push(`Session booked for ${client.fullName}!`, 'success'); }, 1500);
+      setTimeout(() => { onSuccess(); push(isBlockTime ? 'Time blocked!' : `Session booked for ${displayName}!`, 'success'); }, 1200);
     } catch {
-      push('Failed to book session. Try again.', 'error');
+      push('Failed. Try again.', 'error');
     } finally {
       setSending(false);
     }
@@ -422,8 +445,8 @@ function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push }
         {success ? (
           <div style={{ textAlign: 'center', padding: '2rem 0' }}>
             <div style={{ fontSize: '3rem', marginBottom: '0.75rem', animation: 'fadeIn 0.4s ease' }}>check_circle</div>
-            <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>Session Booked!</h3>
-            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>Invite sent to {client.fullName}.</p>
+            <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.5rem' }}>{isBlockTime ? 'Time Blocked!' : 'Session Booked!'}</h3>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--on-surface-variant)' }}>{isBlockTime ? 'Time slot marked as unavailable.' : `Invite sent to ${displayName}.`}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
@@ -433,7 +456,27 @@ function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push }
                 <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>close</span>
               </button>
             </div>
-            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--outline)', marginBottom: '1rem' }}>Schedule a coaching session with {client.fullName}.</p>
+            <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--outline)', marginBottom: '1rem' }}>
+              {isBlockTime ? 'Block a time slot — no client will be assigned.' : `Schedule a session with ${displayName}.`}
+            </p>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client</label>
+                <button type="button" onClick={() => setIsBlockTime(!isBlockTime)}
+                  style={{ padding: '0.25rem 0.65rem', borderRadius: 'var(--r-full)', border: `1.5px solid ${isBlockTime ? 'var(--danger)' : 'var(--outline-variant)'}`, background: isBlockTime ? 'var(--danger-light)' : 'transparent', color: isBlockTime ? 'var(--danger-text)' : 'var(--text-muted)', fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
+                  ⛔ Block Time
+                </button>
+              </div>
+              {!isBlockTime && (
+                <select value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: 'var(--r-md)', border: '1.5px solid var(--outline-variant)', background: 'var(--surface-container)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', outline: 'none' }}>
+                  {clientList.map(c => (
+                    <option key={c.id} value={c.id}>{c.fullName}</option>
+                  ))}
+                </select>
+              )}
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
               <div>
@@ -475,9 +518,10 @@ function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push }
 
             <button type="submit" disabled={sending} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--r-lg)', border: 'none', background: sending ? 'var(--surface-container)' : 'var(--primary)', color: sending ? 'var(--outline)' : 'white', fontFamily: 'Manrope, sans-serif', fontSize: '0.85rem', fontWeight: 700, cursor: sending ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', transition: 'all 0.15s ease' }}>
               {sending ? (
-                <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>progress_activity</span> Sending...</>
+                <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>progress_activity</span> Saving...</>
               ) : (
-                <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>send</span> Send Invite</>
+                <><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>{isBlockTime ? 'block' : 'send'}</span>
+                {isBlockTime ? 'Block Time Slot' : 'Book Session'}</>
               )}
             </button>
           </form>
@@ -4226,7 +4270,7 @@ function CalendarView({ session, onNav, bookedSessions, onUpdateSessions, push, 
       {bookingClient && (
         <SessionBookingModal client={bookingClient} onClose={() => setBookingClient(null)} onSuccess={() => setBookingClient(null)}
           onBookSession={(s) => { onUpdateSessions(prev => [...prev, s]); push(`Session booked with ${s.clientName}`, 'success'); }}
-          push={(msg, type) => { push(msg, type as any); }} />
+          push={(msg, type) => { push(msg, type as any); }} clients={clients} />
       )}
     </div>
   );
