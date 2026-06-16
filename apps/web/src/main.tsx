@@ -5612,6 +5612,18 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                       <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>edit_calendar</span>
                       Fill Meal Planner
                     </button>
+                    <button
+                      className="btn-primary btn-sm"
+                      onClick={() => {
+                        localStorage.setItem(`coachos_pending_workout_${selectedClientId}`, lastAi.content);
+                        localStorage.setItem("coachos_open_workout_planner", selectedClientId);
+                        push(`Workout plan ready! Open ${firstName}'s profile to review.`, "success");
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>fitness_center</span>
+                      Fill Workout Planner
+                    </button>
                   </div>
                 </div>
               </div>

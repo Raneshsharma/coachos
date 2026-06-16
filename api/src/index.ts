@@ -1284,7 +1284,23 @@ Prep: [one line]
 5. Check health_conditions from data. Flag conflicts. Suggest safe alternatives.
 6. Use client's actual first name. Reference their real goal and macros from the data.
 7. ALWAYS end with the 💬 interactive follow-up asking if they want adjustments.
-8. No markdown fences. No generic explanations. Be specific to THIS client's data.`;
+8. No markdown fences. No generic explanations. Be specific to THIS client's data.
+
+## IMPORTANT: Include structured data at the end
+
+After your response, ALWAYS append a JSON block with structured meal or workout data. Use this exact format:
+
+For MEAL PLANS:
+\`\`\`json
+{"meals":{"Mon":{"breakfast":{"dish":"Overnight Oats","time":"8:00 AM","ingredients":"80g oats, 150g yogurt, 30g whey","calories":420,"proteinG":38,"carbsG":45,"fatG":12},"lunch":{"dish":"Chicken Salad","time":"1:00 PM","ingredients":"150g chicken, 100g greens","calories":480,"proteinG":42,"carbsG":12,"fatG":28},"dinner":{"dish":"Salmon Quinoa","time":"7:00 PM","ingredients":"150g salmon, 80g quinoa","calories":620,"proteinG":48,"carbsG":38,"fatG":22}},"Tue":{},"Wed":{},"Thu":{},"Fri":{},"Sat":{},"Sun":{}}}
+\`\`\`
+
+For WORKOUT PLANS:
+\`\`\`json
+{"workouts":{"Mon":[{"name":"Bench Press","sets":4,"reps":8,"rest":90,"notes":"Moderate weight"},{"name":"Overhead Press","sets":3,"reps":10,"rest":60,"notes":""}],"Tue":[],"Wed":[],"Thu":[],"Fri":[],"Sat":[],"Sun":[]}}
+\`\`\`
+
+Fill ALL days, even if empty (use {} for meals, [] for workouts). Use the client's actual macro targets from the data. Quantify every ingredient.`;
 
   try {
     const apiKey = getEnv("BYTEZ_API_KEY") || getEnv("OPENAI_API_KEY");

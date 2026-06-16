@@ -48,63 +48,73 @@ type WeekMealMap = Record<string,Record<string,MealSlotData>>;
 const emptySlot = ():MealSlotData=>({dish:"",time:"",ingredients:"",calories:0,proteinG:0,carbsG:0,fatG:0});
 
 function parseAIPlan(text: string, map: WeekMealMap) {
+  // PRIORITY 1: Try to parse JSON block from AI response
+  const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/) || text.match(/\{[\s\S]*"meals"[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      if (parsed.meals) {
+        for (const [day, slots] of Object.entries(parsed.meals as Record<string, Record<string, any>>)) {
+          const dayKey = day.substring(0, 3);
+          const dayMap: Record<string,string> = {Mon:"Mon",Tue:"Tue",Wed:"Wed",Thu:"Thu",Fri:"Fri",Sat:"Sat",Sun:"Sun"};
+          const targetDay = dayMap[dayKey] ?? DAYS.find(d => d.toLowerCase().startsWith(dayKey.toLowerCase())) ?? DAYS[0];
+          if (map[targetDay] && slots) {
+            for (const [slotKey, data] of Object.entries(slots)) {
+              const validSlot = MEAL_SLOTS.find(s => s === slotKey || SLOT_LABELS[s]?.toLowerCase().includes(slotKey.toLowerCase()));
+              if (validSlot && map[targetDay][validSlot] && data) {
+                map[targetDay][validSlot] = {
+                  dish: data.dish || "",
+                  time: data.time || "",
+                  ingredients: data.ingredients || "",
+                  calories: Number(data.calories) || 0,
+                  proteinG: Number(data.proteinG) || 0,
+                  carbsG: Number(data.carbsG) || 0,
+                  fatG: Number(data.fatG) || 0,
+                };
+              }
+            }
+          }
+        }
+        return; // JSON parsed successfully, skip regex
+      }
+    } catch { /* JSON parse failed, fall through to regex */ }
+  }
+
+  // PRIORITY 2: Regex-based parsing (fallback)
   const lines = text.split("\n");
   let currentDay = DAYS[0];
-  const mealSlotPatterns: [string, string, RegExp][] = [
-    ["breakfast", "breakfast", /(breakfast|🍳|meal 1|morning).*?(?:dish|name)[:\s]*(.+?)(?:$|\n)/i],
-    ["snack1", "snack", /(snack|🥜|morning snack|11.*am)/i],
-    ["lunch", "lunch", /(lunch|🥗|meal 2|afternoon meal).*?(?:dish|name)[:\s]*(.+?)(?:$|\n)/i],
-    ["snack2", "snack2", /(afternoon snack|4.*pm|evening snack)/i],
-    ["dinner", "dinner", /(dinner|🍗|meal 3|evening meal).*?(?:dish|name)[:\s]*(.+?)(?:$|\n)/i],
-    ["cheat", "cheat", /(cheat|🍕|dessert|treat)/i],
+  let currentSlot: string | null = null;
+
+  const slotPatterns: [string, RegExp][] = [
+    ["breakfast", /(breakfast|🍳|meal\s*1|morning\s*meal)/i],
+    ["snack1", /(snack\s*1|🥜|morning\s*snack)/i],
+    ["lunch", /(lunch|🥗|meal\s*2|afternoon\s*meal)/i],
+    ["snack2", /(snack\s*2|🍎|afternoon\s*snack)/i],
+    ["dinner", /(dinner|🍗|meal\s*3|evening\s*meal)/i],
+    ["cheat", /(cheat|🍕|dessert|treat)/i],
   ];
 
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    // Detect day: "Day 1 — Monday:" or "Monday:" or "Mon:"
-    const dayMatch = trimmed.match(/(?:day\s*\d+\s*[—–-]\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i);
+    const t = line.trim();
+    if (!t) { currentSlot = null; continue; }
+    const dayMatch = t.match(/(?:day\s*\d+\s*[—–-]\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i);
     if (dayMatch) {
       const d = dayMatch[1].toLowerCase().substring(0, 3);
-      const dayMap: Record<string,string> = {mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun"};
-      currentDay = dayMap[d] ?? DAYS[0];
-      continue;
+      const dm: Record<string,string> = {mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun"};
+      currentDay = dm[d] ?? DAYS[0];
+      currentSlot = null; continue;
     }
-
-    // Detect dish name
-    const dishMatch = trimmed.match(/(?:dish|name)[:\s]*(.+)/i) || trimmed.match(/^[•\-*]\s*(.+)/);
-    const dishName = dishMatch?.[1]?.trim();
-
-    // Detect time
-    const timeMatch = trimmed.match(/(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)/);
-    const time = timeMatch?.[1];
-
-    // Detect macros: "420 kcal · 38g P · 45g C · 12g F" or "Cal: 400 P: 30 C: 40 F: 12"
-    const macrosMatch1 = trimmed.match(/(\d+)\s*kcal.*?(\d+)g\s*P.*?(\d+)g\s*C.*?(\d+)g\s*F/i);
-    const macrosMatch2 = trimmed.match(/Cal[:\s]*(\d+).*?P[:\s]*(\d+).*?C[:\s]*(\d+).*?F[:\s]*(\d+)/i);
-    const macros = macrosMatch1 || macrosMatch2;
-    const cal = macros ? Number(macros[1]) : 0;
-    const p = macros ? Number(macros[2]) : 0;
-    const c = macros ? Number(macros[3]) : 0;
-    const f = macros ? Number(macros[4]) : 0;
-
-    // Detect ingredients
-    const ingMatch = trimmed.match(/ingredients?[:\s]*(.+)/i);
-    const ingredients = ingMatch?.[1]?.trim() || "";
-
-    // Match meal slot
-    for (const [slotKey, _label, pattern] of mealSlotPatterns) {
-      if (pattern.test(trimmed)) {
-        const existing = map[currentDay]?.[slotKey];
-        if (existing && (!existing.dish || dishName)) {
-          if (dishName) existing.dish = dishName;
-          if (time) existing.time = time;
-          if (ingredients) existing.ingredients = ingredients;
-          if (cal > 0) { existing.calories = cal; existing.proteinG = p; existing.carbsG = c; existing.fatG = f; }
-        }
-        break;
-      }
+    for (const [slotKey, pattern] of slotPatterns) { if (pattern.test(t)) { currentSlot = slotKey; break; } }
+    if (currentSlot && map[currentDay]) {
+      const slot = map[currentDay][currentSlot];
+      const timeMatch = t.match(/(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)?)/);
+      if (timeMatch) slot.time = timeMatch[1];
+      const dishMatch = t.match(/(?:dish|name)[:\s]*(.+)/i);
+      if (dishMatch) slot.dish = dishMatch[1].trim();
+      const ingMatch = t.match(/ingredients?[:\s]*(.+)/i);
+      if (ingMatch) slot.ingredients = ingMatch[1].trim();
+      const mm = t.match(/(\d+)\s*kcal.*?(\d+)g\s*P.*?(\d+)g\s*C.*?(\d+)g\s*F/i) || t.match(/Cal[:\s]*(\d+).*?P[:\s]*(\d+).*?C[:\s]*(\d+).*?F[:\s]*(\d+)/i);
+      if (mm) { slot.calories = Number(mm[1]); slot.proteinG = Number(mm[2]); slot.carbsG = Number(mm[3]); slot.fatG = Number(mm[4]); }
     }
   }
 }
@@ -160,6 +170,7 @@ export function ClientCommandCenter({
   const [assignedWorkout, setAssignedWorkout] = useState<string | null>(null);
 
   const [showMealModal, setShowMealModal] = useState(false);
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [savingMeals, setSavingMeals] = useState(false);
   const [savingWorkouts, setSavingWorkouts] = useState(false);
   const [savingMacros, setSavingMacros] = useState(false);
@@ -261,6 +272,11 @@ export function ClientCommandCenter({
         if (openPlannerFor === clientId) {
           localStorage.removeItem("coachos_open_meal_planner");
           setTimeout(() => setShowMealModal(true), 300);
+        }
+        const openWorkoutFor = localStorage.getItem("coachos_open_workout_planner");
+        if (openWorkoutFor === clientId) {
+          localStorage.removeItem("coachos_open_workout_planner");
+          setTimeout(() => setShowWorkoutModal(true), 300);
         }
       });
   }, [clientId]);
