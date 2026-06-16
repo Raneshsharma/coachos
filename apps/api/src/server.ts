@@ -9,7 +9,7 @@ async function main() {
   const app = createApp(store);
 
   app.listen(config.port, () => {
-    console.log(`CoachOS API running on http://localhost:${config.port}`);
+    console.log(`CoachWave API running on http://localhost:${config.port}`);
   });
 }
 

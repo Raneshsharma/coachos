@@ -1,4 +1,4 @@
-ï»¿import { z } from "zod";
+import { z } from "zod";
 
 export const coachWorkspaceSchema = z.object({
   id: z.string(),
@@ -262,7 +262,7 @@ export function createSeedState(): DemoState {
     workspaceId: workspace.id,
     firstName: "Jake",
     lastName: "Morgan",
-    email: "jake@coachos.demo",
+    email: "jake@CoachWave.demo",
     gender: "male"
   };
 
@@ -451,14 +451,14 @@ export function createSeedState(): DemoState {
       { id: "habit_8", clientId: "client_3", title: "Complete a workout", target: 3, frequency: "weekly", createdAt: "2026-04-01T00:00:00.000Z" },
     ],
     habitCompletions: [
-      // client_1 â€” mostly complete
+      // client_1 — mostly complete
       { id: "hc_1", habitId: "habit_1", date: "2026-04-01", completed: true },
       { id: "hc_2", habitId: "habit_2", date: "2026-04-01", completed: true },
       { id: "hc_3", habitId: "habit_1", date: "2026-04-02", completed: true },
       { id: "hc_4", habitId: "habit_2", date: "2026-04-02", completed: true },
       { id: "hc_5", habitId: "habit_1", date: "2026-04-03", completed: true },
       { id: "hc_6", habitId: "habit_2", date: "2026-04-03", completed: false },
-      // client_2 â€” struggling
+      // client_2 — struggling
       { id: "hc_7", habitId: "habit_4", date: "2026-04-01", completed: false },
       { id: "hc_8", habitId: "habit_5", date: "2026-04-01", completed: true },
     ],
@@ -530,7 +530,7 @@ export function scoreClientRisk(client: ClientProfile, checkIn?: CheckIn, subscr
     recommendedAction:
       reasons.some((reason) => reason.includes("payment"))
         ? "Send a recovery message and trigger dunning follow-up."
-        : "Send a one-tap encouragement nudge and simplify next weekâ€™s plan."
+        : "Send a one-tap encouragement nudge and simplify next week’s plan."
   };
 }
 

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoachOS — The All-in-One Platform for Online Fitness Coaches</title>
+<meta name="description" content="CoachOS replaces WhatsApp, PDFs, and spreadsheets with one structured, AI-powered coaching platform. Built for solo fitness coaches.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--primary:#28A745;--primary-dark:#0E7C4A;--secondary:#A3E4D7;--border:#C5F1E3;
+--card-bg:#ECFFF6;--page-bg:#FFFFFF;--sidebar-dark:#1A2A25;--text:#1A2A25;
+--text-secondary:#3D5A4E;--text-muted:#6B8A78;--warning:#D69E2E;--danger:#E53E3E;
+--font-heading:'Outfit',sans-serif;--font-body:'Plus Jakarta Sans',sans-serif;
+--max-width:1200px;--r:12px;--r-sm:8px;--r-full:9999px;
+scroll-behavior:smooth
+}
+body{font-family:var(--font-body);color:var(--text);background:var(--page-bg);line-height:1.6;overflow-x:hidden}
+h1,h2,h3,h4{font-family:var(--font-heading);line-height:1.2;font-weight:800}
+.container{max-width:var(--max-width);margin:0 auto;padding:0 24px}
+section{padding:100px 0}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* NAVBAR */
+.nav{position:fixed;top:0;left:0;right:0;z-index:1000;padding:16px 0;transition:all .3s ease}
+.nav.scrolled{background:rgba(255,255,255,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 1px 3px rgba(26,42,37,.08);padding:10px 0}
+.nav .container{display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-family:var(--font-heading);font-weight:900;font-size:1.5rem;color:var(--primary-dark);display:flex;align-items:center;gap:8px}
+.nav-logo span{background:var(--primary);color:#fff;width:36px;height:36px;border-radius:var(--r-sm);display:grid;place-items:center;font-size:1.1rem}
+.nav-links{display:flex;gap:32px;list-style:none}
+.nav-links a{text-decoration:none;color:var(--text-secondary);font-weight:600;font-size:.9rem;position:relative;transition:color .2s}
+.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--primary);transition:width .25s ease}
+.nav-links a:hover{color:var(--text)}
+.nav-links a:hover::after{width:100%}
+.nav-cta{padding:10px 24px;border-radius:var(--r-full);background:var(--primary-dark);color:#fff;font-family:var(--font-heading);font-weight:700;font-size:.9rem;border:none;cursor:pointer;transition:all .2s ease;text-decoration:none;display:inline-block}
+.nav-cta:hover{transform:scale(1.03);box-shadow:0 4px 20px rgba(14,124,74,.3)}
+.nav-hamburger{display:none;background:none;border:none;cursor:pointer;padding:4px}
+.nav-hamburger span{display:block;width:24px;height:2px;background:var(--text);margin:5px 0;border-radius:2px;transition:all .3s ease}
+
+@media(max-width:768px){
+.nav-links{display:none;position:fixed;top:60px;left:0;right:0;background:#fff;flex-direction:column;padding:24px;gap:16px;box-shadow:0 8px 32px rgba(0,0,0,.1)}
+.nav-links.open{display:flex}
+.nav-hamburger{display:block}
+}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;align-items:center;padding-top:80px;overflow:hidden;position:relative}
+.hero .container{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--card-bg);border:1px solid var(--border);border-radius:var(--r-full);padding:6px 16px;font-size:.8rem;font-weight:600;color:var(--primary-dark);margin-bottom:24px}
+.hero-badge span{background:var(--primary);color:#fff;border-radius:var(--r-full);padding:2px 10px;font-size:.7rem;font-weight:700}
+.hero h1{font-size:clamp(2.5rem,5vw,3.75rem);letter-spacing:-.03em;margin-bottom:20px}
+.hero h1 .gradient{background:linear-gradient(135deg,var(--primary),var(--primary-dark));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:1.25rem;color:var(--text-secondary);max-width:480px;margin-bottom:36px}
+.hero-cta-group{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:40px}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:var(--r-full);background:var(--primary);color:#fff;font-family:var(--font-heading);font-weight:700;font-size:1rem;border:none;cursor:pointer;text-decoration:none;transition:all .2s ease;box-shadow:0 4px 20px rgba(40,167,69,.25)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(40,167,69,.35)}
+.btn-ghost{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;border-radius:var(--r-full);background:transparent;border:2px solid var(--border);color:var(--text);font-family:var(--font-heading);font-weight:700;font-size:1rem;cursor:pointer;text-decoration:none;transition:all .2s ease}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary)}
+.social-proof{display:flex;align-items:center;gap:16px;font-size:.85rem;color:var(--text-muted)}
+.avatar-stack{display:flex;margin-left:8px}
+.avatar-stack div{width:32px;height:32px;border-radius:50%;border:2px solid #fff;margin-left:-8px;display:grid;place-items:center;font-size:.65rem;font-weight:700;color:#fff}
+.avatar-stack div:first-child{margin-left:0}
+.hero-visual{position:relative;height:500px}
+.blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:.6}
+.blob-1{width:300px;height:300px;background:var(--primary);top:10%;left:10%;animation:float1 6s ease-in-out infinite}
+.blob-2{width:200px;height:200px;background:var(--secondary);bottom:20%;right:10%;animation:float2 8s ease-in-out infinite}
+.blob-3{width:150px;height:150px;background:var(--border);top:50%;right:30%;animation:float3 4s ease-in-out infinite}
+.floating-card{position:absolute;background:#fff;border-radius:var(--r);padding:16px 20px;box-shadow:0 8px 32px rgba(26,42,37,.12);font-family:var(--font-heading);font-weight:700;font-size:.85rem;animation:float2 7s ease-in-out infinite;z-index:1}
+.floating-card:nth-child(4){top:15%;right:5%;animation-delay:1s}
+.floating-card:nth-child(5){bottom:25%;left:5%;animation-delay:2s}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(30px,-20px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-20px,-30px)}}
+@keyframes float3{0%,100%{transform:translate(0,0)}50%{transform:translate(-15px,25px)}}
+.scroll-indicator{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);animation:bounce 2s infinite}
+.scroll-indicator span{display:block;width:24px;height:24px;border-right:2px solid var(--text-muted);border-bottom:2px solid var(--text-muted);transform:rotate(45deg)}
+@keyframes bounce{0%,100%{transform:translate(-50%,0);opacity:.5}50%{transform:translate(-50%,10px);opacity:1}}
+
+@media(max-width:768px){
+.hero .container{grid-template-columns:1fr;text-align:center}
+.hero-sub{margin:0 auto 36px}
+.social-proof{justify-content:center}
+.hero-visual{height:300px}
+}
+
+/* PROBLEM SECTION */
+.problem{background:var(--sidebar-dark);color:#fff}
+.problem .section-label{color:var(--secondary);text-transform:uppercase;letter-spacing:.1em;font-size:.75rem;font-weight:700;margin-bottom:16px}
+.problem h2{color:#fff;font-size:clamp(1.8rem,3vw,2.5rem);margin-bottom:16px}
+.problem .section-sub{color:var(--text-muted);max-width:500px;margin-bottom:48px}
+.problem-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.problem-card{background:var(--card-bg);border-radius:var(--r);padding:32px;border:1px solid var(--border);color:var(--text);opacity:0;transform:translateY(30px);transition:all .6s cubic-bezier(.16,1,.3,1)}
+.problem-card.visible{opacity:1;transform:translateY(0)}
+.problem-card:nth-child(2){transition-delay:.15s}
+.problem-card:nth-child(3){transition-delay:.3s}
+.problem-card .icon{width:48px;height:48px;border-radius:var(--r-sm);background:rgba(14,124,74,.1);display:grid;place-items:center;font-size:1.3rem;margin-bottom:16px}
+.problem-card h3{font-size:1.1rem;margin-bottom:8px}
+.problem-card p{color:var(--text-secondary);font-size:.9rem}
+
+@media(max-width:768px){.problem-grid{grid-template-columns:1fr}}
+
+/* SOLUTION */
+.solution h2{font-size:clamp(1.8rem,3vw,2.5rem);text-align:center;margin-bottom:40px}
+.solution-mockup{max-width:800px;margin:0 auto 60px;background:var(--card-bg);border:2px solid var(--border);border-radius:var(--r);padding:24px;box-shadow:0 16px 48px rgba(26,42,37,.08);animation:float2 6s ease-in-out infinite}
+.solution-mockup pre{font-family:monospace;font-size:.8rem;color:var(--text-secondary);overflow:hidden}
+.solution-benefits{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;max-width:900px;margin:0 auto}
+.benefit-item{display:flex;gap:16px;align-items:flex-start;opacity:0;transform:translateX(-20px);transition:all .6s cubic-bezier(.16,1,.3,1)}
+.benefit-item.visible{opacity:1;transform:translateX(0)}
+.benefit-item:nth-child(2){transition-delay:.15s}
+.benefit-item:nth-child(3){transition-delay:.3s}
+.benefit-item .icon{width:44px;height:44px;border-radius:var(--r-sm);background:var(--card-bg);border:1px solid var(--border);display:grid;place-items:center;font-size:1.1rem;flex-shrink:0}
+.benefit-item h4{font-size:.95rem;margin-bottom:4px}
+.benefit-item p{font-size:.85rem;color:var(--text-secondary)}
+
+@media(max-width:768px){.solution-benefits{grid-template-columns:1fr}}
+
+/* FEATURES */
+.features h2{text-align:center;font-size:clamp(1.8rem,3vw,2.5rem);margin-bottom:12px}
+.features .section-sub{text-align:center;color:var(--text-secondary);max-width:500px;margin:0 auto 48px}
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.feature-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--r);padding:32px;transition:all .3s ease;cursor:pointer;opacity:0;transform:translateY(30px)}
+.feature-card.visible{opacity:1;transform:translateY(0)}
+.feature-card:nth-child(2){transition-delay:.1s}.feature-card:nth-child(3){transition-delay:.2s}
+.feature-card:nth-child(4){transition-delay:.3s}.feature-card:nth-child(5){transition-delay:.4s}.feature-card:nth-child(6){transition-delay:.5s}
+.feature-card:hover{transform:translateY(-4px)!important;border-color:var(--primary);box-shadow:0 12px 40px rgba(26,42,37,.12)}
+.feature-card .icon{width:48px;height:48px;border-radius:var(--r-sm);background:rgba(163,228,215,.3);display:grid;place-items:center;font-size:1.3rem;margin-bottom:16px}
+.feature-card h3{font-size:1.05rem;margin-bottom:8px}
+.feature-card p{color:var(--text-secondary);font-size:.88rem;margin-bottom:16px}
+.feature-card .learn-more{color:var(--primary);font-weight:700;font-size:.85rem;display:inline-flex;align-items:center;gap:4px;text-decoration:none;transition:gap .2s ease}
+.feature-card .learn-more:hover{gap:12px}
+
+@media(max-width:1024px){.features-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.features-grid{grid-template-columns:1fr}}
+
+/* HOW IT WORKS */
+.steps{max-width:800px;margin:0 auto}
+.steps h2{text-align:center;font-size:clamp(1.8rem,3vw,2.5rem);margin-bottom:48px}
+.step{display:flex;gap:24px;align-items:flex-start;margin-bottom:32px;position:relative;opacity:0;transform:translateX(-20px);transition:all .6s cubic-bezier(.16,1,.3,1)}
+.step.visible{opacity:1;transform:translateX(0)}
+.step::before{content:'';position:absolute;left:23px;top:48px;bottom:-32px;width:2px;background:var(--border);transition:background .6s ease}
+.step.active::before{background:var(--primary)}
+.step:last-child::before{display:none}
+.step-number{width:48px;height:48px;border-radius:50%;background:var(--card-bg);border:2px solid var(--border);display:grid;place-items:center;font-family:var(--font-heading);font-weight:800;font-size:1.1rem;flex-shrink:0;transition:all .3s ease;z-index:1}
+.step.visible .step-number{background:var(--primary);border-color:var(--primary);color:#fff}
+.step-content{padding-top:4px}
+.step-content h3{font-size:1.1rem;margin-bottom:4px}
+.step-content p{font-size:.9rem;color:var(--text-secondary)}
+
+/* PRICING */
+.pricing{background:var(--card-bg)}
+.pricing h2{text-align:center;font-size:clamp(1.8rem,3vw,2.5rem);margin-bottom:12px}
+.pricing .section-sub{text-align:center;color:var(--text-secondary);margin-bottom:40px}
+.pricing-toggle{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:48px}
+.toggle-label{font-size:.9rem;font-weight:600;color:var(--text-secondary)}
+.toggle-switch{width:48px;height:26px;border-radius:var(--r-full);background:var(--primary);position:relative;cursor:pointer}
+.toggle-switch::after{content:'';position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:3px;left:3px;transition:all .2s ease}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:960px;margin:0 auto}
+.pricing-card{background:#fff;border:2px solid var(--border);border-radius:var(--r);padding:36px;text-align:center;transition:all .3s ease;opacity:0;transform:translateY(30px)}
+.pricing-card.visible{opacity:1;transform:translateY(0)}
+.pricing-card:hover{transform:translateY(-4px)!important;box-shadow:0 12px 40px rgba(26,42,37,.12)}
+.pricing-card.popular{border-color:var(--primary);transform:scale(1.05);position:relative}
+.pricing-card .popular-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;padding:4px 16px;border-radius:var(--r-full);font-size:.75rem;font-weight:700}
+.pricing-card h3{font-size:1.1rem;margin-bottom:8px}
+.pricing-card .price{font-size:3rem;font-weight:900;color:var(--text);margin-bottom:4px}
+.pricing-card .price span{font-size:1rem;font-weight:400;color:var(--text-muted)}
+.pricing-card .features-list{list-style:none;padding:0;margin:24px 0;text-align:left}
+.pricing-card .features-list li{padding:8px 0;color:var(--text-secondary);font-size:.88rem;display:flex;align-items:center;gap:8px}
+.pricing-card .features-list li::before{content:'✓';color:var(--primary);font-weight:700}
+.pricing-card .btn-primary{width:100%;justify-content:center}
+
+@media(max-width:768px){.pricing-grid{grid-template-columns:1fr;max-width:400px}.pricing-card.popular{transform:none}}
+
+/* TESTIMONIALS */
+.testimonials h2{text-align:center;font-size:clamp(1.8rem,3vw,2.5rem);margin-bottom:40px}
+.testimonial-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.testimonial-card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--r);padding:32px}
+.testimonial-card .quote{font-size:1rem;font-style:italic;color:var(--text);line-height:1.6;margin-bottom:20px}
+.testimonial-card .author{display:flex;align-items:center;gap:12px}
+.testimonial-card .author-avatar{width:44px;height:44px;border-radius:50%;background:var(--primary);display:grid;place-items:center;color:#fff;font-weight:700;font-size:.8rem;flex-shrink:0}
+.testimonial-card .author-name{font-weight:700;font-size:.9rem}
+.testimonial-card .author-role{color:var(--text-muted);font-size:.8rem}
+
+@media(max-width:768px){.testimonial-cards{grid-template-columns:1fr}}
+
+/* FAQ */
+.faq{background:var(--card-bg)}
+.faq h2{text-align:center;font-size:clamp(1.8rem,3vw,2.5rem);margin-bottom:40px}
+.faq-list{max-width:700px;margin:0 auto}
+.faq-item{border-bottom:1px solid var(--border);padding:20px 0;cursor:pointer}
+.faq-item:first-child{border-top:1px solid var(--border)}
+.faq-question{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:1.05rem}
+.faq-question span{transition:transform .3s ease;font-size:1.2rem}
+.faq-item.open .faq-question span{transform:rotate(180deg)}
+.faq-answer{max-height:0;overflow:hidden;transition:max-height .3s ease;color:var(--text-secondary);font-size:.9rem;line-height:1.6}
+.faq-item.open .faq-answer{max-height:200px;padding-top:12px}
+
+/* CTA BANNER */
+.cta-banner{background:var(--sidebar-dark);text-align:center}
+.cta-banner h2{color:#fff;font-size:clamp(1.8rem,3vw,2.5rem);margin-bottom:12px}
+.cta-banner p{color:var(--text-muted);margin-bottom:32px;font-size:1.1rem}
+.cta-banner .btn-primary{animation:pulse-cta 2s ease-in-out infinite;font-size:1.1rem;padding:16px 40px}
+@keyframes pulse-cta{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.trust-badges{display:flex;gap:32px;justify-content:center;margin-top:32px;flex-wrap:wrap}
+.trust-badges span{color:var(--text-muted);font-size:.8rem;display:flex;align-items:center;gap:4px}
+
+/* FOOTER */
+footer{background:var(--sidebar-dark);color:#fff;padding:60px 0 30px}
+.footer-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:40px;margin-bottom:40px}
+.footer-col h4{color:#fff;font-size:.95rem;margin-bottom:16px}
+.footer-col a{display:block;color:var(--text-muted);text-decoration:none;font-size:.85rem;margin-bottom:8px;transition:color .2s}
+.footer-col a:hover{color:var(--secondary)}
+.footer-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:24px;border-top:1px solid rgba(255,255,255,.1);flex-wrap:wrap;gap:16px}
+.footer-bottom p{color:var(--text-muted);font-size:.8rem}
+.social-icons{display:flex;gap:16px}
+.social-icons a{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.1);display:grid;place-items:center;color:#fff;text-decoration:none;font-size:.9rem;transition:all .2s}
+.social-icons a:hover{background:var(--primary)}
+
+@media(max-width:640px){.footer-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* BACK TO TOP */
+.back-to-top{position:fixed;bottom:24px;right:24px;z-index:999;width:44px;height:44px;border-radius:50%;background:var(--primary);color:#fff;border:none;cursor:pointer;display:grid;place-items:center;font-size:1.2rem;box-shadow:0 4px 16px rgba(40,167,69,.3);opacity:0;transform:translateY(20px);transition:all .3s ease}
+.back-to-top.visible{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="container">
+    <a href="#" class="nav-logo"><span>C</span> CoachOS</a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#testimonials">Testimonials</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <a href="#" class="nav-cta">Get Started</a>
+    <button class="nav-hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="container">
+    <div>
+      <div class="hero-badge"><span>NEW</span> AI-Powered Coaching</div>
+      <h1>The <span class="gradient">all-in-one</span> platform for online fitness coaches</h1>
+      <p class="hero-sub">Replace WhatsApp, PDFs, and spreadsheets with one structured, AI-powered system. Manage clients, generate plans, track progress — all in one place.</p>
+      <div class="hero-cta-group">
+        <a href="#" class="btn-primary">Start Free Trial →</a>
+        <a href="#" class="btn-ghost">▶ Watch Demo</a>
+      </div>
+      <div class="social-proof">
+        <div class="avatar-stack">
+          <div style="background:#28A745">JD</div>
+          <div style="background:#0E7C4A">MK</div>
+          <div style="background:#3D5A4E">SP</div>
+          <div style="background:#A3E4D7;color:#1A2A25">+2K</div>
+        </div>
+        Trusted by 2,000+ fitness coaches worldwide
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
+      <div class="blob blob-3"></div>
+      <div class="floating-card">📊 Client Dashboard</div>
+      <div class="floating-card">🤖 AI Plan Generator</div>
+    </div>
+  </div>
+  <div class="scroll-indicator"><span></span></div>
+</section>
+
+<section class="problem" id="problem">
+  <div class="container">
+    <div class="section-label">The Problem</div>
+    <h2>Coaching is messy.</h2>
+    <p class="section-sub">You're juggling WhatsApp messages, Google Docs, spreadsheets, and calendars. It's time for something better.</p>
+    <div class="problem-grid">
+      <div class="problem-card"><div class="icon">📱</div><h3>Scattered Communication</h3><p>Client messages lost across WhatsApp, email, and DMs. No single source of truth.</p></div>
+      <div class="problem-card"><div class="icon">📋</div><h3>Manual Plan Creation</h3><p>Hours spent copy-pasting workout and nutrition plans. No automation or AI assistance.</p></div>
+      <div class="problem-card"><div class="icon">📉</div><h3>No Progress Visibility</h3><p>Can't see who's on track and who's falling behind. Reactive instead of proactive.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="solution">
+  <div class="container">
+    <h2>One platform. Total clarity.</h2>
+    <div class="solution-mockup">
+      <pre>┌──────────────────────────────────────┐
+│ 🏋️ CoachOS Dashboard                 │
+│                                      │
+│ Good morning, Coach.                 │
+│ 3 clients need your attention today. │
+│                                      │
+│ Active: 12  MRR: $1,497  Risk: 3    │
+│                                      │
+│ 🤖 AI Coach  📊 Analytics  📅 Calendar│
+└──────────────────────────────────────┘</pre>
+    </div>
+    <div class="solution-benefits">
+      <div class="benefit-item"><div class="icon">⚡</div><div><h4>10x Faster Planning</h4><p>AI generates personalized meal and workout plans in seconds — not hours.</p></div></div>
+      <div class="benefit-item"><div class="icon">📈</div><div><h4>Real-Time Client Insights</h4><p>See adherence, check-ins, and progress at a glance. Know who needs a nudge.</p></div></div>
+      <div class="benefit-item"><div class="icon">💰</div><div><h4>Boost Retention & MRR</h4><p>Better client results = longer subscriptions. Track revenue and churn in one view.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="container">
+    <h2>Everything you need</h2>
+    <p class="section-sub">Purpose-built for solo fitness coaches who want to scale without adding overhead.</p>
+    <div class="features-grid">
+      <div class="feature-card"><div class="icon">🤖</div><h3>AI Plan Generator</h3><p>Generate personalized workout and nutrition plans using client data, medical history, and goals.</p><a href="#" class="learn-more">Learn more →</a></div>
+      <div class="feature-card"><div class="icon">📊</div><h3>Client Dashboard</h3><p>Track adherence, check-ins, weight trends, and body metrics for every client in one view.</p><a href="#" class="learn-more">Learn more →</a></div>
+      <div class="feature-card"><div class="icon">🍽️</div><h3>Meal Planner</h3><p>Weekly meal planning with macro tracking. AI auto-fills breakfast, lunch, dinner, and snacks.</p><a href="#" class="learn-more">Learn more →</a></div>
+      <div class="feature-card"><div class="icon">💪</div><h3>Workout Builder</h3><p>Build daily and weekly workout plans with exercises, sets, reps, rest times, and estimated calories.</p><a href="#" class="learn-more">Learn more →</a></div>
+      <div class="feature-card"><div class="icon">📅</div><h3>Session Calendar</h3><p>Full-month calendar view with session booking, blocked times, and client scheduling.</p><a href="#" class="learn-more">Learn more →</a></div>
+      <div class="feature-card"><div class="icon">📨</div><h3>Smart Nudges</h3><p>Automated reminders and motivational nudges when clients miss habits or check-ins.</p><a href="#" class="learn-more">Learn more →</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="steps">
+  <div class="container">
+    <h2>How it works</h2>
+    <div class="step"><div class="step-number">1</div><div class="step-content"><h3>Create your workspace</h3><p>Set up your brand, add your logo, and configure client defaults in under 2 minutes.</p></div></div>
+    <div class="step"><div class="step-number">2</div><div class="step-content"><h3>Add your clients</h3><p>Import existing clients via CSV or add them one by one. Set goals, macros, and medical notes.</p></div></div>
+    <div class="step"><div class="step-number">3</div><div class="step-content"><h3>Generate AI-powered plans</h3><p>Let the AI coach create personalized nutrition and workout plans based on each client's profile.</p></div></div>
+    <div class="step"><div class="step-number">4</div><div class="step-content"><h3>Track & grow</h3><p>Monitor adherence, send nudges, adjust plans, and watch your clients — and revenue — grow.</p></div></div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="container">
+    <h2>Simple, transparent pricing</h2>
+    <p class="section-sub">Start free. Upgrade when you're ready to scale.</p>
+    <div class="pricing-toggle">
+      <span class="toggle-label">Monthly</span>
+      <div class="toggle-switch"></div>
+      <span class="toggle-label">Annual (Save 20%)</span>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card"><h3>Starter</h3><div class="price">$29<span>/mo</span></div><ul class="features-list"><li>Up to 5 clients</li><li>AI plan generation</li><li>Basic analytics</li><li>Email support</li></ul><a href="#" class="btn-primary">Start Free</a></div>
+      <div class="pricing-card popular"><div class="popular-badge">Most Popular</div><h3>Pro</h3><div class="price">$79<span>/mo</span></div><ul class="features-list"><li>Up to 25 clients</li><li>Advanced AI coaching</li><li>Full analytics suite</li><li>Priority support</li><li>Client portal</li></ul><a href="#" class="btn-primary">Start Free</a></div>
+      <div class="pricing-card"><h3>Elite</h3><div class="price">$149<span>/mo</span></div><ul class="features-list"><li>Unlimited clients</li><li>White-label portal</li><li>API access</li><li>Dedicated support</li><li>Custom integrations</li></ul><a href="#" class="btn-primary">Start Free</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="testimonials" id="testimonials">
+  <div class="container">
+    <h2>What coaches say</h2>
+    <div class="testimonial-cards">
+      <div class="testimonial-card"><p class="quote">"CoachOS saved me 10 hours a week. The AI plan generator alone is worth 10x the price. My clients love the personalized plans."</p><div class="author"><div class="author-avatar">JM</div><div><div class="author-name">Jake Morgan</div><div class="author-role">Strength Coach, London</div></div></div></div>
+      <div class="testimonial-card"><p class="quote">"I went from 8 clients to 22 without hiring anyone. The client dashboard shows me exactly who needs attention. Game changer."</p><div class="author"><div class="author-avatar">SP</div><div><div class="author-name">Sarah Patel</div><div class="author-role">Nutrition Coach, Mumbai</div></div></div></div>
+      <div class="testimonial-card"><p class="quote">"The meal planner and workout builder are incredibly intuitive. I can plan an entire week for a client in under 5 minutes."</p><div class="author"><div class="author-avatar">AR</div><div><div class="author-name">Alex Rivera</div><div class="author-role">Fitness Coach, Miami</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="faq" id="faq">
+  <div class="container">
+    <h2>Frequently asked questions</h2>
+    <div class="faq-list">
+      <div class="faq-item"><div class="faq-question">Is there a free trial? <span>▾</span></div><div class="faq-answer">Yes! All plans come with a 14-day free trial. No credit card required. You can explore all features before committing.</div></div>
+      <div class="faq-item"><div class="faq-question">Can I import my existing clients? <span>▾</span></div><div class="faq-answer">Absolutely. You can import clients via CSV, or add them one by one. We also support migration from other coaching platforms.</div></div>
+      <div class="faq-item"><div class="faq-question">How does the AI plan generator work? <span>▾</span></div><div class="faq-answer">CoachOS AI analyzes each client's profile — goals, medical conditions, macros, check-in history — and generates personalized meal and workout plans instantly.</div></div>
+      <div class="faq-item"><div class="faq-question">Is my data secure? <span>▾</span></div><div class="faq-answer">Yes. We use enterprise-grade encryption (AES-256) and store all data in secure, SOC-2 compliant data centers. Your client data is never shared.</div></div>
+      <div class="faq-item"><div class="faq-question">Can my clients access their plans? <span>▾</span></div><div class="faq-answer">Yes! Clients get their own portal where they can view assigned plans, track habits, and see their progress. Available on Pro and Elite plans.</div></div>
+      <div class="faq-item"><div class="faq-question">Do you offer refunds? <span>▾</span></div><div class="faq-answer">We offer a 30-day money-back guarantee. If CoachOS isn't right for you, we'll refund your payment — no questions asked.</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-banner">
+  <div class="container">
+    <h2>Ready to transform your coaching business?</h2>
+    <p>Join 2,000+ coaches who've switched to CoachOS. Start your free trial today.</p>
+    <a href="#" class="btn-primary">Start Free Trial — It's Free</a>
+    <div class="trust-badges">
+      <span>🔒 SSL Encrypted</span>
+      <span>✅ SOC 2 Compliant</span>
+      <span>🛡️ GDPR Ready</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#">Integrations</a>
+        <a href="#">Changelog</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="#">About</a>
+        <a href="#">Blog</a>
+        <a href="#">Careers</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <a href="#">Help Center</a>
+        <a href="#">API Docs</a>
+        <a href="#">Community</a>
+        <a href="#">Coach Academy</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Cookie Policy</a>
+        <a href="#">GDPR</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 CoachOS. Made with ❤️ for fitness coaches everywhere.</p>
+      <div class="social-icons">
+        <a href="#" aria-label="Twitter">𝕏</a>
+        <a href="#" aria-label="LinkedIn">in</a>
+        <a href="#" aria-label="Instagram">📷</a>
+        <a href="#" aria-label="YouTube">▶</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<button class="back-to-top" id="backToTop" aria-label="Back to top">↑</button>
+
+<script>
+// Navbar scroll
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => nav.classList.toggle('scrolled', window.scrollY > 50));
+
+// Hamburger
+document.getElementById('hamburger').addEventListener('click', () => {
+  document.getElementById('navLinks').classList.toggle('open');
+});
+
+// Back to top
+const btt = document.getElementById('backToTop');
+window.addEventListener('scroll', () => btt.classList.toggle('visible', window.scrollY > 500));
+btt.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+// FAQ accordion
+document.querySelectorAll('.faq-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+  });
+});
+
+// Intersection Observer for scroll animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+document.querySelectorAll('.problem-card, .benefit-item, .feature-card, .step, .pricing-card').forEach(el => {
+  observer.observe(el);
+});
+
+// Step active state
+const stepObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('active');
+  });
+}, { threshold: 0.5 });
+
+document.querySelectorAll('.step').forEach(el => stepObserver.observe(el));
+
+// Pricing toggle
+document.querySelector('.toggle-switch').addEventListener('click', function() {
+  this.classList.toggle('annual');
+  const annual = this.classList.contains('annual');
+  const prices = document.querySelectorAll('.pricing-card .price');
+  const annualRates = [['23','/mo'],['63','/mo'],['119','/mo']];
+  const monthlyRates = [['29','/mo'],['79','/mo'],['149','/mo']];
+  prices.forEach((p, i) => {
+    const rate = annual ? annualRates[i] : monthlyRates[i];
+    p.innerHTML = `$${rate[0]}<span>${rate[1]}</span>`;
+  });
+  document.querySelectorAll('.toggle-label')[0].style.color = annual ? 'var(--text-secondary)' : 'var(--text)';
+  document.querySelectorAll('.toggle-label')[1].style.color = annual ? 'var(--text)' : 'var(--text-secondary)';
+});
+</script>
+
+</body>
+</html>

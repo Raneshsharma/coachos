@@ -1,4 +1,4 @@
-# CoachOS 🏋️
+# CoachWave 🏋️
 
 > **AI-Powered SaaS Platform for Solo Online Fitness Coaches (UK)**
 >
@@ -57,11 +57,11 @@ cp apps/api/.env.example apps/api/.env
 
 Edit `apps/api/.env` and set at minimum:
 ```env
-COACHOS_AI_PROVIDER=deepseek
+CoachWave_AI_PROVIDER=deepseek
 BYTEZ_API_KEY=your_bytez_api_key_here
 ```
 
-> Get a Bytez API key at [bytez.com](https://bytez.com). Without it, set `COACHOS_AI_PROVIDER=mock` to run without AI.
+> Get a Bytez API key at [bytez.com](https://bytez.com). Without it, set `CoachWave_AI_PROVIDER=mock` to run without AI.
 
 ### 3. Start Dev Servers
 
@@ -94,10 +94,10 @@ See [`apps/api/.env.example`](apps/api/.env.example) for the full reference.
 
 | Variable | Default | Description |
 |---|---|---|
-| `COACHOS_AI_PROVIDER` | `mock` | `mock` \| `simulated-openai` \| `deepseek` |
+| `CoachWave_AI_PROVIDER` | `mock` | `mock` \| `simulated-openai` \| `deepseek` |
 | `BYTEZ_API_KEY` | — | Required when AI provider is `deepseek` |
-| `COACHOS_STORAGE_MODE` | `json` | `json` \| `postgres_relational` |
-| `COACHOS_BILLING_PROVIDER` | `mock` | `mock` \| `simulated-stripe` |
+| `CoachWave_STORAGE_MODE` | `json` | `json` \| `postgres_relational` |
+| `CoachWave_BILLING_PROVIDER` | `mock` | `mock` \| `simulated-stripe` |
 | `PORT` | `4000` | API server port |
 
 ---
@@ -127,9 +127,9 @@ codex/
 
 ## AI Integration
 
-CoachOS uses **DeepSeek-V3.1** via the [Bytez](https://bytez.com) JavaScript SDK to generate personalised fitness and nutrition plans. The integration is in `apps/api/src/services.ts` (`DeepSeekPlanGenerationProvider`).
+CoachWave uses **DeepSeek-V3.1** via the [Bytez](https://bytez.com) JavaScript SDK to generate personalised fitness and nutrition plans. The integration is in `apps/api/src/services.ts` (`DeepSeekPlanGenerationProvider`).
 
-To switch between AI providers, set `COACHOS_AI_PROVIDER` in your `.env`:
+To switch between AI providers, set `CoachWave_AI_PROVIDER` in your `.env`:
 - **`mock`** — Fast, no API call, uses local seed data
 - **`simulated-openai`** — Simulated, returns mock with model name
 - **`deepseek`** — Live DeepSeek-V3.1 via Bytez (requires `BYTEZ_API_KEY`)

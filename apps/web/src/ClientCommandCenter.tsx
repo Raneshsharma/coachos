@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { CheckIn, ClientProfile, ProgramPlan } from "@coachos/domain";
 
 type ClientNote = { id: string; coachId: string; clientId: string; content: string; createdAt: string; updatedAt: string };
@@ -44,7 +44,7 @@ type WorkoutPlanDay = {
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MEAL_SLOTS = ["breakfast","snack1","lunch","snack2","dinner","cheat"] as const;
-const SLOT_LABELS: Record<string,string> = {breakfast:"☀️ Breakfast",snack1:"🥜 Morning Snack",lunch:"🥗 Lunch",snack2:"🍎 Afternoon Snack",dinner:"🍗 Dinner",cheat:"🍕 Cheat Meal"};
+const SLOT_LABELS: Record<string,string> = {breakfast:"?? Breakfast",snack1:"?? Morning Snack",lunch:"?? Lunch",snack2:"?? Afternoon Snack",dinner:"?? Dinner",cheat:"?? Cheat Meal"};
 type MealSlotData = {dish:string;time:string;ingredients:string;calories:number;proteinG:number;carbsG:number;fatG:number};
 type WeekMealMap = Record<string,Record<string,MealSlotData>>;
 const emptySlot = ():MealSlotData=>({dish:"",time:"",ingredients:"",calories:0,proteinG:0,carbsG:0,fatG:0});
@@ -88,18 +88,18 @@ function parseAIPlan(text: string, map: WeekMealMap) {
   let currentSlot: string | null = null;
 
   const slotPatterns: [string, RegExp][] = [
-    ["breakfast", /(breakfast|🍳|meal\s*1|morning\s*meal)/i],
-    ["snack1", /(snack\s*1|🥜|morning\s*snack)/i],
-    ["lunch", /(lunch|🥗|meal\s*2|afternoon\s*meal)/i],
-    ["snack2", /(snack\s*2|🍎|afternoon\s*snack)/i],
-    ["dinner", /(dinner|🍗|meal\s*3|evening\s*meal)/i],
-    ["cheat", /(cheat|🍕|dessert|treat)/i],
+    ["breakfast", /(breakfast|meal\s*1|morning\s*meal)/i],
+    ["snack1", /(snack|morning\s*snack)/i],
+    ["lunch", /(lunch|meal\s*2|afternoon\s*meal)/i],
+    ["snack2", /(afternoon\s*snack)/i],
+    ["dinner", /(dinner|meal\s*3|evening\s*meal)/i],
+    ["cheat", /(cheat|dessert|treat)/i],
   ];
 
   for (const line of lines) {
     const t = line.trim();
     if (!t) { currentSlot = null; continue; }
-    const dayMatch = t.match(/(?:day\s*\d+\s*[—–-]\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i);
+    const dayMatch = t.match(/(?:day\s*\d+\s*[��-]\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i);
     if (dayMatch) {
       const d = dayMatch[1].toLowerCase().substring(0, 3);
       const dm: Record<string,string> = {mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun"};
@@ -134,13 +134,13 @@ function MealPlannerModal({clientName,macroTargets,onClose,onSave,push,initialPl
   const handleSave=async()=>{setSaving(true);try{await onSave(data);push("Week meal plan saved!","success");onClose()}catch{push("Failed to save","error")}finally{setSaving(false)}};
   return (<div className="fullscreen-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="fullscreen-modal" style={{maxWidth:"960px"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
-      <div><h2 style={{fontFamily:"var(--font-heading)",fontWeight:800,fontSize:"1.3rem",color:"var(--text-primary)",margin:0}}>🍽️ Meal Planner — {clientName}</h2><p style={{fontFamily:"var(--font-body)",fontSize:"0.8rem",color:"var(--text-secondary)",margin:"0.25rem 0 0 0"}}>Daily Target: {macroTargets.calories}kcal · {macroTargets.proteinG}g P · {macroTargets.carbsG}g C · {macroTargets.fatG}g F</p></div>
+      <div><h2 style={{fontFamily:"var(--font-heading)",fontWeight:800,fontSize:"1.3rem",color:"var(--text-primary)",margin:0}}>??? Meal Planner � {clientName}</h2><p style={{fontFamily:"var(--font-body)",fontSize:"0.8rem",color:"var(--text-secondary)",margin:"0.25rem 0 0 0"}}>Daily Target: {macroTargets.calories}kcal � {macroTargets.proteinG}g P � {macroTargets.carbsG}g C � {macroTargets.fatG}g F</p></div>
       <button className="btn-ghost" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
     </div>
     <div style={{display:"flex",gap:"0.35rem",marginBottom:"1.5rem",flexWrap:"wrap"}}>{DAYS.map(d=><button key={d} onClick={()=>{setDay(d);setEdit(null)}} style={{padding:"0.55rem 1.1rem",borderRadius:"var(--r-full)",border:`2px solid ${day===d?"var(--primary)":"var(--border)"}`,background:day===d?"var(--primary-light)":"var(--bg-card)",color:day===d?"var(--primary-dark)":"var(--text-secondary)",fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.82rem",cursor:"pointer"}}>{d}</button>)}</div>
-    <div style={{display:"flex",flexDirection:"column",gap:"0.75rem",marginBottom:"1rem"}}>{MEAL_SLOTS.map(s=>{const m=dayData[s]??emptySlot();const e=edit===s;return(<div key={s} className="card" style={{padding:"1rem",border:e?"1px solid var(--primary)":"1px solid var(--border)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:e?"0.75rem":"0"}}><div style={{display:"flex",alignItems:"center",gap:"0.5rem",flex:1,flexWrap:"wrap"}}><span style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--text-primary)"}}>{SLOT_LABELS[s]}</span>{!e&&m.dish&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.78rem",color:"var(--primary)",fontWeight:600}}>{m.dish}</span>}{!e&&m.time&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.7rem",color:"var(--text-muted)"}}>⏰{m.time}</span>}{!e&&m.calories>0&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.72rem",color:"var(--text-secondary)",marginLeft:"auto"}}>{m.calories}kcal · {m.proteinG}gP · {m.carbsG}gC · {m.fatG}gF</span>}</div><button className="btn-ghost btn-xs" onClick={()=>setEdit(e?null:s)}><span className="material-symbols-outlined" style={{fontSize:"0.9rem"}}>{e?"close":"edit"}</span></button></div>{e&&(<div style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}}><div><label className="input-label">Dish Name</label><input className="input" value={m.dish} onChange={e=>upd(s,"dish",e.target.value)} placeholder="e.g. Overnight Oats"/></div><div><label className="input-label">Time</label><input className="input" value={m.time} onChange={e=>upd(s,"time",e.target.value)} placeholder="e.g. 7:30 AM"/></div></div><div><label className="input-label">Ingredients</label><input className="input" value={m.ingredients} onChange={e=>upd(s,"ingredients",e.target.value)} placeholder="e.g. 80g oats, 150g yogurt"/></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"0.5rem"}}>{(["calories","proteinG","carbsG","fatG"]as const).map(k=><div key={k}><label className="input-label">{k==="proteinG"?"Protein(g)":k==="fatG"?"Fat(g)":k==="carbsG"?"Carbs(g)":"Calories"}</label><input className="input" type="number" min="0" value={m[k]||""} onChange={e=>upd(s,k,Number(e.target.value))}/></div>)}</div></div>)}</div>)})}</div>
-    <div className="card" style={{padding:"0.75rem 1rem",marginBottom:"1rem",background:"var(--primary-light)",border:"1px solid var(--primary-mid)"}}><div style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--primary-dark)"}}>📊 {day} TOTALS: {totals.cal}kcal · {totals.pro}gP · {totals.carb}gC · {totals.fat}gF</div></div>
-    <div style={{display:"flex",gap:"0.75rem"}}><button className="btn-primary" onClick={handleSave} disabled={saving} style={{flex:1}}>{saving?"Saving...":"💾 Save Week Plan"}</button><button className="btn-ghost" onClick={()=>{push("Open AI Coach to generate meal plan","info");onClose()}}>🤖 AI Generate</button></div>
+    <div style={{display:"flex",flexDirection:"column",gap:"0.75rem",marginBottom:"1rem"}}>{MEAL_SLOTS.map(s=>{const m=dayData[s]??emptySlot();const e=edit===s;return(<div key={s} className="card" style={{padding:"1rem",border:e?"1px solid var(--primary)":"1px solid var(--border)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:e?"0.75rem":"0"}}><div style={{display:"flex",alignItems:"center",gap:"0.5rem",flex:1,flexWrap:"wrap"}}><span style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--text-primary)"}}>{SLOT_LABELS[s]}</span>{!e&&m.dish&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.78rem",color:"var(--primary)",fontWeight:600}}>{m.dish}</span>}{!e&&m.time&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.7rem",color:"var(--text-muted)"}}>?{m.time}</span>}{!e&&m.calories>0&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.72rem",color:"var(--text-secondary)",marginLeft:"auto"}}>{m.calories}kcal � {m.proteinG}gP � {m.carbsG}gC � {m.fatG}gF</span>}</div><button className="btn-ghost btn-xs" onClick={()=>setEdit(e?null:s)}><span className="material-symbols-outlined" style={{fontSize:"0.9rem"}}>{e?"close":"edit"}</span></button></div>{e&&(<div style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}}><div><label className="input-label">Dish Name</label><input className="input" value={m.dish} onChange={e=>upd(s,"dish",e.target.value)} placeholder="e.g. Overnight Oats"/></div><div><label className="input-label">Time</label><input className="input" value={m.time} onChange={e=>upd(s,"time",e.target.value)} placeholder="e.g. 7:30 AM"/></div></div><div><label className="input-label">Ingredients</label><input className="input" value={m.ingredients} onChange={e=>upd(s,"ingredients",e.target.value)} placeholder="e.g. 80g oats, 150g yogurt"/></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"0.5rem"}}>{(["calories","proteinG","carbsG","fatG"]as const).map(k=><div key={k}><label className="input-label">{k==="proteinG"?"Protein(g)":k==="fatG"?"Fat(g)":k==="carbsG"?"Carbs(g)":"Calories"}</label><input className="input" type="number" min="0" value={m[k]||""} onChange={e=>upd(s,k,Number(e.target.value))}/></div>)}</div></div>)}</div>)})}</div>
+    <div className="card" style={{padding:"0.75rem 1rem",marginBottom:"1rem",background:"var(--primary-light)",border:"1px solid var(--primary-mid)"}}><div style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--primary-dark)"}}>?? {day} TOTALS: {totals.cal}kcal � {totals.pro}gP � {totals.carb}gC � {totals.fat}gF</div></div>
+    <div style={{display:"flex",gap:"0.75rem"}}><button className="btn-primary" onClick={handleSave} disabled={saving} style={{flex:1}}>{saving?"Saving...":"?? Save Week Plan"}</button><button className="btn-ghost" onClick={()=>{push("Open AI Coach to generate meal plan","info");onClose()}}>?? AI Generate</button></div>
   </div></div>);
 }
 
@@ -176,15 +176,15 @@ function parseAIWorkout(text: string, map: Record<string, WorkoutEntry[]>) {
   for (const line of lines) {
     const t = line.trim();
     if (!t) continue;
-    const dayMatch = t.match(/(?:day\s*\d+\s*[—–-]\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i);
+    const dayMatch = t.match(/(?:day\s*\d+\s*[��-]\s*)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i);
     if (dayMatch) {
       const d = dayMatch[1].toLowerCase().substring(0, 3);
       const dm: Record<string,string> = {mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun"};
       currentDay = dm[d] ?? DAYS[0];
       continue;
     }
-    const exMatch = t.match(/^[-•*]\s*(.+?)(?:\s*[:–-]\s*(\d+)\s*(?:sets?\s*)?[x×]\s*(\d+)\s*(?:reps?)?)?/i)
-      || t.match(/(.+?)\s*[:–-]\s*(\d+)\s*(?:sets?\s*)?[x×]\s*(\d+)\s*(?:reps?)?/i);
+    const exMatch = t.match(/^[-�*]\s*(.+?)(?:\s*[:�-]\s*(\d+)\s*(?:sets?\s*)?[x�]\s*(\d+)\s*(?:reps?)?)?/i)
+      || t.match(/(.+?)\s*[:�-]\s*(\d+)\s*(?:sets?\s*)?[x�]\s*(\d+)\s*(?:reps?)?/i);
     if (exMatch && exMatch[2] && exMatch[3]) {
       const calMatch = t.match(/(?:calories?(?:\s*burned)?[:\s]*)(\d+)\s*kcal/i) || t.match(/(\d+)\s*kcal/i);
       map[currentDay].push({
@@ -226,7 +226,7 @@ function WorkoutPlannerModal({clientName,onClose,onSave,push,initialPlan}:{clien
   const handleSave=async()=>{setSaving(true);try{await onSave(data);push("Week workout plan saved!","success");onClose()}catch{push("Failed to save","error")}finally{setSaving(false)}};
   return (<div className="fullscreen-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="fullscreen-modal" style={{maxWidth:"960px"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
-      <div><h2 style={{fontFamily:"var(--font-heading)",fontWeight:800,fontSize:"1.3rem",color:"var(--text-primary)",margin:0}}>💪 Workout Planner — {clientName}</h2><p style={{fontFamily:"var(--font-body)",fontSize:"0.8rem",color:"var(--text-secondary)",margin:"0.25rem 0 0 0"}}>Plan exercises for each day of the week</p></div>
+      <div><h2 style={{fontFamily:"var(--font-heading)",fontWeight:800,fontSize:"1.3rem",color:"var(--text-primary)",margin:0}}>?? Workout Planner � {clientName}</h2><p style={{fontFamily:"var(--font-body)",fontSize:"0.8rem",color:"var(--text-secondary)",margin:"0.25rem 0 0 0"}}>Plan exercises for each day of the week</p></div>
       <button className="btn-ghost" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
     </div>
     <div style={{display:"flex",gap:"0.35rem",marginBottom:"1.5rem",flexWrap:"wrap"}}>{DAYS.map(d=><button key={d} onClick={()=>{setDay(d);setEdit(null)}} style={{padding:"0.55rem 1.1rem",borderRadius:"var(--r-full)",border:`2px solid ${day===d?"var(--primary)":"var(--border)"}`,background:day===d?"var(--primary-light)":"var(--bg-card)",color:day===d?"var(--primary-dark)":"var(--text-secondary)",fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.82rem",cursor:"pointer"}}>{d}</button>)}</div>
@@ -237,7 +237,7 @@ function WorkoutPlannerModal({clientName,onClose,onSave,push,initialPlan}:{clien
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flex:1,flexWrap:"wrap"}}>
                <span style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--text-primary)"}}>{i+1}. {ex.name}</span>
-              {!e&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.72rem",color:"var(--text-secondary)"}}>{ex.sets}×{ex.reps} · {ex.rest}s rest {ex.calories>0?`· ${ex.calories}kcal`:" "}{ex.notes||""}</span>}
+              {!e&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.72rem",color:"var(--text-secondary)"}}>{ex.sets}�{ex.reps} � {ex.rest}s rest {ex.calories>0?`� ${ex.calories}kcal`:" "}{ex.notes||""}</span>}
             </div>
             <div style={{display:"flex",gap:"0.3rem"}}>
               <button className="btn-ghost btn-xs" onClick={()=>setEdit(e?null:i)}><span className="material-symbols-outlined" style={{fontSize:"0.9rem"}}>{e?"close":"edit"}</span></button>
@@ -258,7 +258,7 @@ function WorkoutPlannerModal({clientName,onClose,onSave,push,initialPlan}:{clien
       })}
     </div>
     <div className="card" style={{padding:"0.75rem 1rem",marginBottom:"1rem",background:"var(--primary-light)",border:"1px solid var(--primary-mid)"}}>
-      <div style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--primary-dark)"}}>📊 {day}: {dayData.length} exercises · {totalSets} sets · {totalReps} reps · {totalCals} kcal</div>
+      <div style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--primary-dark)"}}>?? {day}: {dayData.length} exercises � {totalSets} sets � {totalReps} reps � {totalCals} kcal</div>
     </div>
     <div style={{display:"flex",gap:"0.75rem",marginBottom:"0.5rem"}}>
       <button className="btn-ghost btn-sm" onClick={()=>{
@@ -267,8 +267,8 @@ function WorkoutPlannerModal({clientName,onClose,onSave,push,initialPlan}:{clien
       }} style={{flex:1}}><span className="material-symbols-outlined" style={{fontSize:"0.9rem"}}>add</span> Add Exercise</button>
     </div>
     <div style={{display:"flex",gap:"0.75rem"}}>
-      <button className="btn-primary" onClick={handleSave} disabled={saving} style={{flex:1}}>{saving?"Saving...":"💾 Save Week Plan"}</button>
-      <button className="btn-ghost" onClick={()=>{push("Open AI Coach to generate workout plan","info");onClose()}}>🤖 AI Generate</button>
+      <button className="btn-primary" onClick={handleSave} disabled={saving} style={{flex:1}}>{saving?"Saving...":"?? Save Week Plan"}</button>
+      <button className="btn-ghost" onClick={()=>{push("Open AI Coach to generate workout plan","info");onClose()}}>?? AI Generate</button>
     </div>
   </div></div>);
 }
@@ -399,14 +399,14 @@ export function ClientCommandCenter({
       .catch(() => push("Failed to load client data", "error"))
       .finally(() => {
         setLoading(false);
-        const openPlannerFor = localStorage.getItem("coachos_open_meal_planner");
+        const openPlannerFor = localStorage.getItem("CoachWave_open_meal_planner");
         if (openPlannerFor === clientId) {
-          localStorage.removeItem("coachos_open_meal_planner");
+          localStorage.removeItem("CoachWave_open_meal_planner");
           setTimeout(() => setShowMealModal(true), 300);
         }
-        const openWorkoutFor = localStorage.getItem("coachos_open_workout_planner");
+        const openWorkoutFor = localStorage.getItem("CoachWave_open_workout_planner");
         if (openWorkoutFor === clientId) {
-          localStorage.removeItem("coachos_open_workout_planner");
+          localStorage.removeItem("CoachWave_open_workout_planner");
           setTimeout(() => setShowWorkoutModal(true), 300);
         }
       });
@@ -447,7 +447,7 @@ export function ClientCommandCenter({
         await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify({ nutritionMeals: meals, weekMeals }) });
         push("Meal plan saved", "success");
       } else {
-        push("Could not save — generate a plan first", "error");
+        push("Could not save � generate a plan first", "error");
       }
     } catch {
       push("Failed to save meals", "error");
@@ -469,7 +469,7 @@ export function ClientCommandCenter({
         await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify({ workoutExercises: workouts, weekWorkouts }) });
         push("Workout plan saved", "success");
       } else {
-        push("Could not save — generate a plan first", "error");
+        push("Could not save � generate a plan first", "error");
       }
     } catch {
       push("Failed to save workouts", "error");
@@ -1170,7 +1170,7 @@ export function ClientCommandCenter({
                 style={{ width: "100%", fontSize: "0.72rem" }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>auto_awesome</span>
-                🤖 AI Plan Meal
+                ?? AI Plan Meal
               </button>
             </>
           ) : null}
@@ -1406,7 +1406,7 @@ export function ClientCommandCenter({
                 style={{ width: "100%", fontSize: "0.72rem" }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>auto_awesome</span>
-                🤖 AI Plan Workout
+                ?? AI Plan Workout
               </button>
             </>
           ) : null}
@@ -1490,32 +1490,32 @@ export function ClientCommandCenter({
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
               <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)" }}>
-                Calories: <span style={{ color: "var(--primary)" }}>{macroDraft.calories || "—"}</span>
+                Calories: <span style={{ color: "var(--primary)" }}>{macroDraft.calories || "�"}</span>
               </span>
               <span style={{ color: "var(--outline-variant)" }}>|</span>
               <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)" }}>
-                Protein: <span style={{ color: "var(--primary)" }}>{macroDraft.proteinG || "—"}g</span>
+                Protein: <span style={{ color: "var(--primary)" }}>{macroDraft.proteinG || "�"}g</span>
               </span>
               <span style={{ color: "var(--outline-variant)" }}>|</span>
               <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)" }}>
-                Fat: <span style={{ color: "var(--primary)" }}>{macroDraft.fatG || "—"}g</span>
+                Fat: <span style={{ color: "var(--primary)" }}>{macroDraft.fatG || "�"}g</span>
               </span>
               <span style={{ color: "var(--outline-variant)" }}>|</span>
               <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)" }}>
-                Carbs: <span style={{ color: "var(--primary)" }}>{macroDraft.carbsG || "—"}g</span>
+                Carbs: <span style={{ color: "var(--primary)" }}>{macroDraft.carbsG || "�"}g</span>
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
               <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--on-surface-variant)" }}>
-                Fiber: <b>{macroDraft.fiberG || "—"}g</b>
+                Fiber: <b>{macroDraft.fiberG || "�"}g</b>
               </span>
               <span style={{ color: "var(--outline-variant)" }}>|</span>
               <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--on-surface-variant)" }}>
-                Sugar: <b>{macroDraft.sugarG || "—"}g</b>
+                Sugar: <b>{macroDraft.sugarG || "�"}g</b>
               </span>
               <span style={{ color: "var(--outline-variant)" }}>|</span>
               <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", color: "var(--on-surface-variant)" }}>
-                Sodium: <b>{macroDraft.sodiumMg || "—"}mg</b>
+                Sodium: <b>{macroDraft.sodiumMg || "�"}mg</b>
               </span>
             </div>
           </div>
@@ -1579,31 +1579,31 @@ export function ClientCommandCenter({
                             color: weightTrend === "down" ? "var(--success)" : "var(--danger)",
                           }}
                         >
-                          {weightTrend === "down" ? "↓" : "↑"}
+                          {weightTrend === "down" ? "?" : "?"}
                         </span>
                       )}
                     </>
                   ) : (
-                    "—"
+                    "�"
                   )}
                 </div>
               </div>
               <div>
                 <div style={{ ...fn700 }}>Body Fat</div>
                 <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "var(--text-primary)" }}>
-                  {(latestCi.progress as any)?.bodyFatPct != null ? `${(latestCi.progress as any).bodyFatPct}%` : "—"}
+                  {(latestCi.progress as any)?.bodyFatPct != null ? `${(latestCi.progress as any).bodyFatPct}%` : "�"}
                 </div>
               </div>
               <div>
                 <div style={{ ...fn700 }}>Waist</div>
                 <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "var(--text-primary)" }}>
-                  {latestCi.progress?.waistCm != null ? `${latestCi.progress.waistCm} cm` : "—"}
+                  {latestCi.progress?.waistCm != null ? `${latestCi.progress.waistCm} cm` : "�"}
                 </div>
               </div>
               <div>
                 <div style={{ ...fn700 }}>Energy</div>
                 <div style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "var(--text-primary)" }}>
-                  {latestCi.progress?.energyScore != null ? `${latestCi.progress.energyScore}/10` : "—"}
+                  {latestCi.progress?.energyScore != null ? `${latestCi.progress.energyScore}/10` : "�"}
                 </div>
               </div>
             </>
@@ -1855,7 +1855,7 @@ export function ClientCommandCenter({
             setWeekMeals(weekPlanData);
             await saveMeals();
           }}
-          initialPlan={(typeof window !== "undefined" ? localStorage.getItem(`coachos_pending_meal_${clientId}`) : null) ?? null}
+          initialPlan={(typeof window !== "undefined" ? localStorage.getItem(`CoachWave_pending_meal_${clientId}`) : null) ?? null}
           push={(msg: string, t?: string) => push(msg, (t ?? "info") as any)}
         />
       )}
@@ -1871,7 +1871,7 @@ export function ClientCommandCenter({
             setWeekWorkouts(weekPlanData);
             await saveWorkouts();
           }}
-          initialPlan={(typeof window !== "undefined" ? localStorage.getItem(`coachos_pending_workout_${clientId}`) : null) ?? null}
+          initialPlan={(typeof window !== "undefined" ? localStorage.getItem(`CoachWave_pending_workout_${clientId}`) : null) ?? null}
           push={(msg: string, t?: string) => push(msg, (t ?? "info") as any)}
         />
       )}

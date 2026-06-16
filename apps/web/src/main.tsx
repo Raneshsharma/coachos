@@ -1,4 +1,4 @@
-﻿import { FormEvent, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import type {
@@ -11,9 +11,9 @@ import { ExerciseLibraryView } from "./views/ExerciseLibraryView";
 import { RecipeBrowserView } from "./views/RecipeBrowserView";
 import { ClientCommandCenter } from "./ClientCommandCenter";
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    TYPES
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 type Dashboard = {
   activeClients: number; checkedInToday: number; dueRenewals: number;
   revenueSnapshotUsd: number;
@@ -49,9 +49,9 @@ type Exercise = { id: string; name: string; bodyPart: string; equipment: string;
 type Recipe = { id: string; name: string; ingredients: string[]; steps: string[]; calories: number; proteinG: number; carbsG: number; fatG: number; prepTime: number; cookTime: number; tags: string[] };
 type BookedSession = { id: string; clientId: string; clientName: string; sessionType: 'virtual' | 'in_person'; date: string; time: string; duration: number; notes: string; status: 'upcoming' | 'completed' | 'cancelled'; sessionNotes: string; completedAt: string | null; createdAt: string };
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    API HELPERS
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 const isProd = import.meta.env.PROD;
 const apiBase = isProd ? "/api" : "http://localhost:4000/api";
 
@@ -62,9 +62,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export { fetchJson };
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    TOAST HOOK
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 const MAX_VISIBLE_TOASTS = 5;
 const DEFAULT_DURATION = 4000;
 
@@ -106,7 +106,7 @@ function useToast() {
 
     setToasts(prev => {
       if (prev.length >= MAX_VISIBLE_TOASTS) {
-        // Queue it â€” don't overflow the screen
+        // Queue it �� don't overflow the screen
         setQueue(q => [...q, toast]);
         return prev;
       }
@@ -133,18 +133,18 @@ function useToast() {
   return { toasts, push, dismiss, success, error, warning, info };
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    CSV HELPER
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function csvToRows(csv: string) {
   const [, ...lines] = csv.trim().split("\n");
   return lines.map(l => l.split(",")).filter(p => p.length >= 4)
     .map(([name, email, goal, price]) => ({ name: name.trim(), email: email.trim(), goal: goal.trim(), monthlyPriceUsd: Number(price.trim()) }));
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    SMALL COMPONENTS
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function Avatar({ name }: { name: string }) {
   const initials = name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
   return <div className="client-avatar">{initials}</div>;
@@ -264,9 +264,9 @@ function ToastContainer({
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    SIDEBAR
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function Sidebar({
   active, onNav, session, atRiskCount, notifications, setNotifications, showNotifications, setShowNotifications
 }: {
@@ -291,7 +291,7 @@ function Sidebar({
       <div className="sidebar-logo">
         <div className="sidebar-logo-mark">C</div>
         <div>
-          <div className="sidebar-logo-name">CoachOS</div>
+          <div className="sidebar-logo-name">CoachWave</div>
           <div className="sidebar-logo-tag">v1.0</div>
         </div>
       </div>
@@ -358,12 +358,12 @@ function Sidebar({
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    VIEWS
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 
 
-// â”€â”€ SESSION BOOKING MODAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── SESSION BOOKING MODAL ──────────────
 function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push, clients }: {
   client: { id: string; fullName: string };
   onClose: () => void;
@@ -418,7 +418,7 @@ function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push, 
           onBookSession({
             id: `block_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
             clientId: "blocked",
-            clientName: "⛔ Blocked",
+            clientName: "? Blocked",
             sessionType: 'virtual',
             date, time,
             duration: Number(duration),
@@ -457,7 +457,7 @@ function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push, 
               </button>
             </div>
             <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.8rem', color: 'var(--outline)', marginBottom: '1rem' }}>
-              {isBlockTime ? 'Block a time slot — no client will be assigned.' : `Schedule a session with ${displayName}.`}
+              {isBlockTime ? 'Block a time slot � no client will be assigned.' : `Schedule a session with ${displayName}.`}
             </p>
 
             <div style={{ marginBottom: '1rem' }}>
@@ -465,7 +465,7 @@ function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push, 
                 <label style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.72rem', fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Client</label>
                 <button type="button" onClick={() => setIsBlockTime(!isBlockTime)}
                   style={{ padding: '0.25rem 0.65rem', borderRadius: 'var(--r-full)', border: `1.5px solid ${isBlockTime ? 'var(--danger)' : 'var(--outline-variant)'}`, background: isBlockTime ? 'var(--danger-light)' : 'transparent', color: isBlockTime ? 'var(--danger-text)' : 'var(--text-muted)', fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>
-                  ⛔ Block Time
+                  ? Block Time
                 </button>
               </div>
               {!isBlockTime && (
@@ -531,7 +531,7 @@ function SessionBookingModal({ client, onClose, onSuccess, onBookSession, push, 
   );
 }
 
-// â”€â”€ DASHBOARD VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── DASHBOARD VIEW ──────────────────────
 function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push, onLogWorkout, onOpenClientNotes, onAddClient }: {
   session: CoachSession;
   onNav: (id: NavId) => void;
@@ -605,7 +605,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
           severity = risk.severity;
         } else if (c.status === "trial" && !c.lastCheckInDate) {
           priority = 60;
-          reason = "Trial ending soon â€” no check-in yet";
+          reason = "Trial ending soon �� no check-in yet";
           action = "Follow up";
           severity = "medium";
         } else if (c.adherenceScore < 50) {
@@ -639,7 +639,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
 
   return (
     <div className="page-view">
-      {/* â”€â”€ GREETING BANNER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── GREETING BANNER ───────────────── */}
       <div className="dash-greeting">
         <div className="dash-greeting-left">
           <h1>{greeting}, {session.coach.firstName}.</h1>
@@ -653,7 +653,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </div>
       </div>
 
-      {/* â”€â”€ TODAY'S SESSIONS + STATS ROW â”€â”€â”€â”€ */}
+      {/* ── TODAY'S SESSIONS + STATS ROW ──── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "2rem", marginBottom: "2rem", alignItems: "start" }}>
         <div className="card">
           <div className="flex items-center justify-between mb-md">
@@ -706,12 +706,12 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </div>
       </div>
 
-      {/* â”€â”€ WHO NEEDS ATTENTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── WHO NEEDS ATTENTION ────────────── */}
       {attentionClients.length > 0 && (
         <div style={{ marginBottom: "2rem" }}>
           <div className="flex items-center justify-between mb-md">
             <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0 }}>Who Needs Attention</h2>
-            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-muted)" }}>{attentionClients.length} client{attentionClients.length !== 1 ? "s" : ""} Â· scroll â†’</span>
+            <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-muted)" }}>{attentionClients.length} client{attentionClients.length !== 1 ? "s" : ""} � scroll →</span>
           </div>
           <div className="h-scroll">
             {attentionClients.map(c => {
@@ -747,7 +747,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </div>
       )}
 
-      {/* â”€â”€ QUICK ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── QUICK ACTIONS ──────────────────── */}
       <div className="flex items-center gap-md flex-wrap mb-xl">
         <button className="quick-action" onClick={onAddClient}>
           <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>person_add</span>
@@ -771,7 +771,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
         </button>
       </div>
 
-      {/* â”€â”€ ALL CLIENTS TABLE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── ALL CLIENTS TABLE ──────────────── */}
       <div className="card">
         <div className="flex items-center justify-between mb-md">
           <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0 }}>All Clients</h2>
@@ -800,7 +800,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                   : "Never";
                 const renewal = c.nextRenewalDate
                   ? new Date(c.nextRenewalDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                  : "â€”";
+                  : "��";
                 const sub = session.subscriptions.find(s => s.clientId === c.id);
                 return (
                   <tr key={c.id} style={{ cursor: "pointer" }} onClick={() => { onNav("clients"); }}>
@@ -814,7 +814,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
                     </td>
                     <td>
                       <span style={{ color: statusColor(c.status), fontWeight: 600 }}>{statusLabel(c.status)}</span>
-                      {risk && <span style={{ marginLeft: "0.35rem", fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--danger)", fontWeight: 700 }}>â€¢</span>}
+                      {risk && <span style={{ marginLeft: "0.35rem", fontFamily: "Inter, sans-serif", fontSize: "0.65rem", color: "var(--danger)", fontWeight: 700 }}>�</span>}
                     </td>
                     <td>
                       <div className="flex items-center gap-sm">
@@ -843,7 +843,7 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
               {clients.length > 15 && (
                 <tr>
                   <td colSpan={6} style={{ textAlign: "center", padding: "0.75rem", fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                    +{clients.length - 15} more clients â€” <button onClick={() => onNav("clients")} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontWeight: 700, fontFamily: "Inter, sans-serif", fontSize: "0.8rem", padding: 0 }}>view all</button>
+                    +{clients.length - 15} more clients �� <button onClick={() => onNav("clients")} style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", fontWeight: 700, fontFamily: "Inter, sans-serif", fontSize: "0.8rem", padding: 0 }}>view all</button>
                   </td>
                 </tr>
               )}
@@ -855,9 +855,9 @@ function DashboardView({ session, onNav, onSimulateCheckIn, onMarkPayment, push,
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    ADD CLIENT MODAL
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function AddClientModal({
   onClose,
   onSuccess,
@@ -936,7 +936,7 @@ function AddClientModal({
       push(`${newClient.fullName} added successfully!`, "success");
       onSuccess();
     } catch {
-      push("Network error â€” please check your connection.", "error");
+      push("Network error �� please check your connection.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -1020,7 +1020,7 @@ function AddClientModal({
               <textarea
                 id="ac-goal"
                 className={`form-input form-textarea${errors.goal ? " form-input--error" : ""}`}
-                placeholder="e.g. Lose 5kg body fat, build strength, run a marathonâ€¦"
+                placeholder="e.g. Lose 5kg body fat, build strength, run a marathon��"
                 value={form.goal}
                 onChange={set("goal")}
                 rows={2}
@@ -1084,7 +1084,7 @@ function AddClientModal({
               {submitting ? (
                 <>
                   <span className="btn-spinner" />
-                  Adding Clientâ€¦
+                  Adding Client��
                 </>
               ) : (
                 <>
@@ -1101,7 +1101,7 @@ function AddClientModal({
 }
 
 
-// â”€â”€ CLIENTS VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── CLIENTS VIEW ──────────────────────
 function ClientsView({
   session,
   onOpenClient,
@@ -1218,7 +1218,7 @@ function ClientsView({
               className="input"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search clients, goalsâ€¦"
+              placeholder="Search clients, goals��"
               style={{ width: "200px", fontSize: "0.8rem", padding: "0.5rem 1rem 0.5rem 2.5rem" }}
             />
           </div>
@@ -1337,7 +1337,7 @@ function ClientsView({
   );
 }
 
-// ── PLANS VIEW (AI Plan Generator) ──────────────────────
+// -- PLANS VIEW (AI Plan Generator) ----------------------
 function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavId) => void }) {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -1438,9 +1438,9 @@ function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavI
               onChange={e => { setSelectedClientId(e.target.value); setActivePlan(null); }}
               style={{ width: "100%", padding: "0.6rem 0.75rem", borderRadius: "var(--r-md)", border: "1.5px solid var(--outline-variant)", background: "white", fontFamily: "Inter, sans-serif", fontSize: "0.85rem", color: "var(--text-primary)", boxSizing: "border-box" }}
             >
-              <option value="">â€” Select a client â€”</option>
+              <option value="">�� Select a client ��</option>
               {sortedClients.map(c => (
-                <option key={c.id} value={c.id}>{c.fullName} â€” {c.goal}</option>
+                <option key={c.id} value={c.id}>{c.fullName} �� {c.goal}</option>
               ))}
             </select>
           </div>
@@ -1619,7 +1619,7 @@ function PlansView({ session, onNav }: { session: CoachSession; onNav: (id: NavI
   );
 }
 
-// â”€â”€ CLIENT PORTAL VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── CLIENT PORTAL VIEW ──────────────────────
 function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, onCheckIn, onSaveEdits, onSendMessage, onRefreshProof, onApprove, checkInHistory, onNav, push }: {
   session: CoachSession;
   clientPortal: ClientSession | null;
@@ -1683,25 +1683,25 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
       { slot: "Breakfast", name: "Protein Smoothie Bowl", cal: 340, protein: 30 },
       { slot: "Lunch", name: "Tuna Nicoise Salad", cal: 420, protein: 40 },
       { slot: "Snacks", name: "Rice Cakes & Almond Butter", cal: 180, protein: 5 },
-      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "��", cal: 0, protein: 0 },
     ]},
     { name: "Fri", meals: [
-      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "��", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "��", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "��", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "��", cal: 0, protein: 0 },
     ]},
     { name: "Sat", meals: [
-      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "��", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "��", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "��", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "��", cal: 0, protein: 0 },
     ]},
     { name: "Sun", meals: [
-      { slot: "Breakfast", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Lunch", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Snacks", name: "â€”", cal: 0, protein: 0 },
-      { slot: "Dinner", name: "â€”", cal: 0, protein: 0 },
+      { slot: "Breakfast", name: "��", cal: 0, protein: 0 },
+      { slot: "Lunch", name: "��", cal: 0, protein: 0 },
+      { slot: "Snacks", name: "��", cal: 0, protein: 0 },
+      { slot: "Dinner", name: "��", cal: 0, protein: 0 },
     ]},
   ]);
   const [savingMeal, setSavingMeal] = useState(false);
@@ -1767,7 +1767,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
     setSavingMeal(true);
     try {
       const nutritionStrings = mealWeek.map(day =>
-        `${day.name}: ${day.meals.filter(m => m.name !== "â€”").map(m => `${m.slot} â€” ${m.name} (${m.cal} cal, ${m.protein}g protein)`).join(" | ")}`
+        `${day.name}: ${day.meals.filter(m => m.name !== "��").map(m => `${m.slot} �� ${m.name} (${m.cal} cal, ${m.protein}g protein)`).join(" | ")}`
       );
       await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ nutrition: nutritionStrings }) });
       push("Meal plan saved to client profile!", "success");
@@ -1986,7 +1986,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                           onKeyDown={e => { if (e.key === "Enter") saveProfile({ goal: (document.getElementById("edit-goal") as HTMLInputElement).value }); if (e.key === "Escape") cancelEdit(); }}
                         />
                       ) : (
-                        <div className="portal-goal-text">{(clientPortal.client as any).goal || "Not set â€” click edit to add"}</div>
+                        <div className="portal-goal-text">{(clientPortal.client as any).goal || "Not set �� click edit to add"}</div>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
@@ -2115,7 +2115,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         ].map(m => (
                           <div key={m.label} className="portal-macro-chip">
                             <div className="portal-macro-label">{m.label}</div>
-                            <div className="portal-macro-value">{m.value ?? "â€”"}</div>
+                            <div className="portal-macro-value">{m.value ?? "��"}</div>
                             <div className="portal-macro-unit">{m.unit}</div>
                           </div>
                         ))}
@@ -2262,7 +2262,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     <div className="meal-week-nav">
                       <div className="meal-week-label">
                         <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "var(--primary)" }}>calendar_today</span>
-                        Oct 23 â€“ Oct 29, 2023
+                        Oct 23 �� Oct 29, 2023
                       </div>
                       <button className="meal-week-nav-btn" onClick={() => setMealWeekOffset(o => o - 1)}>
                         <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>chevron_left</span>
@@ -2351,34 +2351,34 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         { slot: "Breakfast", name: "Protein Smoothie Bowl", cal: 340, protein: 30, cheat: false },
                         { slot: "Lunch", name: "Tuna Nicoise Salad", cal: 420, protein: 40, cheat: false },
                         { slot: "Snacks", name: "Rice Cakes & Almond Butter", cal: 180, protein: 5, cheat: false },
-                        { slot: "Dinner", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "��", cal: 0, protein: 0, cheat: false },
                       ],
                       cheatMeal: null
                     },
                     { name: "Fri", date: 27, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
                       meals: [
-                        { slot: "Breakfast", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Breakfast", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "��", cal: 0, protein: 0, cheat: false },
                       ],
                       cheatMeal: null
                     },
                     { name: "Sat", date: 28, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
                       meals: [
-                        { slot: "Breakfast", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Breakfast", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "��", cal: 0, protein: 0, cheat: false },
                       ],
                       cheatMeal: null
                     },
                     { name: "Sun", date: 29, isToday: false, calTarget: 1800, proteinTarget: 150, carbsTarget: 210, fatTarget: 58, calCurrent: 0,
                       meals: [
-                        { slot: "Breakfast", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Lunch", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Snacks", name: "â€”", cal: 0, protein: 0, cheat: false },
-                        { slot: "Dinner", name: "â€”", cal: 0, protein: 0, cheat: false },
+                        { slot: "Breakfast", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Lunch", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Snacks", name: "��", cal: 0, protein: 0, cheat: false },
+                        { slot: "Dinner", name: "��", cal: 0, protein: 0, cheat: false },
                       ],
                       cheatMeal: null
                     },
@@ -2408,7 +2408,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
                             <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.04em" }}>P / C / F</span>
                             <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.58rem", fontWeight: 700, color: "var(--text-primary)" }}>
-                              {day.proteinTarget}g Â· {day.carbsTarget}g Â· {day.fatTarget}g
+                              {day.proteinTarget}g � {day.carbsTarget}g � {day.fatTarget}g
                             </span>
                           </div>
                           <div className="meal-macro-mini-bars">
@@ -2428,7 +2428,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                         {day.meals.map((meal) => (
                           <div key={meal.slot}>
                             <div className="meal-slot-label">{meal.slot}</div>
-                            {meal.name === "â€”" ? (
+                            {meal.name === "��" ? (
                               <button className="meal-add-btn" title={`Add ${meal.slot}`} onClick={() => setEditingMeal({ day: day.name, slot: meal.slot })}>
                                 <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>add</span>
                               </button>
@@ -2438,7 +2438,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                                   <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>edit</span>
                                 </button>
                                 <div className="meal-item-name">{meal.name}</div>
-                                <div className="meal-item-cal">{meal.cal} kcal Â· {meal.protein}g P</div>
+                                <div className="meal-item-cal">{meal.cal} kcal � {meal.protein}g P</div>
                               </div>
                             )}
                           </div>
@@ -2453,7 +2453,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                                 <span className="material-symbols-outlined" style={{ fontSize: "0.7rem" }}>edit</span>
                               </button>
                               <div className="meal-item-name">{day.cheatMeal.name}</div>
-                              <div className="meal-item-cal meal-item-cal--cheat">{day.cheatMeal.cal} kcal Â· {day.cheatMeal.protein}g P</div>
+                              <div className="meal-item-cal meal-item-cal--cheat">{day.cheatMeal.cal} kcal � {day.cheatMeal.protein}g P</div>
                             </div>
                           </>
                         ) : null}
@@ -2472,7 +2472,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem", fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
                     <span>AI Generate</span>
                   </button>
-                  <button className="meal-architect-btn" onClick={() => { push("Opening Smart Swap â€” managing nutrition swaps in Habits", "info"); onNav("habits"); }}>
+                  <button className="meal-architect-btn" onClick={() => { push("Opening Smart Swap �� managing nutrition swaps in Habits", "info"); onNav("habits"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>swap_horiz</span>
                     <span>Smart Swap</span>
                   </button>
@@ -2480,7 +2480,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>restaurant_menu</span>
                     <span>Add Meal</span>
                   </button>
-                  <button className="meal-architect-btn" onClick={() => { push("Macro targets saved â€” 150g protein, 210g carbs, 58g fat per day", "success"); }}>
+                  <button className="meal-architect-btn" onClick={() => { push("Macro targets saved �� 150g protein, 210g carbs, 58g fat per day", "success"); }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>tune</span>
                     <span>Macro Setup</span>
                   </button>
@@ -2664,7 +2664,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 </div>
                 <div className="workout-bottom-actions">
                   <button className="workout-discard-btn" onClick={() => { setWorkoutExercises([{ id: 1, name: "Jumping Jacks", tag: "Metabolic / Plyometric", sets: "3 Sets of 50", duration: "60 Seconds", advanced: "" }, { id: 2, name: "High Knees", tag: "Agility / Power", sets: "Per Set: 30", duration: "45 Seconds", advanced: "Ankle Weights 1kg" }, { id: 3, name: "Butt Kicks", tag: "Metabolic / Warmup", sets: "Fixed: 40", duration: "30 Seconds", advanced: "" }]); push("Workout draft discarded - reverted to last saved version"); }}>Discard Draft</button>
-                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { setSavingWorkout(true); try { await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ workouts: JSON.stringify(workoutExercises) }) }); await onApprove(clientPortal.plan.id); push("Workout plan saved and published!", "success"); } catch { push("Failed to save workout plan", "error"); } finally { setSavingWorkout(false); } } else { push("No active plan â€” generate one from AI Plans first", "error"); } }}>Save &amp; Publish</button>
+                  <button className="workout-publish-btn" onClick={async () => { if (clientPortal?.plan) { setSavingWorkout(true); try { await fetchJson<any>(`/plans/${clientPortal.plan.id}`, { method: "PATCH", body: JSON.stringify({ workouts: JSON.stringify(workoutExercises) }) }); await onApprove(clientPortal.plan.id); push("Workout plan saved and published!", "success"); } catch { push("Failed to save workout plan", "error"); } finally { setSavingWorkout(false); } } else { push("No active plan �� generate one from AI Plans first", "error"); } }}>Save &amp; Publish</button>
                 </div>
               </div>
             </div>
@@ -2689,7 +2689,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                 }
               </div>
               <form className="message-input-row" onSubmit={handleSendMessage}>
-                <input value={msgDraft} onChange={e => setMsgDraft(e.target.value)} placeholder="Type a messageâ€¦" />
+                <input value={msgDraft} onChange={e => setMsgDraft(e.target.value)} placeholder="Type a message��" />
                 <button type="submit">Send</button>
               </form>
             </div>
@@ -2722,7 +2722,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                       <div className="stat-card__value" style={{ fontSize: "1.6rem", color: "var(--primary)" }}>
                         {(() => {
                           const deltas = checkInHistory.filter(c => c.weightDelta != null);
-                          if (deltas.length < 2) return "â€”";
+                          if (deltas.length < 2) return "��";
                           const net = deltas[deltas.length - 1].weightDelta! + deltas[0].weightDelta!;
                           return `${net > 0 ? "+" : ""}${net.toFixed(1)}kg`;
                         })()}
@@ -2754,7 +2754,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
                             <div className="trend-bar-track">
                               <div className="trend-bar-fill trend-bar-fill--weight" style={{ height: hasWeight ? `${Math.max(8, pct)}%` : "8%", opacity: hasWeight ? 1 : 0.3 }} />
                             </div>
-                            <span className="trend-bar-label">{checkIn.progress.weightKg != null ? `${checkIn.progress.weightKg}` : "â€”"}</span>
+                            <span className="trend-bar-label">{checkIn.progress.weightKg != null ? `${checkIn.progress.weightKg}` : "��"}</span>
                             <span className="trend-bar-date">{new Date(checkIn.submittedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
                           </div>
                         );
@@ -2865,7 +2865,7 @@ function PortalView({ session, clientPortal, selectedClientId, onSwitchClient, o
   );
 }
 
-// â”€â”€ BILLING VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── BILLING VIEW ──────────────────────
 function BillingView({ session, onToggleBilling }: {
   session: CoachSession;
   onToggleBilling: (clientId: string, status: "active"|"past_due"|"cancelled") => Promise<void>;
@@ -2906,7 +2906,7 @@ function BillingView({ session, onToggleBilling }: {
       <div className="panel card-glass">
         <div className="section-header inline-spread">
           <h2>Client Subscriptions & Invoices</h2>
-          <button className="secondary sm" onClick={() => downloadBulkTaxReport(subs, session.clients, session.workspace)}>ðŸ“¥ Bulk Download Tax Report</button>
+          <button className="secondary sm" onClick={() => downloadBulkTaxReport(subs, session.clients, session.workspace)}>📥 Bulk Download Tax Report</button>
         </div>
         <div className="stack compact">
           {subs.map(sub => {
@@ -2931,7 +2931,7 @@ function BillingView({ session, onToggleBilling }: {
                     {sub.status}
                   </span>
                   <div className="inline compact">
-                    <button className="ghost sm" onClick={() => client && generateInvoicePDF(sub, client, session.workspace)}>ðŸ“„ PDF Invoice</button>
+                    <button className="ghost sm" onClick={() => client && generateInvoicePDF(sub, client, session.workspace)}>📄 PDF Invoice</button>
                     {sub.status === "active" ? (
                       <button className="secondary sm" onClick={() => onToggleBilling(sub.clientId, "past_due")}>Mark due</button>
                     ) : (
@@ -2948,7 +2948,7 @@ function BillingView({ session, onToggleBilling }: {
   );
 }
 
-// â”€â”€ MIGRATION VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── MIGRATION VIEW ──────────────────────
 function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
   const [csvRows, setCsvRows] = useState("Name,Email,Goal,MonthlyPriceUsd\nEmma Walker,emma@example.com,Drop 6kg before wedding,179\nNoah Reed,noah@example.com,Improve strength and reduce body fat,149");
   const [preview, setPreview] = useState<any>(null);
@@ -2994,7 +2994,7 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
             <textarea className="csv-box" value={csvRows} onChange={e => setCsvRows(e.target.value)} />
             <div className="inline">
               <button className="secondary" onClick={doPreview}>Preview</button>
-              <button disabled={loading === "commit"} onClick={doCommit}>{loading === "commit" ? "Importingâ€¦" : "Commit rows"}</button>
+              <button disabled={loading === "commit"} onClick={doCommit}>{loading === "commit" ? "Importing��" : "Commit rows"}</button>
             </div>
             {preview && (
               <div className="preview-table">
@@ -3018,18 +3018,18 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
         <div className="stack">
           <div className="panel">
             <div className="section-header"><h2>Export & Rollback</h2></div>
-            <p className="muted text-sm" style={{ marginBottom: "1rem" }}>Download a portable JSON snapshot of all state â€” clients, plans, payments, and analytics.</p>
+            <p className="muted text-sm" style={{ marginBottom: "1rem" }}>Download a portable JSON snapshot of all state �� clients, plans, payments, and analytics.</p>
             <div className="inline">
-              <a className="ghost-button" href={`${apiBase}/export`} target="_blank" rel="noreferrer">â†“ Export bundle</a>
-              <button className="danger" disabled={loading === "reset"} onClick={doReset}>{loading === "reset" ? "Resettingâ€¦" : "Reset to seed"}</button>
+              <a className="ghost-button" href={`${apiBase}/export`} target="_blank" rel="noreferrer">↓ Export bundle</a>
+              <button className="danger" disabled={loading === "reset"} onClick={doReset}>{loading === "reset" ? "Resetting��" : "Reset to seed"}</button>
             </div>
           </div>
 
           <div className="panel">
             <div className="section-header"><h2>Restore Snapshot</h2></div>
             <form className="stack" onSubmit={doRestore}>
-              <textarea className="csv-box" value={restoreJson} onChange={e => setRestoreJson(e.target.value)} placeholder='Paste exported JSON hereâ€¦' />
-              <button type="submit" disabled={loading === "restore"}>{loading === "restore" ? "Restoringâ€¦" : "Restore snapshot"}</button>
+              <textarea className="csv-box" value={restoreJson} onChange={e => setRestoreJson(e.target.value)} placeholder='Paste exported JSON here��' />
+              <button type="submit" disabled={loading === "restore"}>{loading === "restore" ? "Restoring��" : "Restore snapshot"}</button>
             </form>
           </div>
         </div>
@@ -3038,7 +3038,7 @@ function MigrationView({ onReload }: { onReload: () => Promise<void> }) {
   );
 }
 
-// â”€â”€ SETTINGS VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── SETTINGS VIEW ──────────────────────
 function SettingsView({ session, onSave }: {
   session: CoachSession;
   onSave: (draft: any) => Promise<void>;
@@ -3116,7 +3116,7 @@ function SettingsView({ session, onSave }: {
       <h1 className="page-title">Workspace & Profile</h1>
       <p className="page-subtitle">Manage your brand, coach profile, client defaults, and subscription info.</p>
 
-      {/* ── WORKSPACE ─────────────────────────── */}
+      {/* -- WORKSPACE --------------------------- */}
       <div className="panel">
         <div className="panel-header">
           <div>
@@ -3157,7 +3157,7 @@ function SettingsView({ session, onSave }: {
         </form>
       </div>
 
-      {/* ── COACH PROFILE ────────────────────── */}
+      {/* -- COACH PROFILE ---------------------- */}
       <div className="panel">
         <div className="panel-header">
           <div>
@@ -3209,7 +3209,7 @@ function SettingsView({ session, onSave }: {
         </form>
       </div>
 
-      {/* ── CLIENT DEFAULTS ──────────────────── */}
+      {/* -- CLIENT DEFAULTS -------------------- */}
       <div className="panel">
         <div className="panel-header">
           <div>
@@ -3240,7 +3240,7 @@ function SettingsView({ session, onSave }: {
         </form>
       </div>
 
-      {/* ── SUBSCRIPTION ─────────────────────── */}
+      {/* -- SUBSCRIPTION ----------------------- */}
       <div className="panel">
         <div className="panel-header">
           <div>
@@ -3290,9 +3290,9 @@ function SettingsView({ session, onSave }: {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    WORKOUT LOGGER MODAL
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
   onClose: () => void;
   onSuccess: () => void;
@@ -3328,8 +3328,8 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
           clientId: selectedClientId,
           submittedAt: new Date(workoutDate).toISOString(),
           progress: {
-            notes: `Workout â€” ${sessionType}. Exercises: ${completed.map(ex =>
-              `${ex.name} ${ex.sets}Ã—${ex.reps}${ex.weight ? ` @${ex.weight}kg` : ""}`
+            notes: `Workout �� ${sessionType}. Exercises: ${completed.map(ex =>
+              `${ex.name} ${ex.sets}�${ex.reps}${ex.weight ? ` @${ex.weight}kg` : ""}`
             ).join(" | ")}`,
           },
         })
@@ -3344,7 +3344,7 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
       <div className="modal-panel" style={{ maxWidth: 520 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", margin: 0 }}>Log Workout Session</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>Ã—</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>�</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1rem" }}>
@@ -3381,7 +3381,7 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
                 <input value={ex.reps} onChange={e => updateExercise(i, "reps", e.target.value)} placeholder="Reps" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
                 <input value={ex.weight} onChange={e => updateExercise(i, "weight", e.target.value)} placeholder="kg" style={{ padding: "0.35rem 0.4rem", borderRadius: "var(--r-sm)", border: "1.5px solid var(--outline-variant)", background: "var(--surface-container)", color: "var(--text-primary)", fontFamily: "Inter, sans-serif", fontSize: "0.75rem", boxSizing: "border-box" }} />
                 {exercises.length > 1 && (
-                  <button type="button" onClick={() => removeExercise(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.2rem" }}>Ã—</button>
+                  <button type="button" onClick={() => removeExercise(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger)", fontSize: "0.9rem", padding: "0.2rem" }}>�</button>
                 )}
               </div>
             ))}
@@ -3398,9 +3398,9 @@ function WorkoutLoggerModal({ onClose, onSuccess, push, clients }: {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    CLIENT NOTES MODAL
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function ClientNotesModal({ onClose, push, clients }: {
   onClose: () => void;
   push: (message: string, type?: "success"|"error"|"info") => void;
@@ -3488,7 +3488,7 @@ function ClientNotesModal({ onClose, push, clients }: {
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexShrink: 0 }}>
           <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)", margin: 0 }}>Client Notes & Chat</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>Ã—</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--outline)", fontSize: "1.2rem", padding: "0.25rem" }}>�</button>
         </div>
 
         {/* Client selector */}
@@ -3606,9 +3606,9 @@ function ClientNotesModal({ onClose, push, clients }: {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    ONBOARDING WIZARD
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState({
@@ -3646,7 +3646,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           ))}
         </div>
 
-        {/* Step 0 â€” Workspace Setup */}
+        {/* Step 0 �� Workspace Setup */}
         {step === 0 && (
           <div>
             <p className="eyebrow">Step 1 of {STEPS.length}</p>
@@ -3667,12 +3667,12 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
-        {/* Step 1 â€” Coach Type */}
+        {/* Step 1 �� Coach Type */}
         {step === 1 && (
           <div>
             <p className="eyebrow">Step 2 of {STEPS.length}</p>
             <h2 className="modal-title">What kind of coach are you?</h2>
-            <p className="modal-subtitle">We'll tailor your experience â€” you can change this later.</p>
+            <p className="modal-subtitle">We'll tailor your experience �� you can change this later.</p>
             <div className="coach-type-grid" style={{ marginTop: "1.5rem" }}>
               {COACH_TYPES.map(ct => (
                 <button
@@ -3694,7 +3694,7 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
           </div>
         )}
 
-        {/* Step 2 â€” Launch */}
+        {/* Step 2 �� Launch */}
         {step === 2 && (
           <div style={{ textAlign: "center", padding: "1rem 0" }}>
             <p className="eyebrow">Step 3 of {STEPS.length}</p>
@@ -3702,17 +3702,17 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
             <p className="modal-subtitle">Your workspace is ready. Let's go.</p>
             <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div className="onboard-summary-item">
-                <span className="onboard-summary-icon">ðŸ‹ï¸</span>
-                <span>CoachOS workspace created</span>
+                <span className="onboard-summary-icon">🏋️</span>
+                <span>CoachWave workspace created</span>
               </div>
               {coachTypes.length > 0 && (
                 <div className="onboard-summary-item">
-                  <span className="onboard-summary-icon">ðŸŽ¯</span>
+                  <span className="onboard-summary-icon">🎯</span>
                   <span>{coachTypes.length} coaching specialty{coachTypes.length > 1 ? "ies" : "y"} selected</span>
                 </div>
               )}
               <div className="onboard-summary-item">
-                <span className="onboard-summary-icon">ðŸ“‹</span>
+                <span className="onboard-summary-icon">📋</span>
                 <span>Demo clients loaded and ready to explore</span>
               </div>
             </div>
@@ -3721,24 +3721,24 @@ function OnboardingWizard({ onComplete }: { onComplete: () => void }) {
 
         <div className="onboard-actions">
           {step > 0 ? (
-            <button className="secondary" onClick={() => setStep(s => s - 1)}>â† Back</button>
+            <button className="secondary" onClick={() => setStep(s => s - 1)}>← Back</button>
           ) : (
             <div />
           )}
           <div className="inline">
             <span className="text-sm muted">{step + 1} / {STEPS.length}</span>
-            <button onClick={next}>{step === STEPS.length - 1 ? "Launch CoachOS â†’" : "Continue â†’"}</button>
+            <button onClick={next}>{step === STEPS.length - 1 ? "Launch CoachWave →" : "Continue →"}</button>
           </div>
         </div>
-        <div className="onboard-skip" onClick={onComplete}>Skip onboarding â€” use defaults</div>
+        <div className="onboard-skip" onClick={onComplete}>Skip onboarding �� use defaults</div>
       </div>
     </div>
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    GROUP PROGRAMS VIEW
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function GroupsView({ session, onCreate, onUpdate, onArchive }: {
   session: CoachSession;
   onCreate: (payload: Partial<GroupProgram>) => Promise<void>;
@@ -3830,7 +3830,7 @@ function GroupsView({ session, onCreate, onUpdate, onArchive }: {
       {programs.length === 0 && !showCreate && (
         <div className="panel">
           <div className="empty-state">
-            <div className="empty-state-icon">ðŸ‘¥</div>
+            <div className="empty-state-icon">👥</div>
             <p style={{ color: "var(--on-surface)", fontWeight: 600 }}>No group programs yet</p>
             <p className="muted text-sm">Create a programme to coach multiple clients together.</p>
           </div>
@@ -3993,9 +3993,9 @@ function EditProgramModal({ program, clients, onSave, onArchive, onClose }: {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    HABITS VIEW
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function HabitsView({ session }: { session: CoachSession }) {
   const [summaries, setSummaries] = useState<Map<string, HabitSummary[]>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -4040,7 +4040,7 @@ function HabitsView({ session }: { session: CoachSession }) {
         metadata: { habit: habitTitle }
       })
     });
-    push("Nudge sent to client âœ“");
+    push("Nudge sent to client ✓");
   };
 
   const addHabit = async (clientId: string) => {
@@ -4064,6 +4064,16 @@ function HabitsView({ session }: { session: CoachSession }) {
     if (!items.length) return 0;
     return Math.round((items.filter(i => i.todayDone).length / items.length) * 100);
   };
+
+  const filteredClients = useMemo(() => {
+    let list = [...session.clients];
+    if (filterMode === "with") list = list.filter(c => (summaries.get(c.id) ?? []).length > 0);
+    if (filterMode === "without") list = list.filter(c => (summaries.get(c.id) ?? []).length === 0);
+    if (sortMode === "az") list.sort((a,b) => a.fullName.localeCompare(b.fullName));
+    if (sortMode === "za") list.sort((a,b) => b.fullName.localeCompare(a.fullName));
+    if (sortMode === "date") list.sort((a,b) => (a.nextRenewalDate||"").localeCompare(b.nextRenewalDate||""));
+    return list;
+  }, [filterMode, sortMode, summaries, session.clients]);
 
   return (
     <div className="page-view">
@@ -4092,15 +4102,7 @@ function HabitsView({ session }: { session: CoachSession }) {
               </button>
             ))}
           </div>
-          {useMemo(() => {
-            let list = [...session.clients];
-            if (filterMode === "with") list = list.filter(c => (summaries.get(c.id) ?? []).length > 0);
-            if (filterMode === "without") list = list.filter(c => (summaries.get(c.id) ?? []).length === 0);
-            if (sortMode === "az") list.sort((a,b) => a.fullName.localeCompare(b.fullName));
-            if (sortMode === "za") list.sort((a,b) => b.fullName.localeCompare(a.fullName));
-            if (sortMode === "date") list.sort((a,b) => (a.nextRenewalDate||"").localeCompare(b.nextRenewalDate||""));
-            return list;
-          }, [filterMode, sortMode, summaries, session.clients]).map(client => {
+          {filteredClients.map(client => {
             const items = summaries.get(client.id) ?? [];
             const rate = completionRate(client.id);
             return (
@@ -4114,7 +4116,7 @@ function HabitsView({ session }: { session: CoachSession }) {
                         {rate}% today
                       </span>
                       {items.map(i => i.streak > 0 && (
-                        <span key={i.habit.id} className="habit-streak-badge">ðŸ”¥ {i.streak}d streak</span>
+                        <span key={i.habit.id} className="habit-streak-badge">🔥 {i.streak}d streak</span>
                       ))}
                     </div>
                   </div>
@@ -4159,7 +4161,7 @@ function HabitsView({ session }: { session: CoachSession }) {
                       />
                       <span className={`habit-title${todayDone ? " done" : ""}`}>{habit.title}</span>
                       <div className="habit-meta">
-                        <span className="streak-flame">ðŸ”¥ {streak}</span>
+                        <span className="streak-flame">🔥 {streak}</span>
                         <span className="habit-frequency">{habit.frequency}</span>
                         {!todayDone && (
                           <button className="habit-nudge-btn" onClick={() => sendNudge(client.id, habit.title)}>
@@ -4179,9 +4181,9 @@ function HabitsView({ session }: { session: CoachSession }) {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    EXERCISES VIEW
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function ExercisesView() {
   const [search, setSearch] = useState("");
   const [bodyPart, setBodyPart] = useState("all");
@@ -4210,12 +4212,12 @@ function ExercisesView() {
     <div className="page-view">
       <p className="eyebrow">Exercise Library</p>
       <h1 className="page-title">Movement Database</h1>
-      <p className="page-subtitle">{exercises.length} exercises across all movement patterns â€” tagged by body part, equipment, and difficulty.</p>
+      <p className="page-subtitle">{exercises.length} exercises across all movement patterns �� tagged by body part, equipment, and difficulty.</p>
 
       <div className="panel">
         <div className="search-wrapper" style={{ marginBottom: "1rem" }}>
-          <span className="search-icon">âŒ•</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search exercisesâ€¦" />
+          <span className="search-icon">⌕</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search exercises��" />
         </div>
         <div className="exercise-filters">
           {BODY_PARTS.map(bp => (
@@ -4247,7 +4249,7 @@ function ExercisesView() {
         ))}
         {exercises.length === 0 && (
           <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
-            <div className="empty-state-icon">ðŸ‹ï¸</div>
+            <div className="empty-state-icon">🏋️</div>
             <p>No exercises match your filters.</p>
           </div>
         )}
@@ -4256,9 +4258,9 @@ function ExercisesView() {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    CALENDAR VIEW
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function CalendarView({ session, onNav, bookedSessions, onUpdateSessions, push, clients }: {
   session: CoachSession;
   onNav: (id: NavId) => void;
@@ -4294,7 +4296,7 @@ function CalendarView({ session, onNav, bookedSessions, onUpdateSessions, push, 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <h1 style={{ fontFamily: "var(--font-heading)", fontSize: "2rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: "0 0 0.15rem" }}>Calendar</h1>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>{bookedSessions.length} sessions · {bookedSessions.filter(s => s.status === 'completed').length} completed</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>{bookedSessions.length} sessions � {bookedSessions.filter(s => s.status === 'completed').length} completed</p>
         </div>
         <button className="btn-primary btn-sm" onClick={() => { if (clients.length > 0) setBookingClient({ id: clients[0].id, fullName: clients[0].fullName }); }}>
           <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>add</span>
@@ -4378,7 +4380,7 @@ function CalendarView({ session, onNav, bookedSessions, onUpdateSessions, push, 
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)" }}>{s.clientName}</div>
-                    <div style={{ fontFamily: "var(--font-body)", fontSize: "0.72rem", color: "var(--outline)" }}>{s.time} · {s.duration}min · {s.sessionType === 'virtual' ? 'Virtual' : 'In-Person'}</div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: "0.72rem", color: "var(--outline)" }}>{s.time} � {s.duration}min � {s.sessionType === 'virtual' ? 'Virtual' : 'In-Person'}</div>
                   </div>
                   <span style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "0.9rem", color: "var(--primary)" }}>{s.time}</span>
                   <button className="btn-ghost btn-xs" onClick={() => markComplete(s.id)}><span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: "var(--success)" }}>check_circle</span></button>
@@ -4418,9 +4420,9 @@ function CalendarView({ session, onNav, bookedSessions, onUpdateSessions, push, 
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    NUTRITION SWAP AGENT
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNutrition: string[] }) {
   const [foods, setFoods] = useState<Array<{ id: string; name: string; calories: number; proteinG: number; carbsG: number; fatG: number; portion: string; swapped: boolean }>>([]);
   const [activeSwap, setActiveSwap] = useState<number | null>(null);
@@ -4461,7 +4463,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
       });
       setSuggestion(result);
     } catch {
-      // Silent fail â€” agentic fallback
+      // Silent fail �� agentic fallback
     } finally { setLoading(false); }
   };
 
@@ -4497,7 +4499,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
   return (
     <div className="swap-agent">
       <div className="swap-agent-header">
-        <span style={{ fontSize: "1.1rem" }}>ðŸ”„</span>
+        <span style={{ fontSize: "1.1rem" }}>🔄</span>
         <div>
           <h3 style={{ fontSize: "1rem", marginBottom: "0.1rem" }}>Nutrition Swap Agent</h3>
           <p className="text-sm muted" style={{ margin: 0 }}>Click any food to get AI macro-matched alternatives.</p>
@@ -4509,8 +4511,8 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <div key={food.id}>
           <div className={`swap-food-item${food.swapped ? " swapped" : ""}${activeSwap === i ? " active" : ""}`} onClick={() => !food.swapped && requestSwap(i)}>
             <div>
-              <div className="swap-food-name">{food.swapped ? "âœ“ " : ""}{food.name}</div>
-              <div className="swap-food-macros">{food.calories} kcal Â· {food.proteinG}g P Â· {food.carbsG}g C Â· {food.fatG}g F</div>
+              <div className="swap-food-name">{food.swapped ? "✓ " : ""}{food.name}</div>
+              <div className="swap-food-macros">{food.calories} kcal � {food.proteinG}g P � {food.carbsG}g C � {food.fatG}g F</div>
             </div>
             {!food.swapped && <button className="swap-swap-btn" onClick={e => { e.stopPropagation(); requestSwap(i); }}>Swap</button>}
             {food.swapped && <span className="pill pill-success" style={{ fontSize: "0.72rem" }}>Swapped</span>}
@@ -4523,7 +4525,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
               {!loading && suggestion && suggestion.suggestion && (
                 <>
                   <div className="swap-result-header">
-                    <span className="swap-result-title">âš¡ {suggestion.suggestion.name}</span>
+                    <span className="swap-result-title">⚡ {suggestion.suggestion.name}</span>
                   </div>
                   <p className="swap-result-reason">"{suggestion.suggestion.reasoning}"</p>
                   <div className="swap-macro-compare">
@@ -4542,7 +4544,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
                       </div>
                     ))}
                   </div>
-                  <button className="swap-apply-btn" onClick={applySwap}>âœ“ Apply this swap</button>
+                  <button className="swap-apply-btn" onClick={applySwap}>✓ Apply this swap</button>
                 </>
               )}
               {!loading && suggestion && !suggestion.suggestion && (
@@ -4557,7 +4559,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <span className="swap-applied-count">{appliedCount} swap{appliedCount !== 1 ? "s" : ""} applied</span>
         <div className="inline">
           <RecipePanel planNutrition={planNutrition} />
-          <button className="swap-history-btn" onClick={loadHistory} disabled={historyLoading}>View history â†’</button>
+          <button className="swap-history-btn" onClick={loadHistory} disabled={historyLoading}>View history →</button>
         </div>
       </div>
 
@@ -4565,7 +4567,7 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
         <div className="swap-history-panel">
           <div className="swap-history-header">
             <h4>Swap History</h4>
-            <button className="ghost sm" onClick={() => setShowHistory(false)}>âœ•</button>
+            <button className="ghost sm" onClick={() => setShowHistory(false)}>✕</button>
           </div>
           {historyLoading ? (
             <div style={{ display: "flex", justifyContent: "center", padding: "1rem" }}><div className="spinner" /></div>
@@ -4577,12 +4579,12 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
                 <div key={s.id} className="swap-history-item">
                   <div className="swap-history-row">
                     <span className="swap-history-food swap-history-orig">{s.originalFood.name}</span>
-                    <span className="swap-history-arrow">â†’</span>
+                    <span className="swap-history-arrow">→</span>
                     <span className="swap-history-food swap-history-new">{s.swapSuggestion.name}</span>
                   </div>
                   <div className="swap-history-meta">
-                    {s.originalFood.calories} kcal â†’ {s.swapSuggestion.calories} kcal
-                    {s.appliedAt && <span className="muted text-xs"> Â· {new Date(s.appliedAt).toLocaleDateString()}</span>}
+                    {s.originalFood.calories} kcal → {s.swapSuggestion.calories} kcal
+                    {s.appliedAt && <span className="muted text-xs"> � {new Date(s.appliedAt).toLocaleDateString()}</span>}
                   </div>
                 </div>
               ))}
@@ -4594,9 +4596,9 @@ function NutritionSwapAgent({ planId, planNutrition }: { planId: string; planNut
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    RECIPE PANEL
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
@@ -4626,7 +4628,7 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
           onChange={e => setSelectedFood(e.target.value)}
           style={{ width: "auto", fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}
         >
-          <option value="">Pick a foodâ€¦</option>
+          <option value="">Pick a food��</option>
           {foodOptions.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
         </select>
         <button
@@ -4634,7 +4636,7 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
           disabled={!selectedFood || loading}
           onClick={() => selectedFood && generateRecipe(selectedFood)}
         >
-          {loading ? "â€¦" : "ðŸ³ Generate Recipe"}
+          {loading ? "��" : "🍳 Generate Recipe"}
         </button>
       </div>
 
@@ -4644,11 +4646,11 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
             <div>
               <div className="recipe-title">{recipe.name}</div>
               <div className="recipe-meta">
-                <span className="recipe-meta-item">â± Prep {recipe.prepTime}min</span>
-                <span className="recipe-meta-item">ðŸ”¥ Cook {recipe.cookTime}min</span>
+                <span className="recipe-meta-item">⏱ Prep {recipe.prepTime}min</span>
+                <span className="recipe-meta-item">🔥 Cook {recipe.cookTime}min</span>
               </div>
             </div>
-            <button className="icon" style={{ fontSize: "1rem" }} onClick={() => setShowPanel(false)}>âœ•</button>
+            <button className="icon" style={{ fontSize: "1rem" }} onClick={() => setShowPanel(false)}>✕</button>
           </div>
           <div className="recipe-macro-pills">
             {[
@@ -4680,9 +4682,9 @@ function RecipePanel({ planNutrition }: { planNutrition: string[] }) {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    PDF INVOICE GENERATOR
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const jspdf: { jsPDF: new (opts?: { orientation?: string; unit?: string; format?: string }) => Record<string, any> };
 
@@ -4714,7 +4716,7 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFontSize(10);
   doc.text(workspace.name, 20, 28);
   doc.setFontSize(8);
-  doc.text("Tax Invoice Â· UK VAT Registered", 20, 34);
+  doc.text("Tax Invoice � UK VAT Registered", 20, 34);
 
   // Invoice meta (right side)
   doc.setTextColor(r, g, b);
@@ -4756,7 +4758,7 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(40, 40, 40);
-  doc.text("Coaching Services â€” Monthly Subscription", 22, y);
+  doc.text("Coaching Services �� Monthly Subscription", 22, y);
   doc.text("1", 123, y);
   doc.text(`$${netAmount.toFixed(2)}`, 140, y);
   doc.text(`$${vatAmount.toFixed(2)}`, 160, y);
@@ -4788,7 +4790,7 @@ function generateInvoicePDF(subscription: PaymentSubscription, client: ClientPro
   // Footer
   doc.setTextColor(150, 150, 150);
   doc.setFontSize(7);
-  doc.text("This invoice is generated by CoachOS. VAT registered under UK law. Retain for your self-assessment records.", 20, 280);
+  doc.text("This invoice is generated by CoachWave. VAT registered under UK law. Retain for your self-assessment records.", 20, 280);
   doc.text(`Subscription renews: ${subscription.renewalDate}`, 20, 285);
 
   doc.setDocumentProperties({ title: `Invoice ${invoiceNumber}`, author: workspace.name });
@@ -4810,7 +4812,7 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(255, 255, 255);
-  doc.text(`${workspace.name} â€” HMRC Tax Report`, 20, 13);
+  doc.text(`${workspace.name} �� HMRC Tax Report`, 20, 13);
 
   const today = new Date().toISOString().slice(0, 10);
   doc.setFont("helvetica", "normal");
@@ -4876,9 +4878,9 @@ function downloadBulkTaxReport(subscriptions: PaymentSubscription[], clients: Cl
   doc.save(`tax-report-${today}.pdf`);
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ────────────────────────────────────────
    CLIENT APP PREVIEW
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+──────────────────────────────────────── */
 type ClientAppTab = "today"|"plan"|"checkin"|"messages";
 
 function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPortal: ClientSession; onCheckInSuccess?: () => void }) {
@@ -4959,7 +4961,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
     <div className="client-app">
       <div className="client-app-status-bar">
         <span className="client-app-status-bar-left">9:41</span>
-        <span className="client-app-status-bar-right"><span>â—â—â—â—â—</span><span>ðŸ“¶</span><span>ðŸ”‹</span></span>
+        <span className="client-app-status-bar-right"><span>●●●●●</span><span>📶</span><span>🔋</span></span>
       </div>
 
       {activeTab === "today" && (
@@ -4967,8 +4969,8 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
           <div className="client-app-greeting">{greeting}, {firstName}!</div>
           <div className="client-app-date">{today.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>
           <div className="client-app-streak-row">
-            <span className="client-app-streak-badge">ðŸ”¥ 5 day streak</span>
-            <span className="client-app-streak-badge" style={{ background: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.25)", color: "#60a5fa" }}>ðŸ“‹ {workouts.length} sessions this week</span>
+            <span className="client-app-streak-badge">🔥 5 day streak</span>
+            <span className="client-app-streak-badge" style={{ background: "rgba(96,165,250,0.12)", borderColor: "rgba(96,165,250,0.25)", color: "#60a5fa" }}>📋 {workouts.length} sessions this week</span>
           </div>
           <div className="client-app-stats-row" style={{ marginTop: 14 }}>
             <div className="client-app-stat-chip">
@@ -4977,7 +4979,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             </div>
             <div className="client-app-stat-chip">
               <span className="client-app-stat-chip-label">Energy</span>
-              <span className="client-app-stat-chip-value">{clientPortal.latestCheckIn?.progress.energyScore ?? "â€”"}/10</span>
+              <span className="client-app-stat-chip-value">{clientPortal.latestCheckIn?.progress.energyScore ?? "��"}/10</span>
             </div>
             <div className="client-app-stat-chip">
               <span className="client-app-stat-chip-label">Renewal</span>
@@ -4993,12 +4995,12 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             <>
               <div className="client-app-section-title">Today's Focus</div>
               <div className="client-app-card">
-                <div className="client-app-card-label">ðŸ’ª Workout</div>
+                <div className="client-app-card-label">💪 Workout</div>
                 <div className="client-app-card-title">{workouts[todayIndex] || workouts[0]}</div>
                 <div className="client-app-card-chip">Approved</div>
               </div>
               <div className="client-app-card">
-                <div className="client-app-card-label">ðŸ¥— Nutrition</div>
+                <div className="client-app-card-label">🥗 Nutrition</div>
                 <div className="client-app-card-title">{nutrition[todayIndex]?.split(":")[0] || "Moderate deficit"}</div>
                 <div className="client-app-card-body">{nutrition[todayIndex] || nutrition[0]}</div>
               </div>
@@ -5013,7 +5015,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
           <div className="client-app-card">
             {habits.map((h, i) => (
               <div key={i} className="client-app-habit-item">
-                <div className={`client-app-habit-check${h.done ? " checked" : ""}`}>{h.done ? "âœ“" : ""}</div>
+                <div className={`client-app-habit-check${h.done ? " checked" : ""}`}>{h.done ? "✓" : ""}</div>
                 <span className={`client-app-habit-title${h.done ? " done" : ""}`}>{h.title}</span>
               </div>
             ))}
@@ -5030,10 +5032,10 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             return (
               <div key={day} className="client-app-day-card">
                 <div className="client-app-day-card-header">
-                  <span className={`client-app-day-label${isToday ? " today" : ""}`}>{isToday ? "â— " : ""}{day}{isToday ? " â€” Today" : ""}</span>
+                  <span className={`client-app-day-label${isToday ? " today" : ""}`}>{isToday ? "● " : ""}{day}{isToday ? " �� Today" : ""}</span>
                   <div className="client-app-day-chips">
-                    {workout && <span className="client-app-day-chip client-app-day-chip--workout">ðŸ’ª</span>}
-                    {nutrition[i] && <span className="client-app-day-chip client-app-day-chip--nutrition">ðŸ¥—</span>}
+                    {workout && <span className="client-app-day-chip client-app-day-chip--workout">💪</span>}
+                    {nutrition[i] && <span className="client-app-day-chip client-app-day-chip--nutrition">🥗</span>}
                   </div>
                 </div>
                 <div className="client-app-day-detail">{workout}</div>
@@ -5049,7 +5051,7 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
         <div className="client-app-checkin-form">
           <div className="client-app-section-title" style={{ marginTop: 8 }}>Submit Check-In</div>
           {checkInSuccess && (
-            <div className="client-app-success-banner">âœ“ Check-in submitted!</div>
+            <div className="client-app-success-banner">✓ Check-in submitted!</div>
           )}
           <form onSubmit={handleCheckInSubmit}>
             <label className="client-app-form-label">Weight (kg)</label>
@@ -5064,11 +5066,11 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             <label className="client-app-form-label">Progress Photo</label>
             <input ref={photoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
             <button type="button" className="client-app-photo-btn" onClick={() => photoInputRef.current?.click()}>
-              <span>{checkInPhoto ? "âœ“" : "ðŸ“·"}</span> {checkInPhoto ? "Photo selected" : "Add Progress Photo"}
+              <span>{checkInPhoto ? "✓" : "📷"}</span> {checkInPhoto ? "Photo selected" : "Add Progress Photo"}
             </button>
             {checkInPhoto && <img src={checkInPhoto} alt="Preview" style={{ width: "100%", borderRadius: "var(--r-lg)", marginTop: "0.5rem" }} />}
             <button type="submit" className="client-app-submit-btn" disabled={checkInSubmitting}>
-              {checkInSubmitting ? "Submittingâ€¦" : "Submit Check-In"}
+              {checkInSubmitting ? "Submitting��" : "Submit Check-In"}
             </button>
           </form>
         </div>
@@ -5091,17 +5093,17 @@ function ClientAppPreviewInner({ clientPortal, onCheckInSuccess }: { clientPorta
             ))}
           </div>
           <div className="client-app-message-input-row">
-            <input className="client-app-message-input" placeholder="Type a messageâ€¦" />
+            <input className="client-app-message-input" placeholder="Type a message��" />
           </div>
         </>
       )}
 
       <div className="client-app-tabs">
         {([
-          { id: "today" as ClientAppTab, icon: "ðŸ ", label: "Today" },
-          { id: "plan" as ClientAppTab, icon: "ðŸ“‹", label: "Plan" },
-          { id: "checkin" as ClientAppTab, icon: "âœ…", label: "Check-In" },
-          { id: "messages" as ClientAppTab, icon: "ðŸ’¬", label: "Messages" },
+          { id: "today" as ClientAppTab, icon: "🏠", label: "Today" },
+          { id: "plan" as ClientAppTab, icon: "📋", label: "Plan" },
+          { id: "checkin" as ClientAppTab, icon: "✅", label: "Check-In" },
+          { id: "messages" as ClientAppTab, icon: "💬", label: "Messages" },
         ] as const).map(t => (
           <button key={t.id} className={`client-app-tab${activeTab === t.id ? " active" : ""}`} onClick={() => setActiveTab(t.id)}>
             <span>{t.icon}</span>
@@ -5122,9 +5124,9 @@ function ClientAppView({ session, clientPortal, onSwitchClient }: {
 
   return (
     <div className="page-view">
-      <p className="eyebrow">CoachOS Preview</p>
+      <p className="eyebrow">CoachWave Preview</p>
       <h1 className="page-title">Client App Preview</h1>
-      <p className="page-subtitle">See exactly what your clients see â€” live mobile simulator.</p>
+      <p className="page-subtitle">See exactly what your clients see �� live mobile simulator.</p>
 
       <div className="client-app-split">
         <div className="coach-preview-panel">
@@ -5156,19 +5158,19 @@ function ClientAppView({ session, clientPortal, onSwitchClient }: {
                 <div className="phone-notch" />
                 <div className="phone-status-bar">
                   <span className="phone-status-bar-left">9:41</span>
-                  <span className="phone-status-bar-right"><span>â—â—â—â—â—</span><span>ðŸ“¶</span><span>ðŸ”‹</span></span>
+                  <span className="phone-status-bar-right"><span>●●●●●</span><span>📶</span><span>🔋</span></span>
                 </div>
                 <div className="phone-viewport">
-                  {/* @ts-expect-error â€” loadCoach/selectedClientId declared later, visible at runtime */}
+                  {/* @ts-expect-error �� loadCoach/selectedClientId declared later, visible at runtime */}
                   <ClientAppPreviewInner clientPortal={clientPortal} onCheckInSuccess={() => (loadCoach as any)((selectedClientId as any) ?? undefined)} />
                 </div>
                 <div className="phone-home-bar" />
               </div>
-              <p className="phone-preview-label">CoachOS Client App â€” {clientPortal.client.fullName}</p>
+              <p className="phone-preview-label">CoachWave Client App �� {clientPortal.client.fullName}</p>
             </>
           ) : (
             <div className="empty-state">
-              <div className="empty-state-icon">ðŸ“±</div>
+              <div className="empty-state-icon">📱</div>
               <p>Select a client to preview their experience.</p>
             </div>
           )}
@@ -5209,7 +5211,7 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
 
   useEffect(() => {
     if (!selectedClientId) { setClientData(null); return; }
-    const saved = localStorage.getItem(`coachos_chat_${selectedClientId}`);
+    const saved = localStorage.getItem(`CoachWave_chat_${selectedClientId}`);
     setMessages(saved ? JSON.parse(saved) : []);
     setHistoryOpen(false);
     fetchJson<ClientProfile>(`/clients/${selectedClientId}`)
@@ -5220,7 +5222,7 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
   // Save chat history when messages change
   useEffect(() => {
     if (selectedClientId && messages.length > 0) {
-      localStorage.setItem(`coachos_chat_${selectedClientId}`, JSON.stringify(messages));
+      localStorage.setItem(`CoachWave_chat_${selectedClientId}`, JSON.stringify(messages));
     }
   }, [messages, selectedClientId]);
 
@@ -5549,7 +5551,7 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                       <span style={{ width: "28px", height: "28px", borderRadius: "var(--r-md)", background: "linear-gradient(135deg, var(--primary-dark), var(--primary))", display: "grid", placeItems: "center" }}>
                         <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "white" }}>smart_toy</span>
                       </span>
-                      <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>CoachOS AI</span>
+                      <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>CoachWave AI</span>
                       <span style={{ marginLeft: "auto", fontFamily: "Inter, sans-serif", fontSize: "0.62rem", color: "var(--outline)", background: "var(--surface-container)", padding: "0.12rem 0.5rem", borderRadius: "var(--r-full)", fontWeight: 600 }}>Generated</span>
                     </div>
                     <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: "380px", overflowY: "auto" }}>
@@ -5603,8 +5605,8 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                             if (planId) {
                               await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(planData) });
                             }
-                            localStorage.setItem(`coachos_pending_meal_${selectedClientId}`, lastAi.content);
-                            localStorage.setItem("coachos_open_meal_planner", selectedClientId);
+                            localStorage.setItem(`CoachWave_pending_meal_${selectedClientId}`, lastAi.content);
+                            localStorage.setItem("CoachWave_open_meal_planner", selectedClientId);
                             push(`Meal plan ready! Open ${firstName}'s profile to review.`, "success");
                           } catch { push("Failed to store plan", "error"); }
                           finally { setFillLoading(false); }
@@ -5619,8 +5621,8 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                         className="btn-primary btn-sm"
                         onClick={() => {
                           setFillLoading(true);
-                          localStorage.setItem(`coachos_pending_workout_${selectedClientId}`, lastAi.content);
-                          localStorage.setItem("coachos_open_workout_planner", selectedClientId);
+                          localStorage.setItem(`CoachWave_pending_workout_${selectedClientId}`, lastAi.content);
+                          localStorage.setItem("CoachWave_open_workout_planner", selectedClientId);
                           push(`Workout plan ready! Open ${firstName}'s profile to review.`, "success");
                           setTimeout(() => setFillLoading(false), 500);
                         }}
@@ -5842,7 +5844,7 @@ function AICopilotPanel({
             </div>
             <div>
               <div className="copilot-header-title">AI Copilot</div>
-              <div className="copilot-header-subtitle">Powered by CoachOS AI</div>
+              <div className="copilot-header-subtitle">Powered by CoachWave AI</div>
             </div>
           </div>
           <button className="copilot-close" onClick={onClose}>
@@ -5941,7 +5943,7 @@ function App() {
 
   // Check if onboarding was already completed
   const [showOnboarding, setShowOnboarding] = useState(() => {
-    try { return localStorage.getItem("coachos_onboarded") !== "true"; }
+    try { return localStorage.getItem("CoachWave_onboarded") !== "true"; }
     catch { return true; }
   });
 
@@ -6013,7 +6015,7 @@ function App() {
   }, [copilotInput, copilotLoading, activeNav, selectedClientId, session, loadCoach, push]);
 
   useEffect(() => {
-    loadCoach().catch(err => setLoadError(err instanceof Error ? err.message : "Connection failed â€” is the API running?"));
+    loadCoach().catch(err => setLoadError(err instanceof Error ? err.message : "Connection failed �� is the API running?"));
   }, []);
 
   const handleNav = (id: NavId) => {
@@ -6029,7 +6031,7 @@ function App() {
   const handleApprove = async (planId: string) => {
     await fetchJson(`/plans/${planId}/approve`, { method: "POST" });
     await loadCoach(selectedClientId ?? undefined);
-    push("Plan approved âœ“");
+    push("Plan approved ✓");
   };
 
   const handleCheckIn = async (clientId: string) => {
@@ -6110,7 +6112,7 @@ function App() {
         <div className="loading">
           <div className="loading-inner">
             <div className="loading-logo">C</div>
-            <p style={{ color: "var(--danger)", fontWeight: 600 }}>âš  Cannot connect to CoachOS API</p>
+            <p style={{ color: "var(--danger)", fontWeight: 600 }}>⚠ Cannot connect to CoachWave API</p>
             <p className="muted text-sm" style={{ maxWidth: 380, textAlign: "center" }}>{loadError}</p>
             <p className="muted text-xs">Run: <code>npm run dev:api</code></p>
             <button onClick={() => { setLoadError(null); loadCoach().catch(e => setLoadError(e.message)); }}>Retry</button>
@@ -6123,7 +6125,7 @@ function App() {
         <div className="loading-inner">
           <div className="loading-logo">C</div>
           <div className="spinner" />
-          <p className="muted">Loading CoachOSâ€¦</p>
+          <p className="muted">Loading CoachWave��</p>
         </div>
       </div>
     );
@@ -6229,8 +6231,8 @@ function App() {
         <OnboardingWizard
           onComplete={() => {
             setShowOnboarding(false);
-            try { localStorage.setItem("coachos_onboarded", "true"); } catch { /* ignore */ }
-            push("Welcome to CoachOS!", "success");
+            try { localStorage.setItem("CoachWave_onboarded", "true"); } catch { /* ignore */ }
+            push("Welcome to CoachWave!", "success");
           }}
         />
       )}

@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { analyticsEventSchema, groupProgramSchema, nutritionSwapSchema } from "@coachos/domain";
+import { analyticsEventSchema, groupProgramSchema, nutritionSwapSchema } from "@CoachWave/domain";
 import { DemoStore } from "./store";
 
 export function createApp(store: DemoStore) {
@@ -10,7 +10,7 @@ export function createApp(store: DemoStore) {
   app.use(express.json());
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, service: "coachos-api" });
+    res.json({ ok: true, service: "CoachWave-api" });
   });
 
   app.get("/api/runtime", (_req, res) => {
