@@ -4082,358 +4082,151 @@ function CalendarView({ session, onNav, bookedSessions, onUpdateSessions, push, 
   clients: ClientProfile[];
 }) {
   const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
-
+  const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState<string>(today.toISOString().split("T")[0]);
   const [bookingClient, setBookingClient] = useState<{ id: string; fullName: string } | null>(null);
-  const [activeNoteSession, setActiveNoteSession] = useState<string | null>(null);
-  const [noteDraft, setNoteDraft] = useState("");
 
-  const todaySessions = useMemo(() => {
-    return bookedSessions
-      .filter(s => s.date === todayStr && s.status !== 'cancelled')
-      .sort((a, b) => a.time.localeCompare(b.time));
-  }, [bookedSessions, todayStr]);
+  const monthName = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+  const firstDayOfWeek = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay();
+  const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
-  const upcomingSessions = useMemo(() => {
-    return bookedSessions
-      .filter(s => s.date > todayStr && s.status === 'upcoming')
-      .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
-  }, [bookedSessions, todayStr]);
+  const prevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  const nextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
 
-  const pastSessions = useMemo(() => {
-    return bookedSessions
-      .filter(s => s.date < todayStr || s.status === 'completed')
-      .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`))
-      .slice(0, 20);
-  }, [bookedSessions, todayStr]);
+  const getDateStr = (d: number) => { const dt = new Date(viewDate.getFullYear(), viewDate.getMonth(), d); return dt.toISOString().split("T")[0]; };
+  const isToday = (d: number) => getDateStr(d) === today.toISOString().split("T")[0];
+  const sessionsOnDate = (d: number) => bookedSessions.filter(s => s.date === getDateStr(d) && s.status !== 'cancelled');
+  const selectedSessions = bookedSessions.filter(s => s.date === selectedDate && s.status !== 'cancelled');
 
-  const markComplete = (sessionId: string) => {
-    onUpdateSessions(prev => prev.map(s =>
-      s.id === sessionId
-        ? { ...s, status: 'completed' as const, completedAt: new Date().toISOString() }
-        : s
-    ));
-  };
-
-  const cancelSession = (sessionId: string) => {
-    onUpdateSessions(prev => prev.map(s =>
-      s.id === sessionId ? { ...s, status: 'cancelled' as const } : s
-    ));
-  };
-
-  const saveSessionNotes = (sessionId: string) => {
-    if (!noteDraft.trim()) return;
-    onUpdateSessions(prev => prev.map(s =>
-      s.id === sessionId
-        ? { ...s, sessionNotes: s.sessionNotes ? `${s.sessionNotes}\n\n${noteDraft.trim()}` : noteDraft.trim() }
-        : s
-    ));
-    setNoteDraft("");
-    setActiveNoteSession(null);
-  };
-
-  const getClientInitials = (name: string) => name.split(" ").map(p => p[0]).slice(0, 2).join("").toUpperCase();
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr + "T12:00:00");
-    const dayDiff = Math.floor((d.getTime() - today.getTime()) / 86400000);
-    if (dayDiff === 0) return <span style={{ color: 'var(--primary)', fontWeight: 700 }}>Today</span>;
-    if (dayDiff === 1) return <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Tomorrow</span>;
-    if (dayDiff < 7 && dayDiff > 0) return <span style={{ fontWeight: 600 }}>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</span>;
-    return <span>{d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>;
-  };
+  const markComplete = (id: string) => onUpdateSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'completed' as const } : s));
+  const cancelSession = (id: string) => onUpdateSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'cancelled' as const } : s));
 
   return (
     <div className="page-view">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 0.25rem" }}>Schedule</p>
-          <h1 style={{ fontFamily: "Manrope, sans-serif", fontSize: "2.25rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: 0 }}>Session Calendar</h1>
+          <h1 style={{ fontFamily: "var(--font-heading)", fontSize: "2rem", fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", margin: "0 0 0.15rem" }}>Calendar</h1>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>{bookedSessions.length} sessions · {bookedSessions.filter(s => s.status === 'completed').length} completed</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <button className="btn-primary btn-sm" onClick={() => {
-            if (clients.length > 0) setBookingClient({ id: clients[0].id, fullName: clients[0].fullName });
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>add</span>
-            Book Session
-          </button>
+        <button className="btn-primary btn-sm" onClick={() => { if (clients.length > 0) setBookingClient({ id: clients[0].id, fullName: clients[0].fullName }); }}>
+          <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>add</span>
+          Book Session
+        </button>
+      </div>
+
+      {/* Month Calendar Card */}
+      <div className="card" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
+        {/* Month Navigation */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+          <button className="btn-ghost btn-sm" onClick={prevMonth}><span className="material-symbols-outlined">chevron_left</span></button>
+          <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1.15rem", color: "var(--text-primary)", margin: 0 }}>{monthName}</h2>
+          <button className="btn-ghost btn-sm" onClick={nextMonth}><span className="material-symbols-outlined">chevron_right</span></button>
+        </div>
+
+        {/* Day Headers */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.25rem", marginBottom: "0.5rem" }}>
+          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
+            <div key={d} style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: "0.68rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.06em", padding: "0.4rem 0" }}>{d}</div>
+          ))}
+        </div>
+
+        {/* Calendar Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "0.25rem" }}>
+          {Array.from({ length: startOffset }).map((_, i) => <div key={`empty-${i}`} />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const dateStr = getDateStr(day);
+            const todayFlag = isToday(day);
+            const sessions = sessionsOnDate(day);
+            const isSelected = dateStr === selectedDate;
+            return (
+              <div key={day}
+                onClick={() => setSelectedDate(dateStr)}
+                style={{
+                  padding: "0.35rem", borderRadius: "var(--r-md)", cursor: "pointer", textAlign: "center",
+                  background: isSelected ? "var(--primary)" : todayFlag ? "var(--primary-light)" : "transparent",
+                  border: isSelected ? "2px solid var(--primary-dark)" : todayFlag ? "2px solid var(--primary)" : "2px solid transparent",
+                  transition: "all 0.15s",
+                  minHeight: "56px",
+                }}
+              >
+                <div style={{ fontFamily: "var(--font-heading)", fontWeight: todayFlag ? 800 : 600, fontSize: "0.85rem", color: isSelected ? "white" : "var(--text-primary)" }}>{day}</div>
+                {sessions.length > 0 && (
+                  <div style={{ display: "flex", justifyContent: "center", gap: "0.15rem", marginTop: "0.3rem", flexWrap: "wrap" }}>
+                    {sessions.slice(0, 3).map(s => (
+                      <div key={s.id} style={{ width: "6px", height: "6px", borderRadius: "50%", background: s.sessionType === 'virtual' ? "var(--info)" : "var(--accent)" }} title={`${s.clientName} - ${s.time}`} />
+                    ))}
+                    {sessions.length > 3 && <span style={{ fontFamily: "var(--font-body)", fontSize: "0.55rem", color: isSelected ? "white" : "var(--outline)" }}>+{sessions.length - 3}</span>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.5rem", alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {/* TODAY'S SESSIONS */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-md">
-              <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--primary)" }}>today</span>
-                Today
-              </h2>
-              <span className="badge badge-success" style={{ fontSize: "0.65rem" }}>
-                {today.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-            </div>
-            {todaySessions.length === 0 ? (
-              <div style={{ padding: "2rem 0", textAlign: "center" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "2rem", color: "var(--outline)", display: "block", marginBottom: "0.5rem" }}>event_busy</span>
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.85rem", color: "var(--outline)" }}>No sessions scheduled today.</p>
-              </div>
-            ) : (
-              <div className="flex-col" style={{ gap: "0.5rem" }}>
-                {todaySessions.map(s => (
-                  <div key={s.id} className={`session-row${s.status === 'completed' ? '' : ''}`} style={{
-                    border: '1px solid var(--border-light)',
-                    borderRadius: 'var(--r-lg)',
-                    padding: '0.85rem 1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    background: s.status === 'completed' ? 'var(--success-light)' : 'var(--surface-container)',
-                  }}>
-                    <div style={{
-                      width: '40px', height: '40px',
-                      borderRadius: 'var(--r-md)',
-                      background: s.status === 'completed' ? 'var(--success)' : s.sessionType === 'virtual' ? 'var(--info-light)' : 'var(--accent-light)',
-                      display: 'grid', placeItems: 'center', flexShrink: 0,
-                    }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: s.status === 'completed' ? 'white' : s.sessionType === 'virtual' ? 'var(--info)' : 'var(--accent-dark)' }}>
-                        {s.status === 'completed' ? 'check' : s.sessionType === 'virtual' ? 'videocam' : 'person_pin'}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                        {s.clientName}
-                      </div>
-                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.7rem', color: 'var(--outline)' }}>
-                        {s.time} Â· {s.duration}min Â· {s.sessionType === 'virtual' ? 'Virtual' : 'In-Person'}
-                      </div>
-                    </div>
-                    <span style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '0.95rem', color: 'var(--primary)' }}>
-                      {s.time}
-                    </span>
-                    {s.status === 'upcoming' && (
-                      <button
-                        onClick={() => markComplete(s.id)}
-                        className="btn-primary btn-xs"
-                        style={{ padding: '0.3rem 0.65rem' }}
-                        title="Mark complete"
-                      >
-                        <span className="material-symbols-outlined" style={{ fontSize: '0.8rem' }}>check</span>
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* UPCOMING SESSIONS */}
-          {upcomingSessions.length > 0 && (
-            <div className="card">
-              <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: '0 0 1rem', display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--accent)" }}>upcoming</span>
-                Upcoming ({upcomingSessions.length})
-              </h2>
-              <div className="flex-col" style={{ gap: "0.4rem" }}>
-                {upcomingSessions.map(s => (
-                  <div key={s.id} style={{
-                    display: 'flex', alignItems: 'center', gap: '0.75rem',
-                    padding: '0.6rem 0.75rem', borderRadius: 'var(--r-md)',
-                    border: '1px solid var(--border-light)',
-                    transition: 'background 0.15s',
-                    cursor: 'pointer',
-                  }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-container)'}
-                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                    <div style={{ minWidth: '48px', textAlign: 'center', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>
-                      {formatDate(s.date)}
-                    </div>
-                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: s.sessionType === 'virtual' ? 'var(--info-light)' : 'var(--accent-light)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '0.8rem', color: s.sessionType === 'virtual' ? 'var(--info)' : 'var(--accent-dark)' }}>
-                        {s.sessionType === 'virtual' ? 'videocam' : 'person_pin'}
-                      </span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{s.clientName}</div>
-                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.68rem', color: 'var(--outline)' }}>{s.time} Â· {s.duration}min</div>
-                    </div>
-                    <button className="btn-ghost btn-xs" onClick={() => cancelSession(s.id)} title="Cancel session">
-                      <span className="material-symbols-outlined" style={{ fontSize: '0.8rem' }}>close</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* PAST SESSIONS */}
-          {pastSessions.length > 0 && (
-            <div className="card">
-              <h2 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: '0 0 1rem', display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--outline)" }}>history</span>
-                Past Sessions ({pastSessions.length})
-              </h2>
-              <div className="flex-col" style={{ gap: "0.4rem" }}>
-                {pastSessions.map(s => (
-                  <div key={s.id}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: '0.75rem',
-                      padding: '0.6rem 0.75rem', borderRadius: 'var(--r-md)',
-                      border: '1px solid var(--border-light)',
-                      opacity: s.status === 'cancelled' ? 0.5 : 1,
-                    }}>
-                      <div style={{ minWidth: '48px', textAlign: 'center', fontSize: '0.72rem', fontFamily: 'Inter, sans-serif', color: 'var(--outline)' }}>
-                        {new Date(s.date + "T12:00:00").toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                      </div>
-                      <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: s.status === 'completed' ? 'var(--success-light)' : s.status === 'cancelled' ? 'var(--danger-light)' : 'var(--surface-container)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '0.8rem', color: s.status === 'completed' ? 'var(--success)' : s.status === 'cancelled' ? 'var(--danger)' : 'var(--outline)' }}>
-                          {s.status === 'completed' ? 'check' : s.status === 'cancelled' ? 'close' : s.sessionType === 'virtual' ? 'videocam' : 'person_pin'}
-                        </span>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{s.clientName}</div>
-                        <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.68rem', color: 'var(--outline)' }}>
-                          {s.time} Â· {s.duration}min Â· {s.sessionType === 'virtual' ? 'Virtual' : 'In-Person'}
-                          {s.status === 'cancelled' && <span style={{ color: 'var(--danger)', fontWeight: 600, marginLeft: '0.35rem' }}>Cancelled</span>}
-                        </div>
-                      </div>
-                      {s.status === 'completed' && (
-                        <button
-                          className="btn-ghost btn-xs"
-                          onClick={() => { setActiveNoteSession(s.id === activeNoteSession ? null : s.id); setNoteDraft(''); }}
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>edit_note</span>
-                          Notes
-                        </button>
-                      )}
-                    </div>
-                    {activeNoteSession === s.id && (
-                      <div style={{
-                        marginTop: '0.35rem', padding: '0.75rem',
-                        borderRadius: 'var(--r-md)',
-                        background: 'var(--surface-container)',
-                        border: '1.5px solid var(--primary)',
-                      }}>
-                        {s.sessionNotes && (
-                          <div style={{
-                            fontFamily: 'Inter, sans-serif', fontSize: '0.8rem',
-                            color: 'var(--text-primary)', lineHeight: 1.5,
-                            marginBottom: '0.5rem', whiteSpace: 'pre-wrap',
-                            background: 'white', padding: '0.6rem', borderRadius: 'var(--r-sm)',
-                            border: '1px solid var(--border-light)',
-                          }}>
-                            {s.sessionNotes}
-                          </div>
-                        )}
-                        <textarea
-                          value={noteDraft}
-                          onChange={e => setNoteDraft(e.target.value)}
-                          placeholder="Add session notes â€” observations, progress, action items..."
-                          rows={2}
-                          style={{
-                            width: '100%', padding: '0.5rem 0.75rem',
-                            borderRadius: 'var(--r-sm)',
-                            border: '1.5px solid var(--outline-variant)',
-                            background: 'white',
-                            color: 'var(--text-primary)',
-                            fontFamily: 'Inter, sans-serif',
-                            fontSize: '0.8rem', outline: 'none',
-                            resize: 'vertical', boxSizing: 'border-box',
-                          }}
-                        />
-                        <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem' }}>
-                          <button
-                            className="btn-primary btn-xs"
-                            onClick={() => saveSessionNotes(s.id)}
-                            disabled={!noteDraft.trim()}
-                          >
-                            Save Note
-                          </button>
-                          <button
-                            className="btn-ghost btn-xs"
-                            onClick={() => { setActiveNoteSession(null); setNoteDraft(''); }}
-                          >
-                            Close
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* EMPTY STATE */}
-          {bookedSessions.length === 0 && (
-            <div className="empty-state" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--primary)', opacity: 0.3, display: 'block', marginBottom: '1rem' }}>calendar_month</span>
-              <p style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>No sessions yet</p>
-              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem', color: 'var(--outline)', maxWidth: '360px', margin: '0 auto 1.25rem' }}>
-                Book your first coaching session from a client profile or use the button above.
-              </p>
-              <button className="btn-primary" onClick={() => {
-                if (clients.length > 0) setBookingClient({ id: clients[0].id, fullName: clients[0].fullName });
-              }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
-                Book First Session
+      {/* Selected Date Sessions */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: "1.5rem", alignItems: "start" }}>
+        <div className="card">
+          <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary)", margin: "0 0 1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <span className="material-symbols-outlined" style={{ fontSize: "1.1rem", color: "var(--primary)" }}>event</span>
+            {new Date(selectedDate + "T12:00:00").toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+            <span className="badge badge-neutral" style={{ fontSize: "0.6rem" }}>{selectedSessions.length} sessions</span>
+          </h2>
+          {selectedSessions.length === 0 ? (
+            <div style={{ padding: "2rem 0", textAlign: "center" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: "2rem", color: "var(--outline)", display: "block", marginBottom: "0.5rem" }}>event_busy</span>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: "0.85rem", color: "var(--outline)" }}>No sessions on this day.</p>
+              <button className="btn-primary btn-sm" style={{ marginTop: "0.75rem" }} onClick={() => { if (clients.length > 0) setBookingClient({ id: clients[0].id, fullName: clients[0].fullName }); }}>
+                + Book Session
               </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {selectedSessions.map(s => (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem", borderRadius: "var(--r-md)", border: "1px solid var(--border-light)", background: "var(--surface-container)" }}>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: s.sessionType === 'virtual' ? "var(--info-light)" : "var(--accent-light)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: s.sessionType === 'virtual' ? "var(--info)" : "var(--accent-dark)" }}>{s.sessionType === 'virtual' ? "videocam" : "person_pin"}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)" }}>{s.clientName}</div>
+                    <div style={{ fontFamily: "var(--font-body)", fontSize: "0.72rem", color: "var(--outline)" }}>{s.time} · {s.duration}min · {s.sessionType === 'virtual' ? 'Virtual' : 'In-Person'}</div>
+                  </div>
+                  <span style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "0.9rem", color: "var(--primary)" }}>{s.time}</span>
+                  <button className="btn-ghost btn-xs" onClick={() => markComplete(s.id)}><span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: "var(--success)" }}>check_circle</span></button>
+                  <button className="btn-ghost btn-xs" onClick={() => cancelSession(s.id)}><span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: "var(--danger)" }}>cancel</span></button>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Right sidebar â€” quick stats + session booking guide */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", position: "sticky", top: "1rem" }}>
+        {/* Sidebar Stats */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div className="card">
-            <h3 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--text-primary)", marginBottom: "1rem" }}>Session Stats</h3>
+            <h3 style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: "0.9rem", color: "var(--text-primary)", marginBottom: "1rem" }}>Overview</h3>
             {[
-              { label: "Today", value: todaySessions.length, icon: "today", color: "var(--primary)", bg: "var(--primary-light)" },
-              { label: "Upcoming", value: upcomingSessions.length, icon: "upcoming", color: "var(--accent)", bg: "var(--accent-light)" },
-              { label: "Completed", value: bookedSessions.filter(s => s.status === 'completed').length, icon: "check_circle", color: "var(--success)", bg: "var(--success-light)" },
-              { label: "Total Sessions", value: bookedSessions.length, icon: "event", color: "var(--secondary)", bg: "var(--secondary-fixed)" },
+              { label: "Today", value: bookedSessions.filter(s => s.date === today.toISOString().split("T")[0] && s.status !== 'cancelled').length, icon: "today", color: "var(--primary)" },
+              { label: "This Month", value: bookedSessions.filter(s => s.status !== 'cancelled' && s.date.startsWith(viewDate.toISOString().split("T")[0].substring(0,7))).length, icon: "calendar_month", color: "var(--info)" },
+              { label: "Completed", value: bookedSessions.filter(s => s.status === 'completed').length, icon: "check_circle", color: "var(--success)" },
+              { label: "Total", value: bookedSessions.length, icon: "event", color: "var(--text-primary)" },
             ].map(stat => (
-              <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0", borderBottom: "1px solid var(--surface-container)" }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: stat.bg, display: "grid", placeItems: "center" }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: "0.85rem", color: stat.color }}>{stat.icon}</span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "var(--text-primary)" }}>{stat.label}</div>
-                </div>
-                <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: stat.value > 0 ? stat.color : "var(--outline)" }}>{stat.value}</span>
+              <div key={stat.label} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.5rem 0", borderBottom: "1px solid var(--border-light)" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: stat.color }}>{stat.icon}</span>
+                <span style={{ flex: 1, fontFamily: "var(--font-body)", fontSize: "0.8rem", color: "var(--text-secondary)" }}>{stat.label}</span>
+                <span style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: "1rem", color: stat.value > 0 ? stat.color : "var(--outline)" }}>{stat.value}</span>
               </div>
             ))}
           </div>
-
-          <div className="card" style={{ background: "var(--surface-container)", border: "1px solid var(--border-light)" }}>
-            <h3 style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-primary)", marginBottom: "0.5rem" }}>Quick Tips</h3>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {[
-                { icon: 'person', text: 'Book sessions from a client\'s profile page' },
-                { icon: 'check_circle', text: 'Mark sessions complete to track coaching hours' },
-                { icon: 'edit_note', text: 'Add session notes for progress tracking' },
-              ].map(tip => (
-                <li key={tip.icon} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '0.8rem', color: 'var(--primary)', flexShrink: 0, marginTop: '0.1rem' }}>{tip.icon}</span>
-                  <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.75rem', color: 'var(--on-surface-variant)', lineHeight: 1.4 }}>{tip.text}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </div>
 
-      {/* Session booking modal (for the "Book Session" button in calendar) */}
       {bookingClient && (
-        <SessionBookingModal
-          client={bookingClient}
-          onClose={() => setBookingClient(null)}
-          onSuccess={() => setBookingClient(null)}
-          onBookSession={(s) => {
-            onUpdateSessions(prev => [...prev, s]);
-            push(`Session booked with ${s.clientName}`, 'success');
-          }}
-          push={(msg: string, type?: string) => { push(msg, type as any); }}
-        />
+        <SessionBookingModal client={bookingClient} onClose={() => setBookingClient(null)} onSuccess={() => setBookingClient(null)}
+          onBookSession={(s) => { onUpdateSessions(prev => [...prev, s]); push(`Session booked with ${s.clientName}`, 'success'); }}
+          push={(msg, type) => { push(msg, type as any); }} />
       )}
     </div>
   );
