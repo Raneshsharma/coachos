@@ -1285,10 +1285,13 @@ Prep: [one line]
 6. Use client's actual first name. Reference their real goal and macros from the data.
 7. ALWAYS end with the 💬 interactive follow-up asking if they want adjustments.
 8. No markdown fences. No generic explanations. Be specific to THIS client's data.
+9. For multi-day plans, prefix each section with the day name: "## Monday" before Monday's meals, "## Friday" before Friday's meals.
 
-## IMPORTANT: Include structured data at the end
+## IMPORTANT: Include structured data at the end (MACHINE-ONLY — NOT for user display)
 
-After your response, ALWAYS append a JSON block with structured meal or workout data. Use this exact format:
+DO NOT include the JSON block or \`\`\`json fences in your main text response. The JSON block is separate machine data, not visible to the user. Your main response text must be clean and readable — the user will only see the text above the JSON block.
+
+After your readable response, ALWAYS append a separate JSON block (which the frontend strips out before display). Use this exact format:
 
 For MEAL PLANS:
 \`\`\`json

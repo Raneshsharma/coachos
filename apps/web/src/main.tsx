@@ -5204,6 +5204,7 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
   const [messages, setMessages] = useState<Array<{ role: "user"|"ai"; content: string }>>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fillLoading, setFillLoading] = useState(false);
   const [clientData, setClientData] = useState<ClientProfile | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const resultCardRef = useRef<HTMLDivElement>(null);
@@ -5542,91 +5543,110 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
             )}
 
             {!loading && lastAi && (
-              <div ref={resultCardRef} className="card-glass" style={{ padding: "1.5rem", animation: "fadeIn 0.4s ease", marginBottom: "0.75rem", position: "relative", overflow: "hidden" }}>
-                <div style={{ position: "absolute", top: "-30%", right: "-10%", width: "140px", height: "140px", background: "var(--primary-glow)", borderRadius: "50%", filter: "blur(40px)", pointerEvents: "none", opacity: 0.4 }} />
-                <div style={{ position: "relative", zIndex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", paddingBottom: "0.65rem", borderBottom: "1px solid var(--border)" }}>
-                    <span style={{ width: "28px", height: "28px", borderRadius: "var(--r-md)", background: "linear-gradient(135deg, var(--primary-dark), var(--primary))", display: "grid", placeItems: "center" }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "white" }}>smart_toy</span>
+              <>
+                {messages.filter(m => m.role === "user").map((msg, i) => (
+                  <div key={i} className="card-glass" style={{ padding: "0.85rem 1.15rem", marginBottom: "0.5rem", animation: "fadeIn 0.3s ease", display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                    <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "var(--surface-container-high)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: "0.8rem", color: "var(--on-surface-variant)" }}>person</span>
                     </span>
-                    <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>CoachOS AI</span>
-                    <span style={{ marginLeft: "auto", fontFamily: "Inter, sans-serif", fontSize: "0.62rem", color: "var(--outline)", background: "var(--surface-container)", padding: "0.12rem 0.5rem", borderRadius: "var(--r-full)", fontWeight: 600 }}>Generated</span>
+                    <div>
+                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "var(--outline)", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.15rem" }}>You</span>
+                      <span style={{ fontFamily: "Inter, sans-serif", fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{msg.content}</span>
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: "380px", overflowY: "auto" }}>
-                    {lastAi.content}
-                  </div>
-                  <div style={{ display: "flex", gap: "0.45rem", marginTop: "0.9rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
-                    <button
-                      className="btn-primary btn-sm"
-                      onClick={() => {
-                        resultCardRef.current?.scrollIntoView({ behavior: "smooth" });
-                        const el = resultCardRef.current;
-                        if (el) {
-                          el.style.boxShadow = "0 0 28px var(--primary-glow)";
-                          el.style.transition = "box-shadow 0.3s ease";
-                          setTimeout(() => { el.style.boxShadow = ""; }, 2000);
-                        }
-                      }}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>visibility</span>
-                      Review Plan
-                    </button>
-                    <button
-                      className="btn-ghost btn-sm"
-                      onClick={() => { navigator.clipboard.writeText(lastAi.content); push("Copied", "info"); }}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>content_copy</span>
-                      Copy
-                    </button>
-                    <button
-                      className="btn-primary btn-sm"
-                      onClick={() => assignPlan(lastAi.content)}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem", background: "linear-gradient(135deg, var(--accent-dark), var(--accent))", boxShadow: "0 2px 14px var(--accent-glow)", marginLeft: "auto" }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>push_pin</span>
-                      Assign to {firstName}
-                    </button>
-                    <button
-                      className="btn-primary btn-sm"
-                      onClick={async () => {
-                        try {
-                          const planData: Record<string, unknown> = { assignedPlan: lastAi.content, assignedAt: new Date().toISOString() };
-                          const plans = await fetchJson<any[]>(`/plans?clientId=${selectedClientId}`);
-                          let planId = plans?.[0]?.id;
-                          if (!planId) {
-                            const gen = await fetchJson<any>("/plans/generate", { method: "POST", body: JSON.stringify({ clientId: selectedClientId }) });
-                            planId = gen?.id;
+                ))}
+                <div ref={resultCardRef} className="card-glass" style={{ padding: "1.5rem", animation: "fadeIn 0.4s ease", marginBottom: "0.75rem", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: "-30%", right: "-10%", width: "140px", height: "140px", background: "var(--primary-glow)", borderRadius: "50%", filter: "blur(40px)", pointerEvents: "none", opacity: 0.4 }} />
+                  <div style={{ position: "relative", zIndex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", paddingBottom: "0.65rem", borderBottom: "1px solid var(--border)" }}>
+                      <span style={{ width: "28px", height: "28px", borderRadius: "var(--r-md)", background: "linear-gradient(135deg, var(--primary-dark), var(--primary))", display: "grid", placeItems: "center" }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem", color: "white" }}>smart_toy</span>
+                      </span>
+                      <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "var(--text-primary)" }}>CoachOS AI</span>
+                      <span style={{ marginLeft: "auto", fontFamily: "Inter, sans-serif", fontSize: "0.62rem", color: "var(--outline)", background: "var(--surface-container)", padding: "0.12rem 0.5rem", borderRadius: "var(--r-full)", fontWeight: 600 }}>Generated</span>
+                    </div>
+                    <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: "380px", overflowY: "auto" }}>
+                      {lastAi.content.replace(/```json[\s\S]*?```/g, "").trim()}
+                    </div>
+                    <div style={{ display: "flex", gap: "0.45rem", marginTop: "0.9rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={() => {
+                          resultCardRef.current?.scrollIntoView({ behavior: "smooth" });
+                          const el = resultCardRef.current;
+                          if (el) {
+                            el.style.boxShadow = "0 0 28px var(--primary-glow)";
+                            el.style.transition = "box-shadow 0.3s ease";
+                            setTimeout(() => { el.style.boxShadow = ""; }, 2000);
                           }
-                          if (planId) {
-                            await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(planData) });
-                          }
-                          localStorage.setItem(`coachos_pending_meal_${selectedClientId}`, lastAi.content);
-                          localStorage.setItem("coachos_open_meal_planner", selectedClientId);
-                          push(`Meal plan ready! Open ${firstName}'s profile to review.`, "success");
-                        } catch { push("Failed to store plan", "error"); }
-                      }}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>edit_calendar</span>
-                      Fill Meal Planner
-                    </button>
-                    <button
-                      className="btn-primary btn-sm"
-                      onClick={() => {
-                        localStorage.setItem(`coachos_pending_workout_${selectedClientId}`, lastAi.content);
-                        localStorage.setItem("coachos_open_workout_planner", selectedClientId);
-                        push(`Workout plan ready! Open ${firstName}'s profile to review.`, "success");
-                      }}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>fitness_center</span>
-                      Fill Workout Planner
-                    </button>
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>visibility</span>
+                        Review Plan
+                      </button>
+                      <button
+                        className="btn-ghost btn-sm"
+                        onClick={() => { navigator.clipboard.writeText(lastAi.content); push("Copied", "info"); }}
+                        style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>content_copy</span>
+                        Copy
+                      </button>
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={() => assignPlan(lastAi.content)}
+                        style={{ display: "flex", alignItems: "center", gap: "0.3rem", background: "linear-gradient(135deg, var(--accent-dark), var(--accent))", boxShadow: "0 2px 14px var(--accent-glow)", marginLeft: "auto" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>push_pin</span>
+                        Assign to {firstName}
+                      </button>
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={async () => {
+                          setFillLoading(true);
+                          try {
+                            const planData: Record<string, unknown> = { assignedPlan: lastAi.content, assignedAt: new Date().toISOString() };
+                            const plans = await fetchJson<any[]>(`/plans?clientId=${selectedClientId}`);
+                            let planId = plans?.[0]?.id;
+                            if (!planId) {
+                              const gen = await fetchJson<any>("/plans/generate", { method: "POST", body: JSON.stringify({ clientId: selectedClientId }) });
+                              planId = gen?.id;
+                            }
+                            if (planId) {
+                              await fetchJson(`/plans/${planId}`, { method: "PATCH", body: JSON.stringify(planData) });
+                            }
+                            localStorage.setItem(`coachos_pending_meal_${selectedClientId}`, lastAi.content);
+                            localStorage.setItem("coachos_open_meal_planner", selectedClientId);
+                            push(`Meal plan ready! Open ${firstName}'s profile to review.`, "success");
+                          } catch { push("Failed to store plan", "error"); }
+                          finally { setFillLoading(false); }
+                        }}
+                        disabled={fillLoading}
+                        style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>edit_calendar</span>
+                        {fillLoading ? "Populating planner..." : "Fill Meal Planner"}
+                      </button>
+                      <button
+                        className="btn-primary btn-sm"
+                        onClick={() => {
+                          setFillLoading(true);
+                          localStorage.setItem(`coachos_pending_workout_${selectedClientId}`, lastAi.content);
+                          localStorage.setItem("coachos_open_workout_planner", selectedClientId);
+                          push(`Workout plan ready! Open ${firstName}'s profile to review.`, "success");
+                          setTimeout(() => setFillLoading(false), 500);
+                        }}
+                        disabled={fillLoading}
+                        style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: "0.9rem" }}>fitness_center</span>
+                        {fillLoading ? "Populating planner..." : "Fill Workout Planner"}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
 
             {!loading && messages.length === 0 && (
@@ -5674,7 +5694,7 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
                     {aiMessages.slice(0, -1).reverse().map((msg, i) => (
                       <div key={i} className="card-glass" style={{ padding: "0.85rem 1rem" }}>
                         <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", color: "var(--on-surface-variant)", lineHeight: 1.55, whiteSpace: "pre-wrap", maxHeight: "100px", overflowY: "hidden", position: "relative" }}>
-                          {msg.content.slice(0, 280)}{msg.content.length > 280 ? "..." : ""}
+                          {(msg.content.replace(/```json[\s\S]*?```/g, "").trim()).slice(0, 280)}{msg.content.length > 280 ? "..." : ""}
                         </div>
                         <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.45rem" }}>
                           <button className="btn-ghost btn-xs" onClick={() => { navigator.clipboard.writeText(msg.content); push("Copied", "info"); }} style={{ fontSize: "0.62rem", padding: "0.15rem 0.5rem" }}>
