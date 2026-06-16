@@ -186,23 +186,25 @@ function parseAIWorkout(text: string, map: Record<string, WorkoutEntry[]>) {
     const exMatch = t.match(/^[-•*]\s*(.+?)(?:\s*[:–-]\s*(\d+)\s*(?:sets?\s*)?[x×]\s*(\d+)\s*(?:reps?)?)?/i)
       || t.match(/(.+?)\s*[:–-]\s*(\d+)\s*(?:sets?\s*)?[x×]\s*(\d+)\s*(?:reps?)?/i);
     if (exMatch && exMatch[2] && exMatch[3]) {
+      const calMatch = t.match(/(?:calories?(?:\s*burned)?[:\s]*)(\d+)\s*kcal/i) || t.match(/(\d+)\s*kcal/i);
       map[currentDay].push({
         id: `wex_${currentDay}_${map[currentDay].length}_${Date.now()}`,
         name: exMatch[1].trim(),
         sets: Number(exMatch[2]),
         reps: Number(exMatch[3]),
         rest: 60,
-        calories: 0,
+        calories: calMatch ? Number(calMatch[1]) : 0,
         notes: "",
       });
     } else if (exMatch && exMatch[1]) {
+      const calMatch = t.match(/(?:calories?(?:\s*burned)?[:\s]*)(\d+)\s*kcal/i) || t.match(/(\d+)\s*kcal/i);
       map[currentDay].push({
         id: `wex_${currentDay}_${map[currentDay].length}_${Date.now()}`,
         name: exMatch[1].trim(),
         sets: 3,
         reps: 10,
         rest: 60,
-        calories: 0,
+        calories: calMatch ? Number(calMatch[1]) : 0,
         notes: "",
       });
     }

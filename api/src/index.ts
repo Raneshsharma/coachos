@@ -1300,10 +1300,10 @@ For MEAL PLANS:
 
 For WORKOUT PLANS:
 \`\`\`json
-{"workouts":{"Mon":[{"name":"Bench Press","sets":4,"reps":8,"rest":90,"notes":"Moderate weight"},{"name":"Overhead Press","sets":3,"reps":10,"rest":60,"notes":""}],"Tue":[],"Wed":[],"Thu":[],"Fri":[],"Sat":[],"Sun":[]}}
+{"workouts":{"Mon":[{"name":"Bench Press","sets":4,"reps":8,"rest":90,"calories":45,"notes":"Moderate weight"},{"name":"Overhead Press","sets":3,"reps":10,"rest":60,"calories":35,"notes":""}],"Tue":[],"Wed":[],"Thu":[],"Fri":[],"Sat":[],"Sun":[]}}
 \`\`\`
 
-Fill ALL days, even if empty (use {} for meals, [] for workouts). Use the client's actual macro targets from the data. Quantify every ingredient.`;
+Fill ALL days, even if empty (use {} for meals, [] for workouts). For each exercise, calculate estimated calories burned. Use MET values (weight training=5.0, cardio=7.0, HIIT=8.0) × client weight from check-in data × estimated duration. Include calories in every exercise entry.`;
 
   const coach = await getCoach();
   const coachName = coach ? `${coach.firstName} ${coach.lastName}`.trim() || "Coach" : "Coach";
