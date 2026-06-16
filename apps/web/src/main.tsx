@@ -288,12 +288,8 @@ function Sidebar({
   );
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-mark">C</div>
-        <div>
-          <div className="sidebar-logo-name">CoachWave</div>
-          <div className="sidebar-logo-tag">v1.0</div>
-        </div>
+      <div className="sidebar-logo" style={{ padding: "0.75rem 0", display: "flex", alignItems: "center", gap: "0" }}>
+        <img src="/logo-horizontal.png" alt="CoachWave" style={{ height: "28px", width: "auto", filter: "brightness(0) invert(1)" }} />
       </div>
 
       <button

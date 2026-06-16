@@ -1,17 +1,322 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CoachWave</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- Material Symbols -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CoachWave — Coaching, Amplified</title>
+<meta name="description" content="CoachWave replaces WhatsApp, PDFs, and spreadsheets with one structured, AI-powered coaching platform. Built for solo fitness coaches.">
+<link rel="icon" type="image/png" href="/logo-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--p:#28A745;--pd:#0E7C4A;--s:#A3E4D7;--b:#C5F1E3;--cb:#ECFFF6;--bg:#FFFFFF;--dk:#1A2A25;--t:#1A2A25;--ts:#3D5A4E;--tm:#6B8A78;--w:#D69E2E;--d:#E53E3E;
+--fh:'Outfit',sans-serif;--fb:'Plus Jakarta Sans',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--fb);color:var(--t);background:var(--bg);line-height:1.5;overflow-x:hidden}
+::selection{background:var(--p);color:#fff}
+.sec-inner{max-width:1200px;margin:0 auto;padding:0 32px}
+
+/* LOGIN MODAL */
+.login-overlay{position:fixed;inset:0;z-index:10000;background:rgba(26,42,37,.6);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .3s}
+.login-overlay.open{opacity:1;pointer-events:auto}
+.login-card{background:#fff;border-radius:24px;padding:40px 36px;max-width:420px;width:100%;box-shadow:0 24px 80px rgba(26,42,37,.2);border:1px solid var(--b);text-align:center;transform:translateY(20px);transition:transform .3s}
+.login-overlay.open .login-card{transform:translateY(0)}
+.login-card .logo-icon{width:48px;height:48px;margin:0 auto 16px}
+.login-card h2{font-family:var(--fh);font-size:1.4rem;font-weight:800;margin-bottom:4px}
+.login-card p{color:var(--ts);font-size:.88rem;margin-bottom:28px}
+.login-card input{width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid var(--b);font-family:var(--fb);font-size:.9rem;margin-bottom:12px;outline:none;transition:border-color .2s}
+.login-card input:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(40,167,69,.1)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:100px;font-family:var(--fh);font-weight:700;font-size:.95rem;text-decoration:none;cursor:pointer;transition:all .3s cubic-bezier(.16,1,.3,1);border:none;letter-spacing:.01em}
+.btn-fill{background:var(--p);color:#fff;width:100%}
+.btn-fill:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(40,167,69,.4)}
+.btn-outline{color:var(--t);border:1.5px solid var(--b);background:#fff}
+.btn-outline:hover{border-color:var(--p)}
+
+/* ─── LANDING PAGE STYLES ─── */
+.nav{position:fixed;top:0;left:0;right:0;z-index:1000;padding:20px 0;transition:all .4s cubic-bezier(.16,1,.3,1)}
+.nav.scrolled{background:rgba(255,255,255,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 1px 3px rgba(26,42,37,.08);padding:10px 0}
+.nav-inner{max-width:1400px;margin:0 auto;padding:0 32px;display:flex;align-items:center;justify-content:space-between}
+.nav-logo img{height:30px;width:auto}
+.nav-links{display:flex;gap:40px;list-style:none;align-items:center}
+.nav-links a{color:rgba(255,255,255,.7);text-decoration:none;font-weight:500;font-size:.85rem;transition:color .3s;letter-spacing:.01em}
+.nav.scrolled .nav-links a{color:var(--ts)}
+.nav-links a:hover{color:var(--p)}
+.nav-cta{padding:10px 24px;border-radius:100px;background:var(--p);color:#fff;font-family:var(--fh);font-weight:700;font-size:.85rem;text-decoration:none;border:none;cursor:pointer;transition:all .3s}
+.nav-cta:hover{transform:scale(1.05);box-shadow:0 8px 30px rgba(40,167,69,.4)}
+.hero{min-height:100vh;display:flex;align-items:center;position:relative;overflow:hidden;background:var(--dk)}
+.hero-bg{position:absolute;inset:0;z-index:0}
+.hero-bg .orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:.3}
+.hero-bg .orb:nth-child(1){width:600px;height:600px;background:var(--p);top:-200px;right:-100px;animation:orb1 12s ease-in-out infinite}
+.hero-bg .orb:nth-child(2){width:400px;height:400px;background:var(--s);bottom:-100px;left:-50px;animation:orb2 10s ease-in-out infinite;animation-delay:-3s}
+.hero-bg .orb:nth-child(3){width:300px;height:300px;background:var(--pd);top:50%;left:40%;animation:orb3 8s ease-in-out infinite;animation-delay:-6s}
+@keyframes orb1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-60px,40px) scale(1.1)}66%{transform:translate(30px,-20px) scale(.9)}}
+@keyframes orb2{0%,100%{transform:translate(0,0)}50%{transform:translate(50px,-30px)}}
+@keyframes orb3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-40px,20px) scale(1.2)}}
+.hero-content{position:relative;z-index:1;max-width:800px}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--s);font-family:var(--fh);font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.15em;margin-bottom:24px}
+.hero-eyebrow::before{content:'';width:24px;height:1px;background:var(--s)}
+.hero h1{font-family:var(--fh);font-size:clamp(2.8rem,8vw,7rem);font-weight:900;color:#fff;line-height:.92;letter-spacing:-.04em;margin-bottom:24px}
+.hero h1 .em{color:var(--p);position:relative;display:inline-block}
+.hero h1 .em::after{content:'';position:absolute;bottom:8px;left:0;right:0;height:12px;background:var(--p);opacity:.3;z-index:-1}
+.hero-sub{font-size:1.2rem;color:rgba(255,255,255,.6);max-width:440px;margin-bottom:40px;font-weight:300}
+.hero-actions{display:flex;gap:16px;flex-wrap:wrap}
+.hero-bottom-bar{position:relative;z-index:1;display:flex;gap:48px;align-items:center;flex-wrap:wrap;margin-top:48px}
+.hero-stat{color:#fff}.hero-stat .num{font-family:var(--fh);font-size:2rem;font-weight:900;line-height:1}.hero-stat .lbl{font-size:.75rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+.client-strip{background:var(--cb);padding:40px 0;overflow:hidden;position:relative}
+.client-strip-inner{display:flex;gap:80px;animation:marquee 20s linear infinite;width:max-content}
+.client-strip-inner span{font-family:var(--fh);font-weight:600;color:var(--ts);white-space:nowrap;font-size:.9rem;opacity:.6}
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.bento{padding:120px 0}
+.bento .sec-inner{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.bento-header{grid-column:1/-1;margin-bottom:16px}
+.bento-header h2{font-family:var(--fh);font-size:clamp(2rem,4vw,3.5rem);font-weight:900;letter-spacing:-.03em;line-height:1.1;margin-bottom:12px}
+.bento-header .sub{color:var(--ts);font-size:1.1rem;font-weight:300;max-width:500px}
+.bc{background:var(--cb);border:1px solid var(--b);border-radius:24px;padding:40px;transition:all .4s;position:relative;overflow:hidden;opacity:0;transform:translateY(40px)}
+.bc.visible{opacity:1;transform:translateY(0)}
+.bc:nth-child(2){transition-delay:.1s}.bc:nth-child(3){transition-delay:.2s}.bc:nth-child(4){transition-delay:.3s}
+.bc:hover{border-color:var(--p);transform:translateY(-4px)!important}
+.bc .tag{display:inline-block;background:var(--p);color:#fff;font-size:.65rem;font-weight:700;padding:4px 12px;border-radius:100px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
+.bc h3{font-family:var(--fh);font-size:1.5rem;font-weight:800;margin-bottom:8px}
+.bc p{color:var(--ts);font-size:.9rem;line-height:1.6;max-width:300px}
+.bc .vis{position:absolute;right:20px;bottom:20px;font-size:3rem;opacity:.15}
+.bc.dark{background:var(--dk);border-color:var(--dk);color:#fff}.bc.dark h3{color:#fff}.bc.dark p{color:rgba(255,255,255,.6)}
+.split{display:grid;grid-template-columns:1fr 1fr;min-height:60vh}
+.split-panel{padding:100px 60px;display:flex;flex-direction:column;justify-content:center}
+.split-panel.light{background:var(--cb)}.split-panel.dark{background:var(--dk);color:#fff}
+.split-panel h2{font-family:var(--fh);font-size:clamp(1.8rem,3vw,2.5rem);font-weight:900;letter-spacing:-.03em;margin-bottom:16px}
+.split-panel.dark h2{color:#fff}
+.split-panel p{font-size:1.05rem;line-height:1.7;color:var(--ts);max-width:420px;margin-bottom:32px;font-weight:300}
+.split-panel.dark p{color:rgba(255,255,255,.5)}
+.split-list{list-style:none;display:flex;flex-direction:column;gap:16px}
+.split-list li{display:flex;align-items:center;gap:12px;font-weight:500;font-size:.95rem}
+.split-list li span{color:var(--p);font-size:1.2rem}
+.split-panel.dark .split-list li span{color:var(--s)}
+.h-scroll{padding:100px 0;overflow:hidden}
+.h-scroll h2{font-family:var(--fh);font-size:clamp(2rem,4vw,3rem);font-weight:900;text-align:center;letter-spacing:-.03em;margin-bottom:8px}
+.h-scroll .sub{text-align:center;color:var(--ts);font-size:1rem;font-weight:300;margin-bottom:48px}
+.h-track{display:flex;gap:24px;overflow-x:auto;padding:0 32px 40px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;cursor:grab}
+.h-track::-webkit-scrollbar{height:4px}.h-track::-webkit-scrollbar-thumb{background:var(--b);border-radius:100px}
+.h-card{min-width:340px;scroll-snap-align:start;background:var(--cb);border:1px solid var(--b);border-radius:24px;padding:36px;flex-shrink:0;transition:all .3s}
+.h-card:hover{border-color:var(--p);transform:translateY(-4px)}
+.h-card .icon-big{font-size:3rem;margin-bottom:16px}.h-card h3{font-family:var(--fh);font-size:1.2rem;font-weight:800;margin-bottom:8px}.h-card p{color:var(--ts);font-size:.88rem;line-height:1.6}
+.pricing-sec{padding:120px 0;background:var(--dk);color:#fff}
+.pricing-sec h2{font-family:var(--fh);font-size:clamp(2rem,4vw,3.5rem);font-weight:900;text-align:center;letter-spacing:-.03em;margin-bottom:8px}
+.pricing-sec .sub{text-align:center;color:rgba(255,255,255,.5);font-size:1.05rem;font-weight:300;margin-bottom:60px}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1000px;margin:0 auto}
+.price-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:40px 32px;position:relative;transition:all .4s;opacity:0;transform:translateY(40px)}
+.price-card.visible{opacity:1;transform:translateY(0)}
+.price-card:nth-child(2){transition-delay:.1s}.price-card:nth-child(3){transition-delay:.2s}
+.price-card:hover{transform:translateY(-8px);border-color:var(--p);background:rgba(40,167,69,.05)}
+.price-card.featured{border-color:var(--p);background:rgba(40,167,69,.08);transform:scale(1.05);z-index:1}
+.price-card.featured:hover{transform:scale(1.05) translateY(-8px)}
+.price-card .ribbon{position:absolute;top:-12px;right:24px;background:var(--p);color:#fff;padding:4px 16px;border-radius:100px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.price-card h3{font-family:var(--fh);font-size:1.1rem;font-weight:800;margin-bottom:4px}
+.price-card .price-stack{margin:24px 0}.price-card .price-num{font-family:var(--fh);font-size:3.5rem;font-weight:900;line-height:1}
+.price-card .price-num sub{font-size:1rem;font-weight:400;opacity:.4}
+.price-card .feats{list-style:none;margin-bottom:32px}
+.price-card .feats li{padding:8px 0;color:rgba(255,255,255,.6);font-size:.88rem;display:flex;align-items:center;gap:8px}
+.price-card .feats li::before{content:'✓';color:var(--p);font-weight:700}
+.price-card .btn-fill{width:100%;justify-content:center;background:var(--p)}
+.price-card.featured .btn-fill{background:#fff;color:var(--dk)}.price-card.featured .btn-fill:hover{background:var(--p);color:#fff}
+.testimonials{padding:120px 0;background:var(--cb)}.testimonials h2{font-family:var(--fh);font-size:clamp(2rem,4vw,3rem);font-weight:900;text-align:center;letter-spacing:-.03em;margin-bottom:48px}
+.testimonial-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.t-card{background:#fff;border:1px solid var(--b);border-radius:24px;padding:36px;transition:all .3s}.t-card:hover{border-color:var(--p)}
+.t-card .stars{color:var(--w);font-size:1.1rem;margin-bottom:16px;letter-spacing:2px}
+.t-card .quote{font-size:.95rem;line-height:1.7;color:var(--t);font-style:italic;margin-bottom:24px}
+.t-card .author{display:flex;align-items:center;gap:12px}.t-card .author-av{width:40px;height:40px;border-radius:50%;background:var(--p);display:grid;place-items:center;color:#fff;font-weight:700;font-size:.75rem}
+.t-card .author-name{font-weight:700;font-size:.9rem}.t-card .author-role{color:var(--tm);font-size:.78rem}
+.faq{padding:100px 0}.faq h2{font-family:var(--fh);font-size:clamp(2rem,4vw,3rem);font-weight:900;text-align:center;letter-spacing:-.03em;margin-bottom:48px}
+.faq-list{max-width:700px;margin:0 auto}.faq-item{border-bottom:1px solid var(--b);padding:24px 0;cursor:pointer}.faq-item:first-child{border-top:1px solid var(--b)}
+.faq-item .q{display:flex;justify-content:space-between;align-items:center;font-family:var(--fh);font-weight:700;font-size:1.05rem}
+.faq-item .q .arr{transition:transform .3s;font-size:1.1rem;color:var(--p)}.faq-item.open .q .arr{transform:rotate(45deg)}
+.faq-item .a{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.16,1,.3,1);color:var(--ts);font-size:.92rem;line-height:1.7}.faq-item.open .a{max-height:300px;padding-top:12px}
+.cta-bottom{padding:120px 0;background:var(--dk);text-align:center;position:relative;overflow:hidden}
+.cta-bottom .orb{position:absolute;width:500px;height:500px;border-radius:50%;background:var(--p);filter:blur(120px);opacity:.15;top:50%;left:50%;transform:translate(-50%,-50%);animation:orb1 8s ease-in-out infinite}
+.cta-bottom h2{font-family:var(--fh);font-size:clamp(2rem,5vw,4rem);font-weight:900;color:#fff;letter-spacing:-.04em;position:relative;z-index:1;max-width:700px;margin:0 auto 16px;line-height:1.1}
+.cta-bottom p{color:rgba(255,255,255,.5);font-size:1.1rem;font-weight:300;position:relative;z-index:1;margin-bottom:36px}
+.cta-bottom .btn-fill{font-size:1.1rem;padding:18px 40px;position:relative;z-index:1;animation:pulse-btn 3s ease-in-out infinite}
+@keyframes pulse-btn{0%,100%{box-shadow:0 0 0 0 rgba(40,167,69,.4)}50%{box-shadow:0 0 0 20px rgba(40,167,69,0)}}
+.cta-bottom .trust{display:flex;gap:32px;justify-content:center;margin-top:32px;position:relative;z-index:1;flex-wrap:wrap}
+.cta-bottom .trust span{color:rgba(255,255,255,.3);font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;font-weight:600}
+.footer{padding:60px 0 30px;background:var(--dk);color:rgba(255,255,255,.6);border-top:1px solid rgba(255,255,255,.05)}
+.footer-inner{max-width:1200px;margin:0 auto;padding:0 32px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:40px}
+.footer-inner .brand{max-width:200px}.footer-inner .brand .footer-logo{font-family:var(--fh);font-weight:900;font-size:1.3rem;color:#fff;margin-bottom:12px}
+.footer-links{display:flex;gap:60px;flex-wrap:wrap}.footer-links div h4{color:#fff;font-family:var(--fh);font-weight:700;font-size:.85rem;margin-bottom:12px}
+.footer-links div a{display:block;color:rgba(255,255,255,.4);text-decoration:none;font-size:.8rem;margin-bottom:6px;transition:color .2s}.footer-links div a:hover{color:var(--p)}
+.footer-bottom{max-width:1200px;margin:40px auto 0;padding:20px 32px 0;border-top:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;font-size:.78rem}
+.footer-social{display:flex;gap:12px}.footer-social a{width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.1);display:grid;place-items:center;color:rgba(255,255,255,.4);text-decoration:none;font-size:.8rem;transition:all .2s}.footer-social a:hover{background:var(--p);border-color:var(--p);color:#fff}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+@media(max-width:768px){
+.hero h1{font-size:2.8rem}.hero-bottom-bar{gap:24px}.hero-stat .num{font-size:1.5rem}
+.bento .sec-inner{grid-template-columns:1fr}.split{grid-template-columns:1fr}.split-panel{padding:60px 24px}
+.pricing-grid{grid-template-columns:1fr;max-width:400px}.price-card.featured{transform:none}
+.testimonial-grid{grid-template-columns:1fr}.h-card{min-width:280px}
+.nav-links{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- LANDING PAGE (shown by default) -->
+<div id="landing-page">
+
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="/logo-horizontal.png" alt="CoachWave"></a>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#testimonials">Stories</a></li>
+    </ul>
+    <button class="nav-cta" onclick="openLogin()">Get Started</button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+  <div class="sec-inner" style="position:relative;z-index:1">
+    <div class="hero-content">
+      <div class="hero-eyebrow">Built for elite fitness coaches</div>
+      <h1>Coaching<br><span class="em">amplified</span></h1>
+      <p class="hero-sub">One platform. Every client. All the tools you need to deliver world-class coaching — without the chaos.</p>
+      <div class="hero-actions">
+        <button class="btn btn-fill" onclick="openLogin()">Start Free Trial →</button>
+        <a href="#features" class="btn btn-outline">See Features</a>
+      </div>
+    </div>
+    <div class="hero-bottom-bar">
+      <div class="hero-stat"><div class="num">2,000+</div><div class="lbl">Active Coaches</div></div>
+      <div class="hero-stat"><div class="num">98%</div><div class="lbl">Client Retention</div></div>
+      <div class="hero-stat"><div class="num">10hrs</div><div class="lbl">Saved Per Week</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="client-strip"><div class="client-strip-inner">
+  <span>StrengthLab Athletics</span> <span>Peak Performance</span> <span>VitalFit</span> <span>TransformHQ</span> <span>EliteBody</span> <span>MacroMethod</span> <span>Flex Academy</span> <span>Coach Collective</span>
+  <span>StrengthLab Athletics</span> <span>Peak Performance</span> <span>VitalFit</span> <span>TransformHQ</span>
+</div></div>
+
+<section class="bento" id="features">
+  <div class="sec-inner">
+    <div class="bento-header"><h2>Everything is<br>connected</h2><p class="sub">No more juggling seven different tools. CoachWave brings your entire coaching workflow into a single, intelligent workspace.</p></div>
+    <div class="bc"><div class="tag">AI-Powered</div><h3>Plan<br>Generator</h3><p>Generate personalized meal and workout plans in seconds. The AI knows each client's goals, medical history, and progress.</p><div class="vis">🤖</div></div>
+    <div class="bc dark"><h3>Smart<br>Dashboard</h3><p>See every client at a glance. Who's on track? Who needs attention? One view, total clarity.</p><div class="vis" style="color:rgba(255,255,255,.1)">📊</div></div>
+    <div class="bc"><h3>Meal<br>Planner</h3><p>Weekly meal plans with macro tracking. Auto-populate meals from AI recommendations with ingredients and macros.</p><div class="vis">🍽️</div></div>
+    <div class="bc dark"><h3>Workout<br>Builder</h3><p>Daily and weekly workouts. Exercises, sets, reps, rest time, estimated calories — all organized.</p><div class="vis" style="color:rgba(255,255,255,.1)">💪</div></div>
+    <div class="bc"><h3>Session<br>Calendar</h3><p>Full-month calendar with booking, blocking, and client scheduling in one view.</p><div class="vis">📅</div></div>
+  </div>
+</section>
+
+<section class="split">
+  <div class="split-panel dark"><h2>The problem with<br>how you coach today</h2><p>WhatsApp messages. Google Docs for plans. Spreadsheets for tracking. Calendar for sessions. Your brain to remember everything else.</p><ul class="split-list"><li><span>✕</span> Messages lost across 3 apps</li><li><span>✕</span> Hours wasted on manual plan creation</li><li><span>✕</span> No visibility into client progress</li></ul></div>
+  <div class="split-panel light"><h2>How CoachWave<br>changes everything</h2><p>Every client. Every plan. Every message. All in one place. Powered by AI that understands your clients deeply.</p><ul class="split-list"><li><span>✓</span> AI generates plans in seconds</li><li><span>✓</span> Real-time adherence tracking</li><li><span>✓</span> Scale from 5 to 50 clients</li></ul></div>
+</section>
+
+<section class="h-scroll"><h2>Designed for your flow</h2><p class="sub">Drag to explore →</p>
+  <div class="h-track">
+    <div class="h-card"><div class="icon-big">🤖</div><h3>AI Coach</h3><p>Ask anything about any client. Generate plans powered by GPT-4 with full client context.</p></div>
+    <div class="h-card"><div class="icon-big">📊</div><h3>Command Center</h3><p>Medical history, meal plans, workouts, macros, progress — every detail on one screen.</p></div>
+    <div class="h-card"><div class="icon-big">🍽️</div><h3>Meal Planner</h3><p>Breakfast, lunch, dinner, snacks. Every meal with macros. Weekly view with editing.</p></div>
+    <div class="h-card"><div class="icon-big">💪</div><h3>Workout Builder</h3><p>Sets, reps, rest, calories. AI-powered suggestions. Weekly planning.</p></div>
+    <div class="h-card"><div class="icon-big">📅</div><h3>Calendar</h3><p>Full month view. Book sessions. Block time. Never double-book again.</p></div>
+    <div class="h-card"><div class="icon-big">📨</div><h3>Smart Nudges</h3><p>Automated reminders when clients miss habits. Personalized, motivational messages.</p></div>
+  </div>
+</section>
+
+<section class="pricing-sec" id="pricing">
+  <div class="sec-inner"><h2>Pricing that scales</h2><p class="sub">Start free. Upgrade when ready. No hidden fees.</p>
+    <div class="pricing-grid">
+      <div class="price-card"><h3>Starter</h3><div class="price-stack"><div class="price-num">$29<sub>/mo</sub></div></div><ul class="feats"><li>Up to 5 clients</li><li>AI plan generator</li><li>Basic analytics</li></ul><button class="btn btn-fill" onclick="openLogin()">Get Started</button></div>
+      <div class="price-card featured"><div class="ribbon">Popular</div><h3>Pro</h3><div class="price-stack"><div class="price-num">$79<sub>/mo</sub></div></div><ul class="feats"><li>Up to 25 clients</li><li>Advanced AI coaching</li><li>Client portal</li><li>Priority support</li></ul><button class="btn btn-fill" onclick="openLogin()">Get Started</button></div>
+      <div class="price-card"><h3>Elite</h3><div class="price-stack"><div class="price-num">$149<sub>/mo</sub></div></div><ul class="feats"><li>Unlimited clients</li><li>White-label portal</li><li>API access</li><li>Dedicated support</li></ul><button class="btn btn-fill" onclick="openLogin()">Get Started</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="testimonials" id="testimonials">
+  <div class="sec-inner"><h2>What coaches say</h2>
+    <div class="testimonial-grid">
+      <div class="t-card"><div class="stars">★★★★★</div><p class="quote">"CoachWave transformed my business. I went from 8 to 22 clients in 3 months. The AI generator alone saves 10+ hours weekly."</p><div class="author"><div class="author-av">JM</div><div><div class="author-name">Jake Morgan</div><div class="author-role">Strength Coach, London</div></div></div></div>
+      <div class="t-card"><div class="stars">★★★★★</div><p class="quote">"The meal planner is incredibly intuitive. I plan an entire week in under 5 minutes. My clients love getting personalized plans instantly."</p><div class="author"><div class="author-av">SP</div><div><div class="author-name">Sarah Patel</div><div class="author-role">Nutrition Coach, Mumbai</div></div></div></div>
+      <div class="t-card"><div class="stars">★★★★★</div><p class="quote">"I was skeptical about AI tools. But CoachWave actually understands my clients. Plans are genuinely personalized. My retention rate has never been higher."</p><div class="author"><div class="author-av">AR</div><div><div class="author-name">Alex Rivera</div><div class="author-role">Fitness Coach, Miami</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="faq"><div class="sec-inner"><h2>Questions? Answers.</h2><div class="faq-list">
+  <div class="faq-item"><div class="q">Is there a free trial? <span class="arr">+</span></div><div class="a">Yes! All plans include a 14-day free trial with full access. No credit card required.</div></div>
+  <div class="faq-item"><div class="q">Can I import existing clients? <span class="arr">+</span></div><div class="a">Absolutely. Import via CSV, connect your calendar, or add clients one by one.</div></div>
+  <div class="faq-item"><div class="q">How does the AI plan generator work? <span class="arr">+</span></div><div class="a">CoachWave AI analyzes each client's profile — goals, medical conditions, macros — and generates personalized plans using GPT-4.</div></div>
+  <div class="faq-item"><div class="q">Is my client data secure? <span class="arr">+</span></div><div class="a">Yes. AES-256 encryption, SOC-2 compliant, GDPR ready. Your data is never shared.</div></div>
+  <div class="faq-item"><div class="q">Can clients see their plans? <span class="arr">+</span></div><div class="a">Yes! Clients get their own portal to view plans, track habits, and see progress.</div></div>
+  <div class="faq-item"><div class="q">What if I need to cancel? <span class="arr">+</span></div><div class="a">Cancel anytime. 30-day money-back guarantee. No questions asked.</div></div>
+</div></div></section>
+
+<section class="cta-bottom"><div class="orb"></div><div class="sec-inner"><h2>Ready to transform your coaching?</h2><p>Join 2,000+ coaches who've already made the switch.</p><button class="btn btn-fill" onclick="openLogin()">Start Free Trial — It's Free</button><div class="trust"><span>🔒 SSL Encrypted</span><span>✅ SOC 2 Compliant</span><span>📋 GDPR Ready</span></div></div></section>
+
+<footer class="footer"><div class="footer-inner"><div class="brand"><div class="footer-logo">CoachWave</div><p>Built for coaches who take their clients' results seriously.</p></div><div class="footer-links"><div><h4>Product</h4><a href="#features">Features</a><a href="#pricing">Pricing</a></div><div><h4>Company</h4><a href="#">About</a><a href="#">Contact</a></div><div><h4>Resources</h4><a href="#">Help Center</a><a href="#">Community</a></div><div><h4>Legal</h4><a href="#">Privacy</a><a href="#">Terms</a></div></div></div><div class="footer-bottom"><span>© 2026 CoachWave</span><div class="footer-social"><a href="#" aria-label="Twitter">𝕏</a><a href="#" aria-label="LinkedIn">in</a><a href="#" aria-label="Instagram">📷</a></div></div></footer>
+
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <img src="/logo-icon.png" alt="CoachWave" class="logo-icon">
+    <h2>Welcome to CoachWave</h2>
+    <p>Enter your email to continue</p>
+    <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
+    <button class="btn btn-fill" onclick="doLogin()" id="loginBtn">Continue →</button>
+    <p id="loginMsg" style="font-size:.8rem;margin-top:12px;min-height:20px"></p>
+  </div>
+</div>
+
+<!-- APP (hidden until login) -->
+<div id="app-root" style="display:none"><div style="display:grid;place-items:center;height:100vh"><div style="text-align:center"><img src="/logo-icon.png" style="width:64px;height:64px;margin-bottom:16px"><h2 style="font-family:var(--fh)">Loading CoachWave...</h2></div></div></div>
+
+<script>
+function openLogin(){ document.getElementById('loginOverlay').classList.add('open'); document.getElementById('loginEmail').focus(); }
+document.getElementById('loginOverlay').addEventListener('click',function(e){if(e.target===this)this.classList.remove('open')});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')document.getElementById('loginOverlay').classList.remove('open')});
+
+async function doLogin(){
+  var email=document.getElementById('loginEmail').value.trim();
+  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){document.getElementById('loginMsg').textContent='Enter a valid email';return}
+  document.getElementById('loginBtn').disabled=true;
+  document.getElementById('loginBtn').textContent='Loading...';
+  localStorage.setItem('coachwave_logged_in','true');
+  document.getElementById('landing-page').style.display='none';
+  document.getElementById('loginOverlay').classList.remove('open');
+  location.reload();
+}
+
+// Nav scroll
+window.addEventListener('scroll',function(){document.getElementById('nav').classList.toggle('scrolled',window.scrollY>50)});
+
+// Intersection Observer
+var obs=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)e.target.classList.add('visible')})},{threshold:.15,rootMargin:'0px 0px -30px 0px'});
+document.querySelectorAll('.bc,.price-card').forEach(function(el){obs.observe(el)});
+
+// FAQ
+document.querySelectorAll('.faq-item').forEach(function(item){item.addEventListener('click',function(){var was=item.classList.contains('open');document.querySelectorAll('.faq-item').forEach(function(i){i.classList.remove('open')});if(!was)item.classList.add('open')})});
+
+// Horizontal scroll
+var track=document.querySelector('.h-track'),isDown=false,startX,scrollLeft;
+track.addEventListener('mousedown',function(e){isDown=true;track.style.cursor='grabbing';startX=e.pageX-track.offsetLeft;scrollLeft=track.scrollLeft});
+track.addEventListener('mouseleave',function(){isDown=false;track.style.cursor='grab'});
+track.addEventListener('mouseup',function(){isDown=false;track.style.cursor='grab'});
+track.addEventListener('mousemove',function(e){if(!isDown)return;e.preventDefault();track.scrollLeft=scrollLeft-(e.pageX-track.offsetLeft-startX)});
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+if(localStorage.getItem('coachwave_logged_in')==='true'){document.getElementById('landing-page').style.display='none'}
+</script>
+<script type="module" src="/src/main.tsx"></script>
+</body>
 </html>
