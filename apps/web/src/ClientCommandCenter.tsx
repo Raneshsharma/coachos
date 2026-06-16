@@ -784,31 +784,6 @@ export function ClientCommandCenter({
           )}
         </div>
 
-        {/* ASSIGNED AI PLANS */}
-        {(assignedNutrition || assignedWorkout) && (
-          <div className="card" style={{ marginBottom: "1rem", background: "linear-gradient(135deg, rgba(99,102,241,0.08), rgba(245,158,11,0.08))", border: "1px solid var(--primary-glow)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-              <span className="material-symbols-outlined" style={{ color: "var(--primary)", fontSize: "1.1rem" }}>auto_awesome</span>
-              <h3 style={{ fontFamily: "Manrope, sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>AI-Assigned Plans</h3>
-              <span className="badge-accent" style={{ fontSize: "0.6rem" }}>from AI Coach</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: assignedNutrition && assignedWorkout ? "1fr 1fr" : "1fr", gap: "1rem" }}>
-              {assignedNutrition && (
-                <div style={{ background: "var(--bg-card)", borderRadius: "var(--r-md)", padding: "0.75rem", maxHeight: "400px", overflowY: "auto" }}>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>🍽️ Nutrition Plan</div>
-                  <pre style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.6 }}>{assignedNutrition}</pre>
-                </div>
-              )}
-              {assignedWorkout && (
-                <div style={{ background: "var(--bg-card)", borderRadius: "var(--r-md)", padding: "0.75rem", maxHeight: "400px", overflowY: "auto" }}>
-                  <div style={{ fontFamily: "Inter, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>💪 Workout Plan</div>
-                  <pre style={{ fontFamily: "Inter, sans-serif", fontSize: "0.75rem", color: "var(--text-secondary)", whiteSpace: "pre-wrap", margin: 0, lineHeight: 1.6 }}>{assignedWorkout}</pre>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* MEAL PLANNER */}
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <h3
@@ -1088,6 +1063,10 @@ export function ClientCommandCenter({
               fitness_center
             </span>
             Workout Planner
+            <button className="btn-ghost btn-xs" onClick={() => setShowWorkoutModal(true)} style={{ marginLeft: "auto", fontSize: "0.65rem" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: "0.8rem" }}>open_in_full</span>
+              Open Full Planner
+            </button>
           </h3>
           <div className="tabs" style={{ marginBottom: 0 }}>
             <button
