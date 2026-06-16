@@ -1305,6 +1305,10 @@ For WORKOUT PLANS:
 
 Fill ALL days, even if empty (use {} for meals, [] for workouts). Use the client's actual macro targets from the data. Quantify every ingredient.`;
 
+  const coach = await getCoach();
+  const coachName = coach ? `${coach.firstName} ${coach.lastName}`.trim() || "Coach" : "Coach";
+  const coachIdentity = `\n\nCOACH IDENTITY: You are speaking with ${coachName}, who is the COACH (not the client). The coach is managing this client's profile. Address the coach by their name (${coachName}) and refer to the client as "${client.fullName}". The coach is the person you are chatting with. The client is the person whose data you are analyzing.\n`;
+
   try {
     const apiKey = getEnv("BYTEZ_API_KEY") || getEnv("OPENAI_API_KEY");
     const providers = [
@@ -1322,7 +1326,7 @@ Fill ALL days, even if empty (use {} for meals, [] for workouts). Use the client
         const response = await fetch(provider.url, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${provider.key}` },
-          body: JSON.stringify({ model: provider.model, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: body.prompt }], temperature: 0.7, max_tokens: 2000 }),
+          body: JSON.stringify({ model: provider.model, messages: [{ role: "system", content: systemPrompt + coachIdentity }, { role: "user", content: body.prompt }], temperature: 0.7, max_tokens: 2000 }),
         });
         if (response.ok) {
           const data = await response.json() as Record<string, unknown>;
