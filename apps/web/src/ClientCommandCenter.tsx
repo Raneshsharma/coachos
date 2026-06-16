@@ -27,6 +27,8 @@ type WorkoutEntry = {
   name: string;
   sets: number;
   reps: number;
+  rest: number;
+  calories: number;
   notes: string;
 };
 
@@ -147,8 +149,9 @@ function parseAIWorkout(text: string, map: Record<string, WorkoutEntry[]>) {
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-      if (parsed.workout) {
-        for (const [day, exercises] of Object.entries(parsed.workout as Record<string, any[]>)) {
+      const workoutData = parsed.workouts || parsed.workout;
+      if (workoutData) {
+        for (const [day, exercises] of Object.entries(workoutData as Record<string, any[]>)) {
           const dayKey = day.substring(0, 3);
           const dayMap: Record<string,string> = {Mon:"Mon",Tue:"Tue",Wed:"Wed",Thu:"Thu",Fri:"Fri",Sat:"Sat",Sun:"Sun"};
           const targetDay = dayMap[dayKey] ?? DAYS.find(d => d.toLowerCase().startsWith(dayKey.toLowerCase())) ?? DAYS[0];
@@ -158,6 +161,8 @@ function parseAIWorkout(text: string, map: Record<string, WorkoutEntry[]>) {
               name: ex.exercise || ex.name || `Exercise ${i + 1}`,
               sets: Number(ex.sets) || 3,
               reps: Number(ex.reps) || 10,
+              rest: Number(ex.rest) || 60,
+              calories: Number(ex.calories) || 0,
               notes: ex.notes || "",
             }));
           }
@@ -186,6 +191,8 @@ function parseAIWorkout(text: string, map: Record<string, WorkoutEntry[]>) {
         name: exMatch[1].trim(),
         sets: Number(exMatch[2]),
         reps: Number(exMatch[3]),
+        rest: 60,
+        calories: 0,
         notes: "",
       });
     } else if (exMatch && exMatch[1]) {
@@ -194,6 +201,8 @@ function parseAIWorkout(text: string, map: Record<string, WorkoutEntry[]>) {
         name: exMatch[1].trim(),
         sets: 3,
         reps: 10,
+        rest: 60,
+        calories: 0,
         notes: "",
       });
     }
@@ -210,6 +219,7 @@ function WorkoutPlannerModal({clientName,onClose,onSave,push,initialPlan}:{clien
   const dayData=data[day]??[];
   const totalSets=dayData.reduce((s,x)=>s+(x.sets||0),0);
   const totalReps=dayData.reduce((s,x)=>s+(x.reps||0),0);
+  const totalCals=dayData.reduce((s,x)=>s+(x.calories||0),0);
   const upd=(idx:number,field:keyof WorkoutEntry,val:string|number)=>setData(p=>({...p,[day]:p[day].map((x,i)=>i===idx?{...x,[field]:val}:x)}));
   const handleSave=async()=>{setSaving(true);try{await onSave(data);push("Week workout plan saved!","success");onClose()}catch{push("Failed to save","error")}finally{setSaving(false)}};
   return (<div className="fullscreen-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}><div className="fullscreen-modal" style={{maxWidth:"960px"}}>
@@ -224,8 +234,8 @@ function WorkoutPlannerModal({clientName,onClose,onSave,push,initialPlan}:{clien
         return (<div key={ex.id||i} className="card" style={{padding:"0.85rem",border:e?"1px solid var(--primary)":"1px solid var(--border)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem",flex:1,flexWrap:"wrap"}}>
-              <span style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--text-primary)"}}>{i+1}. {ex.name}</span>
-              {!e&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.72rem",color:"var(--text-secondary)"}}>{ex.sets}×{ex.reps} {ex.notes||""}</span>}
+               <span style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--text-primary)"}}>{i+1}. {ex.name}</span>
+              {!e&&<span style={{fontFamily:"var(--font-body)",fontSize:"0.72rem",color:"var(--text-secondary)"}}>{ex.sets}×{ex.reps} · {ex.rest}s rest {ex.calories>0?`· ${ex.calories}kcal`:" "}{ex.notes||""}</span>}
             </div>
             <div style={{display:"flex",gap:"0.3rem"}}>
               <button className="btn-ghost btn-xs" onClick={()=>setEdit(e?null:i)}><span className="material-symbols-outlined" style={{fontSize:"0.9rem"}}>{e?"close":"edit"}</span></button>
@@ -234,9 +244,11 @@ function WorkoutPlannerModal({clientName,onClose,onSave,push,initialPlan}:{clien
           </div>
           {e&&(<div style={{marginTop:"0.6rem",display:"flex",flexDirection:"column",gap:"0.5rem"}}>
             <div><label className="input-label">Exercise Name</label><input className="input" value={ex.name} onChange={e=>upd(i,"name",e.target.value)} placeholder="e.g. Bench Press"/></div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.5rem"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:"0.5rem"}}>
               <div><label className="input-label">Sets</label><input className="input" type="number" min="1" value={ex.sets} onChange={e=>upd(i,"sets",Number(e.target.value))}/></div>
               <div><label className="input-label">Reps</label><input className="input" type="number" min="1" value={ex.reps} onChange={e=>upd(i,"reps",Number(e.target.value))}/></div>
+              <div><label className="input-label">Rest (s)</label><input className="input" type="number" min="0" value={ex.rest} onChange={e=>upd(i,"rest",Number(e.target.value))}/></div>
+              <div><label className="input-label">Kcal</label><input className="input" type="number" min="0" value={ex.calories} onChange={e=>upd(i,"calories",Number(e.target.value))}/></div>
             </div>
             <div><label className="input-label">Notes</label><input className="input" value={ex.notes} onChange={e=>upd(i,"notes",e.target.value)} placeholder="e.g. 90s rest, controlled tempo"/></div>
           </div>)}
@@ -244,11 +256,11 @@ function WorkoutPlannerModal({clientName,onClose,onSave,push,initialPlan}:{clien
       })}
     </div>
     <div className="card" style={{padding:"0.75rem 1rem",marginBottom:"1rem",background:"var(--primary-light)",border:"1px solid var(--primary-mid)"}}>
-      <div style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--primary-dark)"}}>📊 {day}: {dayData.length} exercises · {totalSets} sets · {totalReps} reps</div>
+      <div style={{fontFamily:"var(--font-heading)",fontWeight:700,fontSize:"0.85rem",color:"var(--primary-dark)"}}>📊 {day}: {dayData.length} exercises · {totalSets} sets · {totalReps} reps · {totalCals} kcal</div>
     </div>
     <div style={{display:"flex",gap:"0.75rem",marginBottom:"0.5rem"}}>
       <button className="btn-ghost btn-sm" onClick={()=>{
-        const newEx:WorkoutEntry={id:`wex_${day}_${dayData.length}_${Date.now()}`,name:`Exercise ${dayData.length+1}`,sets:3,reps:10,notes:""};
+        const newEx:WorkoutEntry={id:`wex_${day}_${dayData.length}_${Date.now()}`,name:`Exercise ${dayData.length+1}`,sets:3,reps:10,rest:60,calories:0,notes:""};
         setData(p=>({...p,[day]:[...p[day],newEx]}));
       }} style={{flex:1}}><span className="material-symbols-outlined" style={{fontSize:"0.9rem"}}>add</span> Add Exercise</button>
     </div>
@@ -1345,6 +1357,8 @@ export function ClientCommandCenter({
                     name: `Exercise ${getDayWorkouts(workoutDay).length + 1}`,
                     sets: 3,
                     reps: 10,
+                    rest: 60,
+                    calories: 0,
                     notes: "",
                   };
                   if (workoutDay === "today") {

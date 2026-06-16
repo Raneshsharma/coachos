@@ -5230,7 +5230,8 @@ function AICoachView({ session, push }: { session: CoachSession; push: (message:
 
   useEffect(() => {
     if (!selectedClientId) { setClientData(null); return; }
-    setMessages([]);
+    const saved = localStorage.getItem(`coachos_chat_${selectedClientId}`);
+    setMessages(saved ? JSON.parse(saved) : []);
     setHistoryOpen(false);
     fetchJson<ClientProfile>(`/clients/${selectedClientId}`)
       .then(setClientData)
@@ -5831,7 +5832,10 @@ function AICopilotPanel({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (selectedClientName && messages.length > 0) {
+      localStorage.setItem(`coachos_chat_${selectedClientName}`, JSON.stringify(messages));
+    }
+  }, [messages, selectedClientName]);
 
   useEffect(() => {
     if (show) setTimeout(() => inputRef.current?.focus(), 100);
