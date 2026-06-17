@@ -43,6 +43,9 @@ project_out.json
 screens.json
 stitch_help*.txt
 stitch_tools.txt
+*.py
+*.pdf
+temp_*.tsx
 
 .claude/settings.local.json
 .claude/

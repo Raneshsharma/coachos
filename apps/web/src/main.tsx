@@ -289,7 +289,7 @@ function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-logo" style={{ padding: "0.75rem 0", display: "flex", alignItems: "center", gap: "0" }}>
-        <img src="/logo-horizontal.png" alt="CoachWave" style={{ height: "28px", width: "auto", filter: "brightness(0) invert(1)" }} />
+        <img src="/logo-horizontal.png" alt="CoachWave" style={{ height: "42px", width: "auto", filter: "brightness(0) saturate(100%) invert(1)" }} />
       </div>
 
       <button

@@ -1,5 +1,5 @@
 /**
- * Cloudflare Workers API — backed by Supabase PostgreSQL.
+ * Cloudflare Workers API ï¿½ backed by Supabase PostgreSQL.
  * All routes mirror the original in-memory API so the frontend is unchanged.
  */
 import { Hono } from "hono";
@@ -802,7 +802,7 @@ async function getClientSession(clientId: string) {
 const app = new Hono();
 
 app.use("/*", cors({
-  origin: "*",
+  origin: ["https://coachos-blue.vercel.app", "http://localhost:5173", "http://localhost:4000"],
   allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type"],
 }));
@@ -1087,7 +1087,7 @@ app.patch("/api/coach/profile", async (c) => {
 });
 
 app.post("/api/admin/state/reset", async (c) =>
-  c.json({ ok: true, message: "Reset not implemented — use Supabase dashboard." })
+  c.json({ ok: true, message: "Reset not implemented ï¿½ use Supabase dashboard." })
 );
 
 app.get("/api/group-programs", async (c) => c.json(await listGroupPrograms()));
@@ -1244,32 +1244,32 @@ ${JSON.stringify(context, null, 2)}
 
 ### ??? MEAL PLAN FOR [name] | Daily Target: [cal] kcal | [P]g P | [C]g C | [F]g F
 
-?? Meal 1 — [Time]
+?? Meal 1 ï¿½ [Time]
 Dish: [Name]
 Ingredients: [Qty] [ingredient], [Qty] [ingredient], [Qty] [ingredient]
-Macros: [cal] kcal · [P]g P · [C]g C · [F]g F
+Macros: [cal] kcal ï¿½ [P]g P ï¿½ [C]g C ï¿½ [F]g F
 Prep: [one line]
 
-?? Meal 2 — [Time]
+?? Meal 2 ï¿½ [Time]
 ...same format...
 
-?? Meal 3 — [Time]
+?? Meal 3 ï¿½ [Time]
 ...same format...
 
-?? Daily Total: [sum cal] kcal · [sum P]g P · [sum C]g C · [sum F]g F
+?? Daily Total: [sum cal] kcal ï¿½ [sum P]g P ï¿½ [sum C]g C ï¿½ [sum F]g F
 
 ## FORMAT FOR WORKOUT PLANS:
 
 ### ?? WORKOUT PLAN FOR [name] | Weekly Split: [type, e.g. Push/Pull/Legs]
 
-#### Day 1 — [Day, e.g. Monday]: [Focus, e.g. Push/Chest]
-- [Exercise]: [sets] × [reps] @ [weight/kg or bodyweight] | Rest: [sec]
-- [Exercise]: [sets] × [reps] @ [weight/kg or bodyweight] | Rest: [sec]
-- [Exercise]: [sets] × [reps] | Rest: [sec]
-- [Exercise]: [sets] × [reps] | Rest: [sec]
+#### Day 1 ï¿½ [Day, e.g. Monday]: [Focus, e.g. Push/Chest]
+- [Exercise]: [sets] ï¿½ [reps] @ [weight/kg or bodyweight] | Rest: [sec]
+- [Exercise]: [sets] ï¿½ [reps] @ [weight/kg or bodyweight] | Rest: [sec]
+- [Exercise]: [sets] ï¿½ [reps] | Rest: [sec]
+- [Exercise]: [sets] ï¿½ [reps] | Rest: [sec]
 
-#### Day 2 — [Day]: [Focus]
-- [Exercise]: [sets] × [reps] | Rest: [sec]
+#### Day 2 ï¿½ [Day]: [Focus]
+- [Exercise]: [sets] ï¿½ [reps] | Rest: [sec]
 ...
 
 ?? Notes: [Any modifications for medical conditions, warm-up suggestions, cardio, etc.]
@@ -1280,16 +1280,16 @@ Prep: [one line]
 1. For meals: ALWAYS include Macros line with numbers. Quantify all ingredients in grams/ml/tbsp.
 2. For meals: Daily total MUST match client targets within 5%.
 3. For workouts: ALWAYS include sets, reps, and rest periods per exercise.
-4. For workouts: Note any medical condition modifications (e.g., "no deep squats — substitute with leg press").
+4. For workouts: Note any medical condition modifications (e.g., "no deep squats ï¿½ substitute with leg press").
 5. Check health_conditions from data. Flag conflicts. Suggest safe alternatives.
 6. Use client's actual first name. Reference their real goal and macros from the data.
 7. ALWAYS end with the ?? interactive follow-up asking if they want adjustments.
 8. No markdown fences. No generic explanations. Be specific to THIS client's data.
 9. For multi-day plans, prefix each section with the day name: "## Monday" before Monday's meals, "## Friday" before Friday's meals.
 
-## IMPORTANT: Include structured data at the end (MACHINE-ONLY — NOT for user display)
+## IMPORTANT: Include structured data at the end (MACHINE-ONLY ï¿½ NOT for user display)
 
-DO NOT include the JSON block or \`\`\`json fences in your main text response. The JSON block is separate machine data, not visible to the user. Your main response text must be clean and readable — the user will only see the text above the JSON block.
+DO NOT include the JSON block or \`\`\`json fences in your main text response. The JSON block is separate machine data, not visible to the user. Your main response text must be clean and readable ï¿½ the user will only see the text above the JSON block.
 
 After your readable response, ALWAYS append a separate JSON block (which the frontend strips out before display). Use this exact format:
 
@@ -1303,7 +1303,7 @@ For WORKOUT PLANS:
 {"workouts":{"Mon":[{"name":"Bench Press","sets":4,"reps":8,"rest":90,"calories":45,"notes":"Moderate weight"},{"name":"Overhead Press","sets":3,"reps":10,"rest":60,"calories":35,"notes":""}],"Tue":[],"Wed":[],"Thu":[],"Fri":[],"Sat":[],"Sun":[]}}
 \`\`\`
 
-Fill ALL days, even if empty (use {} for meals, [] for workouts). For each exercise, calculate estimated calories burned. Use MET values (weight training=5.0, cardio=7.0, HIIT=8.0) × client weight from check-in data × estimated duration. Include calories in every exercise entry.`;
+Fill ALL days, even if empty (use {} for meals, [] for workouts). For each exercise, calculate estimated calories burned. Use MET values (weight training=5.0, cardio=7.0, HIIT=8.0) ï¿½ client weight from check-in data ï¿½ estimated duration. Include calories in every exercise entry.`;
 
   const coach = await getCoach();
   const coachName = coach ? `${coach.firstName} ${coach.lastName}`.trim() || "Coach" : "Coach";
@@ -1338,7 +1338,7 @@ Fill ALL days, even if empty (use {} for meals, [] for workouts). For each exerc
 
     if (!aiContent) {
       const conditions = client.healthConditions?.length ? client.healthConditions.map((h: any) => h.label).join(", ") : "none reported";
-      aiContent = `Based on ${client.fullName}'s profile:\n\n• Goal: ${client.goal}\n• Status: ${client.status}, Adherence: ${client.adherenceScore}%\n• Medical conditions: ${conditions}\n• Current macros: ${client.nutritionCalories ?? 'not set'} cal, ${client.nutritionProteinG ?? 'not set'}g protein\n• Water target: ${client.dailyWaterTarget}L, Steps: ${client.dailyStepsTarget}\n\nRegarding "${body.prompt}":\n\nI recommend reviewing the current plan against their medical conditions and adherence data. Consider adjusting macros based on their goal of "${client.goal}". For specific AI-powered recommendations, please configure a valid DeepSeek or Bytez API key.\n\n[AI fallback — real AI requires valid API key]`;
+      aiContent = `Based on ${client.fullName}'s profile:\n\nï¿½ Goal: ${client.goal}\nï¿½ Status: ${client.status}, Adherence: ${client.adherenceScore}%\nï¿½ Medical conditions: ${conditions}\nï¿½ Current macros: ${client.nutritionCalories ?? 'not set'} cal, ${client.nutritionProteinG ?? 'not set'}g protein\nï¿½ Water target: ${client.dailyWaterTarget}L, Steps: ${client.dailyStepsTarget}\n\nRegarding "${body.prompt}":\n\nI recommend reviewing the current plan against their medical conditions and adherence data. Consider adjusting macros based on their goal of "${client.goal}". For specific AI-powered recommendations, please configure a valid DeepSeek or Bytez API key.\n\n[AI fallback ï¿½ real AI requires valid API key]`;
     }
 
     return c.json({ content: aiContent });
@@ -1381,7 +1381,7 @@ CURRENT CONTEXT:
 - Coach is viewing: ${body.context?.currentView ?? "unknown"}
 - Focused client ID: ${body.context?.selectedClientId ?? "none"}
 
-${body.context?.selectedClientId ? `IMPORTANT: The coach is currently viewing or focused on the client with ID "${body.context.selectedClientId}". If the coach says "this client", "this person", "them", "he", "she", "update steps", "update macros", "update their" or similar WITHOUT specifying a name, you MUST operate on THIS specific client. DO NOT ask which client — assume they mean the focused client.` : ""}
+${body.context?.selectedClientId ? `IMPORTANT: The coach is currently viewing or focused on the client with ID "${body.context.selectedClientId}". If the coach says "this client", "this person", "them", "he", "she", "update steps", "update macros", "update their" or similar WITHOUT specifying a name, you MUST operate on THIS specific client. DO NOT ask which client ï¿½ assume they mean the focused client.` : ""}
 
 AVAILABLE CLIENTS:
 ${JSON.stringify(clientsForPrompt, null, 2)}
@@ -1535,7 +1535,7 @@ If no data changes are needed, return empty actions array [].`;
 // -- Nudge System ----------------------------------------------
 const NUDGE_TEMPLATES: Record<string, (name: string) => string> = {
   habit: (n) => `Hey ${n}, I noticed you've missed your daily habits the last couple of days. Let's get back on track! Consistency is the key to reaching your goals. You've got this! ??`,
-  workout: (n) => `Hi ${n}, just checking in — you haven't logged your workout yet. Every session counts toward your progress. Remember, the hardest part is starting. Let's go! ??`,
+  workout: (n) => `Hi ${n}, just checking in ï¿½ you haven't logged your workout yet. Every session counts toward your progress. Remember, the hardest part is starting. Let's go! ??`,
   nutrition: (n) => `Hey ${n}, a quick reminder to stick to your nutrition plan today. Your macros are calibrated specifically for your goals. Trust the process and fuel your body right! ???`,
   general: (n) => `Hi ${n}, I'm checking in on your progress. I'm here to support you every step of the way. Reach out if you need anything or have questions about your plan. You're doing great! ??`,
 };

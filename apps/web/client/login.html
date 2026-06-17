@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CoachWave — Client Portal</title>
+<meta name="description" content="View your personalized coaching plan from CoachWave">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--p:#28A745;--pd:#0E7C4A;--s:#A3E4D7;--b:#C5F1E3;--cb:#ECFFF6;--bg:#FFFFFF;--dk:#1A2A25;--t:#1A2A25;--ts:#3D5A4E;--tm:#6B8A78;--w:#D69E2E;--d:#E53E3E;
+--fh:'Outfit',sans-serif;--fb:'Plus Jakarta Sans',sans-serif;
+}
+body{font-family:var(--fb);color:var(--t);background:var(--bg);line-height:1.5;min-height:100vh}
+.page{max-width:640px;margin:0 auto;padding:40px 20px}
+.card{background:var(--cb);border:1px solid var(--b);border-radius:20px;padding:28px;margin-bottom:20px}
+.card-white{background:#fff}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 28px;border-radius:100px;font-family:var(--fh);font-weight:700;font-size:.92rem;border:none;cursor:pointer;transition:all .2s ease;text-decoration:none}
+.btn-fill{background:var(--p);color:#fff;width:100%}.btn-fill:hover{background:var(--pd)}
+.btn-outline{border:1.5px solid var(--b);background:#fff;color:var(--t)}.btn-outline:hover{border-color:var(--p)}
+input{width:100%;padding:14px 18px;border-radius:14px;border:1.5px solid var(--b);font-family:var(--fb);font-size:.95rem;outline:none;transition:border-color .2s}input:focus{border-color:var(--p)}
+h1{font-family:var(--fh);font-weight:800;font-size:1.8rem;margin-bottom:8px}
+h2{font-family:var(--fh);font-weight:800;font-size:1.2rem;margin-bottom:12px}
+h3{font-family:var(--fh);font-weight:700;font-size:1rem;margin-bottom:8px}
+.label{font-size:.7rem;font-weight:700;color:var(--tm);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.badge{display:inline-block;padding:4px 12px;border-radius:100px;font-size:.7rem;font-weight:700}
+.badge-active{background:#d4f5e0;color:var(--pd)}
+.badge-risk{background:#ffe5e5;color:var(--d)}
+.meal-row,.workout-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--b);align-items:flex-start}
+.meal-row:last-child,.workout-row:last-child{border-bottom:none}
+.meal-icon,.workout-icon{font-size:1.4rem;flex-shrink:0;width:32px;text-align:center}
+.meal-info,.workout-info{flex:1}
+.macro-strip{display:flex;gap:24px;flex-wrap:wrap}
+.macro-item{text-align:center}
+.macro-val{font-family:var(--fh);font-weight:800;font-size:1.3rem;color:var(--t)}
+.macro-lbl{font-size:.7rem;color:var(--tm);text-transform:uppercase}
+.habit-row{display:flex;align-items:center;gap:12px;padding:8px 0}
+.habit-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--b);cursor:pointer;display:grid;place-items:center;flex-shrink:0}
+.habit-check.done{background:var(--p);border-color:var(--p);color:#fff;font-size:.7rem}
+.streak{font-size:.75rem;color:var(--p);font-weight:700}
+.msg-row{background:#fff;padding:12px 16px;border-radius:12px;margin-bottom:8px;border:1px solid var(--b)}
+.msg-from{font-size:.72rem;font-weight:700;color:var(--p);margin-bottom:4px}
+.msg-text{font-size:.88rem;color:var(--ts)}
+.msg-time{font-size:.7rem;color:var(--tm);margin-top:4px}
+.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.top-bar img{height:32px}
+.logout-btn{font-size:.8rem;color:var(--tm);cursor:pointer;background:none;border:none;font-family:var(--fb)}
+.spinner{width:28px;height:28px;border:3px solid var(--b);border-top-color:var(--p);border-radius:50%;animation:spin .7s linear infinite;margin:40px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fade{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.empty{text-align:center;padding:32px;color:var(--tm);font-size:.9rem}
+</style>
+</head>
+<body>
+
+<div class="page" id="app"></div>
+
+<script>
+const API = '/api';
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const app = $('#app');
+
+function render(html) { app.innerHTML = html; }
+
+// STATE
+let client = null;
+let plan = null;
+let habits = [];
+let messages = [];
+let checkIns = [];
+
+// LOGIN SCREEN
+function showLogin() {
+  render(`
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center" class="fade">
+      <img src="/logo-stacked.png" alt="CoachWave" style="height:120px;margin-bottom:32px">
+      <h1>Welcome back</h1>
+      <p style="color:var(--ts);margin-bottom:32px;max-width:320px">Enter your email to view your personalized coaching plan.</p>
+      <div style="width:100%;max-width:360px">
+        <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email" autofocus>
+        <button class="btn btn-fill" onclick="doLogin()" style="margin-top:12px">Continue →</button>
+        <p id="loginError" style="color:var(--d);font-size:.8rem;margin-top:8px;min-height:20px"></p>
+      </div>
+      <a href="/" style="color:var(--tm);font-size:.85rem;margin-top:24px;text-decoration:none">← Back to CoachWave</a>
+    </div>
+  `);
+}
+
+// DO LOGIN
+async function doLogin() {
+  const email = $('#emailInput').value.trim();
+  const err = $('#loginError');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Enter a valid email'; return; }
+  err.textContent = 'Finding your account...';
+  try {
+    const data = await fetch(`${API}/clients`).then(r => r.json());
+    const match = data.find(c => c.email?.toLowerCase() === email.toLowerCase());
+    if (!match) { err.textContent = 'No account found with this email. Contact your coach.'; return; }
+    client = match;
+    localStorage.setItem('cw_client_id', client.id);
+    localStorage.setItem('cw_client_name', client.fullName);
+    localStorage.setItem('cw_client_email', email);
+    await loadDashboard(client.id);
+  } catch(e) {
+    err.textContent = 'Unable to connect. Try again.';
+  }
+}
+
+// LOAD DASHBOARD
+async function loadDashboard(clientId) {
+  render('<div class="spinner"></div>');
+  try {
+    const [plans, h, msgs, cis] = await Promise.all([
+      fetch(`${API}/plans?clientId=${clientId}`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/habits?clientId=${clientId}`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/messages/${clientId}`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/check-ins?clientId=${clientId}`).then(r => r.json()).catch(() => []),
+    ]);
+    plan = Array.isArray(plans) ? plans[0] : null;
+    habits = Array.isArray(h) ? h : [];
+    messages = Array.isArray(msgs) ? msgs : [];
+    checkIns = Array.isArray(cis) ? cis : [];
+    showDashboard();
+  } catch(e) {
+    render('<div class="empty">Unable to load your plan. Please try again.</div>');
+  }
+}
+
+// DASHBOARD
+function showDashboard() {
+  const lv = plan?.latestVersion || {};
+  const workouts = lv.workouts || [];
+  const nutrition = lv.nutrition || [];
+  const today = new Date().toISOString().slice(0,10);
+  const todayMsgs = messages.filter(m => m.sentAt?.startsWith ? m.sentAt.startsWith(today) : false).slice(-5);
+  const assignedWorkout = lv.assignedWorkout || '';
+  const assignedNutrition = lv.assignedNutrition || '';
+
+  render(`
+    <div class="fade">
+      <div class="top-bar">
+        <img src="/logo-horizontal.png" alt="CoachWave" style="filter:brightness(0)">
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+
+      <h1>Hi, ${(client.fullName||'').split(' ')[0]}! 👋</h1>
+      <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap">
+        <span class="badge ${client.status==='at_risk'?'badge-risk':'badge-active'}">${client.status==='at_risk'?'At Risk':client.status==='trial'?'Trial':'Active'}</span>
+        ${plan?`<span class="badge badge-active">${plan.title||'Plan'}</span>`:''}
+      </div>
+
+      <!-- MACROS -->
+      <div class="card card-white">
+        <h2>Today's Targets</h2>
+        <div class="macro-strip">
+          <div class="macro-item"><div class="macro-val">${client.nutritionCalories||'—'}</div><div class="macro-lbl">Calories</div></div>
+          <div class="macro-item"><div class="macro-val">${client.nutritionProteinG||'—'}g</div><div class="macro-lbl">Protein</div></div>
+          <div class="macro-item"><div class="macro-val">${client.nutritionCarbsG||'—'}g</div><div class="macro-lbl">Carbs</div></div>
+          <div class="macro-item"><div class="macro-val">${client.nutritionFatG||'—'}g</div><div class="macro-lbl">Fat</div></div>
+          <div class="macro-item"><div class="macro-val">${client.dailyWaterTarget||'—'}L</div><div class="macro-lbl">Water</div></div>
+          <div class="macro-item"><div class="macro-val">${(client.dailyStepsTarget||0).toLocaleString()}</div><div class="macro-lbl">Steps</div></div>
+        </div>
+        ${client.nutritionCoachNote?`<p style="margin-top:12px;font-size:.85rem;color:var(--ts);font-style:italic">💬 ${client.nutritionCoachNote}</p>`:''}
+      </div>
+
+      <!-- MEAL PLAN -->
+      <div class="card">
+        <h2>🍽️ Meal Plan</h2>
+        ${nutrition.length > 0 ? nutrition.map((n,i) => `
+          <div class="meal-row">
+            <div class="meal-icon">${i===0?'🍳':i===1?'🥗':'🍗'}</div>
+            <div class="meal-info"><strong>${n}</strong></div>
+          </div>
+        `).join('') : (assignedNutrition ? `<div class="meal-row"><div class="meal-icon">🍽️</div><div class="meal-info" style="white-space:pre-wrap;font-size:.85rem">${assignedNutrition.substring(0,500)}</div></div>` : '<div class="empty">No meal plan assigned yet. Your coach will update this soon.</div>')}
+      </div>
+
+      <!-- WORKOUT -->
+      <div class="card">
+        <h2>💪 Workout Plan</h2>
+        ${workouts.length > 0 ? workouts.map((w,i) => `
+          <div class="workout-row">
+            <div class="workout-icon">💪</div>
+            <div class="workout-info">${w}</div>
+          </div>
+        `).join('') : (assignedWorkout ? `<div class="workout-row"><div class="workout-icon">💪</div><div class="workout-info" style="white-space:pre-wrap;font-size:.85rem">${assignedWorkout.substring(0,500)}</div></div>` : '<div class="empty">No workout assigned yet. Your coach will update this soon.</div>')}
+      </div>
+
+      <!-- HABITS -->
+      <div class="card">
+        <h2>✅ Daily Habits</h2>
+        ${habits.length > 0 ? habits.map(h => `
+          <div class="habit-row">
+            <div class="habit-check${h.completed?' done':''}" onclick="toggleHabit('${h.id}')">${h.completed?'✓':''}</div>
+            <span style="flex:1;font-size:.9rem;${h.completed?'text-decoration:line-through;color:var(--tm)':''}">${h.title}</span>
+            ${h.streak>0?`<span class="streak">🔥 ${h.streak}d</span>`:''}
+            <span style="font-size:.7rem;color:var(--tm)">${h.frequency}</span>
+          </div>
+        `).join('') : '<div class="empty">No habits assigned yet.</div>'}
+      </div>
+
+      <!-- COACH MESSAGES -->
+      <div class="card">
+        <h2>💬 From Your Coach</h2>
+        ${messages.length > 0 ? messages.slice(-8).reverse().map(m => `
+          <div class="msg-row">
+            <div class="msg-from">${m.sender==='coach'?'Coach':'You'}</div>
+            <div class="msg-text">${m.content}</div>
+            <div class="msg-time">${new Date(m.sentAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+        `).join('') : '<div class="empty">No messages yet.</div>'}
+      </div>
+
+      <!-- MEDICAL -->
+      ${(client.healthConditions||[]).length > 0 ? `
+      <div class="card">
+        <h2>🩺 Health Notes</h2>
+        ${client.healthConditions.map(h => `
+          <div style="margin-bottom:8px"><strong>${typeof h==='string'?h:h.label}</strong>${typeof h==='object'&&h.note?`: ${h.note}`:''}</div>
+        `).join('')}
+      </div>` : ''}
+
+      <p style="text-align:center;color:var(--tm);font-size:.8rem;margin-top:32px">Powered by CoachWave</p>
+    </div>
+  `);
+}
+
+// TOGGLE HABIT
+async function toggleHabit(habitId) {
+  try {
+    await fetch(`${API}/habits/${habitId}/complete`, { method: 'POST', body: JSON.stringify({}) });
+    loadDashboard(client.id);
+  } catch(e) {}
+}
+
+// LOGOUT
+function logout() {
+  localStorage.removeItem('cw_client_id');
+  localStorage.removeItem('cw_client_name');
+  localStorage.removeItem('cw_client_email');
+  showLogin();
+}
+
+// INIT
+(function() {
+  const savedId = localStorage.getItem('cw_client_id');
+  if (savedId) {
+    render('<div class="spinner"></div>');
+    fetch(`${API}/clients`).then(r => r.json()).then(data => {
+      const match = data.find(c => c.id === savedId);
+      if (match) { client = match; loadDashboard(savedId); }
+      else { showLogin(); }
+    }).catch(() => showLogin());
+  } else {
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>

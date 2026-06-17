@@ -25,7 +25,7 @@ body{font-family:var(--fb);color:var(--t);background:var(--bg);line-height:1.5;o
 .login-overlay.open{opacity:1;pointer-events:auto}
 .login-card{background:#fff;border-radius:24px;padding:40px 36px;max-width:420px;width:100%;box-shadow:0 24px 80px rgba(26,42,37,.2);border:1px solid var(--b);text-align:center;transform:translateY(20px);transition:transform .3s}
 .login-overlay.open .login-card{transform:translateY(0)}
-.login-card .logo-icon{width:48px;height:48px;margin:0 auto 16px}
+.login-card .logo-stacked{height:160px;width:auto;margin:0 auto 24px;display:block}
 .login-card h2{font-family:var(--fh);font-size:1.4rem;font-weight:800;margin-bottom:4px}
 .login-card p{color:var(--ts);font-size:.88rem;margin-bottom:28px}
 .login-card input{width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid var(--b);font-family:var(--fb);font-size:.9rem;margin-bottom:12px;outline:none;transition:border-color .2s}
@@ -37,13 +37,11 @@ body{font-family:var(--fb);color:var(--t);background:var(--bg);line-height:1.5;o
 .btn-outline:hover{border-color:var(--p)}
 
 /* ─── LANDING PAGE STYLES ─── */
-.nav{position:fixed;top:0;left:0;right:0;z-index:1000;padding:20px 0;transition:all .4s cubic-bezier(.16,1,.3,1)}
-.nav.scrolled{background:rgba(255,255,255,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);box-shadow:0 1px 3px rgba(26,42,37,.08);padding:10px 0}
+.nav{padding:20px 0;transition:all .4s;background:var(--dk)}
 .nav-inner{max-width:1400px;margin:0 auto;padding:0 32px;display:flex;align-items:center;justify-content:space-between}
-.nav-logo img{height:30px;width:auto}
+.nav-logo img{height:72px;width:auto;filter:brightness(0) saturate(100%) invert(1)}
 .nav-links{display:flex;gap:40px;list-style:none;align-items:center}
 .nav-links a{color:rgba(255,255,255,.7);text-decoration:none;font-weight:500;font-size:.85rem;transition:color .3s;letter-spacing:.01em}
-.nav.scrolled .nav-links a{color:var(--ts)}
 .nav-links a:hover{color:var(--p)}
 .nav-cta{padding:10px 24px;border-radius:100px;background:var(--p);color:#fff;font-family:var(--fh);font-weight:700;font-size:.85rem;text-decoration:none;border:none;cursor:pointer;transition:all .3s}
 .nav-cta:hover{transform:scale(1.05);box-shadow:0 8px 30px rgba(40,167,69,.4)}
@@ -161,11 +159,12 @@ body{font-family:var(--fb);color:var(--t);background:var(--bg);line-height:1.5;o
 </style>
 </head>
 <body>
+<div id="root"></div>
 
 <!-- LANDING PAGE (shown by default) -->
 <div id="landing-page">
 
-<nav class="nav" id="nav">
+<nav class="nav">
   <div class="nav-inner">
     <a href="/" class="nav-logo"><img src="/logo-horizontal.png" alt="CoachWave"></a>
     <ul class="nav-links" id="navLinks">
@@ -267,7 +266,7 @@ body{font-family:var(--fb);color:var(--t);background:var(--bg);line-height:1.5;o
 <!-- LOGIN MODAL -->
 <div class="login-overlay" id="loginOverlay">
   <div class="login-card">
-    <img src="/logo-icon.png" alt="CoachWave" class="logo-icon">
+    <img src="/logo-stacked.png" alt="CoachWave" class="logo-stacked">
     <h2>Welcome to CoachWave</h2>
     <p>Enter your email to continue</p>
     <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email">
@@ -277,7 +276,7 @@ body{font-family:var(--fb);color:var(--t);background:var(--bg);line-height:1.5;o
 </div>
 
 <!-- APP (hidden until login) -->
-<div id="app-root" style="display:none"><div style="display:grid;place-items:center;height:100vh"><div style="text-align:center"><img src="/logo-icon.png" style="width:64px;height:64px;margin-bottom:16px"><h2 style="font-family:var(--fh)">Loading CoachWave...</h2></div></div></div>
+
 
 <script>
 function openLogin(){ document.getElementById('loginOverlay').classList.add('open'); document.getElementById('loginEmail').focus(); }
@@ -294,9 +293,6 @@ async function doLogin(){
   document.getElementById('loginOverlay').classList.remove('open');
   location.reload();
 }
-
-// Nav scroll
-window.addEventListener('scroll',function(){document.getElementById('nav').classList.toggle('scrolled',window.scrollY>50)});
 
 // Intersection Observer
 var obs=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)e.target.classList.add('visible')})},{threshold:.15,rootMargin:'0px 0px -30px 0px'});
